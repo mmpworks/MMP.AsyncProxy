@@ -94,4 +94,4 @@ flowchart TB
 
 ## The lesson that survives the course
 
-Thread-static state is tied to a thread. Once your code can wake up on any thread, that tie is a bug. Either carry the value in the request object itself, or put it in the bag that travels. The ThreadSupport design note in Notebook-Algorithms makes the same call and its Herald fix was to resolve on the producer side and carry the value in the item. Same principle, different repo.
+Thread-static state is tied to a thread. Once your code can wake up on any thread, that tie is a bug. Either carry the value in the request object itself, or put it in the bag that travels. We have fixed a tenant leak in a logging pipeline this way: resolve the value on the producer side and carry it in the queued item. Same principle, any repo.

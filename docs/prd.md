@@ -19,7 +19,7 @@ Two ways to write an async method come out of this:
 
 ## Why
 
-1. Interview evidence. The ThreadSupport design note says `await` is `ContinueWith` with the compiler writing the state machine. This repo is the demonstration. A reader can diff the hand-written machine against `ilspycmd` output for a real `async` method.
+1. Evidence for a claim. `await` is `ContinueWith` with the compiler writing the state machine. This repo is the demonstration. A reader can diff the hand-written machine against `ilspycmd` output for a real `async` method.
 2. Old runtimes still exist. Windows CE and Compact Framework 3.5 devices run C# 3. Fuel dispensers and point-of-sale terminals are on the list. A team maintaining one gets structured async without a compiler upgrade.
 3. Teaching. Every piece is small and named after the real one. Reading the source teaches the mechanism.
 
