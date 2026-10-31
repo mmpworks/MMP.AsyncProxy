@@ -26,17 +26,17 @@ Replace `Futures.Delay` with a version that does `Futures.Run(() => Thread.Sleep
 
 In `ReadTenantAfterDelay`, replace `CallContext.LogicalSetData` with a `[ThreadStatic]` field. Run `ExecutionContext_flows_across_the_await`. It fails, or it passes by luck. Run it twenty times. Explain which thread the value was on each time.
 
-## 7. Write WhenAny
+## 7. Write WhenAny before you read ours
 
-`Futures.WhenAll` is in `Futures.cs`. Write `WhenAny(params IFuture[] futures)` that completes with the first one to finish. You need a flag that only the first callback flips. `Interlocked.CompareExchange` is your friend. Write a test where two delays race.
+Cover `Futures.WhenAny` in `Futures.cs` with your hand. Write your own that completes with the first input to finish. You need something that lets only the first callback win. Then uncover ours. It uses `TrySetResult` as the flag, because a promise already refuses a second completion. Did you reach for `Interlocked.CompareExchange` instead? Both work. Which one is easier to read?
 
-## 8. Write Observe
+## 8. Break Observe
 
-Chapter 7 said you cannot catch a step's fault inside an iterator body. Write `Futures.Observe(IFuture f)` that returns a future which always succeeds once `f` completes, so the body can yield it and then inspect `f.IsFaulted` by hand. Add a test where a body recovers from a failed step.
+`Futures.Observe` lets an iterator body recover from a failed step. Remove it from `Recover` in `CombinatorTests.cs` and yield `risky` directly. Watch the test fault instead of recover. Now explain, from `IteratorStateMachine.MoveNext`, which line threw and why the body never got a chance.
 
-## 9. Decompile the real thing
+## 9. Read the compiler's output
 
-Make a tiny net48 project with a real `async Task<int>` version of `AddAfterDelayAsync`. Build it in Release. Run `ilspycmd` on the dll. Find the generated struct. Put it beside `AddAfterDelayMachine.cs` and label each field with its match. The repo's `docs/compiler-vs-handwritten.md` is waiting for that table.
+`docs/compiler-vs-handwritten.md` has the real compiler's state machine beside ours with a mapping table. Take the table away and build it yourself from `docs/compiler-output/AddAfterDelayReal.decompiled.cs` and `AddAfterDelay.cs`. Then add a third `await` to the real method, rerun `tools/decompile.ps1`, and watch the dispatch change from nested `if`s to a `switch`.
 
 ## 10. Make it a struct
 

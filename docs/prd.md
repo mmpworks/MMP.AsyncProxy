@@ -29,8 +29,8 @@ Kill condition: the items below are all true on one date, and that date is writt
 
 1. `dotnet build` of the library succeeds for `net35` with `LangVersion` 3 and zero warnings.
 2. The test project references the `net35` binary, never a recompile, and runs on `net48`.
-3. Tests prove: completion before and after registration, result and fault paths, `ExecutionContext` flow across an await, `SynchronizationContext` post-back, `WhenAll` fault aggregation, `Wait` blocking, the hand-written machine, and the iterator machine. Count on 2026-10-31: 31 of 31. Sign-off date: ___.
-4. `docs/compiler-vs-handwritten.md` shows the `ilspycmd` decompile of a real `async` method next to the hand-written sample, with the matching parts labelled.
+3. Tests prove: completion before and after registration, result and fault paths, `ExecutionContext` flow across an await, `SynchronizationContext` post-back, `WhenAll` fault aggregation, `Wait` blocking, the hand-written machine, and the iterator machine. Count on 2026-10-31: 50 of 50. Sign-off date: ___.
+4. `docs/compiler-vs-handwritten.md` shows the `ilspycmd` decompile of a real `async` method next to the hand-written sample, with the matching parts labelled. Done 2026-10-31, 13-row mapping table.
 5. README states the three limitations in the Decisions table.
 
 ## Non-goals
@@ -52,8 +52,9 @@ Kill condition: the items below are all true on one date, and that date is writt
 | 5 | Context flow | Builder captures `ExecutionContext` at `AwaitOnCompleted` and restores it before `MoveNext`. Awaiter captures `SynchronizationContext` and posts back. | Matches the Toub video 13:44 to 20:27. `ContinueOnAnyThread()` is the `ConfigureAwait(false)` stand-in. |
 | 6 | Fault rethrow | `GetResult` throws the original exception. The original stack string is stored in `Exception.Data["MMP.AsyncProxy.OriginalStackTrace"]` first. | `throw ex` wipes the stack in 3.5. The data slot keeps the evidence. Wrapping would change `catch` behaviour versus real `await`. |
 | 7 | Iterator result | `AsyncProxy.Run<T>(Func<Return<T>, IEnumerable<IFuture>>)`. The body sets `ret.Value`. | An iterator cannot `return` a value. A typed box is the smallest shape that says what it does. |
-| 8 | Iterator fault handling | A faulted yielded future faults the whole operation. The body cannot `catch` it. | Same as real `await` propagation. A body that must handle a step's fault yields it, then reads `IsFaulted` after a `Futures.Observe(f)` wrapper (slice 2). |
-| 9 | Cancellation | Slice 3 adds `CancelSource` and `CancelToken` | .NET 3.5 lacks `CancellationToken`. |
+| 8 | Iterator fault handling | A faulted yielded future faults the whole operation. The body cannot `catch` it. | Same as real `await` propagation. A body that must handle a step's fault yields `Futures.Observe(f)`, then reads `f.IsFaulted`. Built in slice 2. |
+| 9 | Cancellation | `CancelSource` and `CancelToken`, cooperative. A `FutureCanceledException` escaping a body ends the future Canceled, not Faulted. | .NET 3.5 lacks `CancellationToken`. The builder maps `OperationCanceledException` to Canceled the way the real one does. Built in slice 2. |
+| 11 | Continuation thread option | `new Promise<T>(true)` queues continuations to the pool | The `RunContinuationsAsynchronously` stand-in. Default stays inline to match `TaskCompletionSource`. Built in slice 2. |
 | 10 | Licence and repo | MIT, `mmpworks/MMP.AsyncProxy`, created private, Steve flips to public | Public creation is gated. Private creation is free. |
 
 ## Program design
@@ -76,9 +77,10 @@ Build order:
    Same day: `Futures.FromAsync` with a real async `FileStream` test, the comparison console, the
    eight-chapter course in `docs/course/`, `docs/sdk.md`, NuGet pack metadata, comment pass in the
    two-developers voice.
-2. Slice 2: `WhenAny`, `Observe`, `RunContinuationsAsync`, `ContinueOnAnyThread`, stack-dive test.
-3. Slice 3: `CancelSource`/`CancelToken`, `Delay` with cancel, `docs/compiler-vs-handwritten.md` from `ilspycmd`.
-4. Slice 4: README for public release, NETCF notes, Steve's publish decision.
+2. Slice 2 (done 2026-10-31): `WhenAny`, `Observe`, `Promise(runContinuationsAsync)`, `CancelSource`/`CancelToken`,
+   `Delay` and `Run` with a token, canceled iterators end Canceled, `docs/compiler-vs-handwritten.md` from
+   `ilspycmd` with `tools/decompile.ps1`. Tests 50 of 50.
+3. Slice 3: README for public release, NETCF notes, Steve's publish decision.
 
 ## Prior art
 

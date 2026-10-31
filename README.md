@@ -94,6 +94,9 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 | `ContinueOnAnyThread()` | `ConfigureAwait(false)` | Skip the `SynchronizationContext` post-back |
 | `Futures.Delay`, `Run`, `WhenAll`, `FromResult` | `Task.Delay`, `Run`, `WhenAll`, `FromResult` | Factories and combinators |
 | `Futures.FromAsync` | `Task.Factory.FromAsync` | Wraps a Begin/End pair so OS I/O completes the future |
+| `Futures.WhenAny`, `Observe` | `Task.WhenAny`, no direct match | First to finish; a wrapper that never throws so a body can inspect a step |
+| `CancelSource`, `CancelToken` | `CancellationTokenSource`, `CancellationToken` | Cooperative cancel. `Delay` and `Run` take a token |
+| `new Promise<T>(true)` | `TaskCreationOptions.RunContinuationsAsynchronously` | Continuations go to the pool instead of the completer's stack |
 | `AsyncProxy.Run` | the C# 5 compiler | Drives an iterator as an async method |
 
 Context flows the way the real one does. The builder captures `ExecutionContext` at each suspend and restores it before `MoveNext`. The awaiter captures `SynchronizationContext` and posts the continuation back to it.
@@ -119,16 +122,20 @@ dotnet test MMP.AsyncProxy.slnx
 
 The library and samples compile for `net35` with `LangVersion` 3. The tests run on `net48` and load the `net35` binaries. Three tests pin that: the assembly under test has CLR header `v2.0.50727` and no `TargetFrameworkAttribute`.
 
-Last run, 2026-10-31: 31 tests, 31 passed.
+Last run, 2026-10-31: 50 tests, 50 passed.
 
 `dotnet pack src/MMP.AsyncProxy -c Release` builds the NuGet package into `artifacts/`.
+
+## The compiler's machine beside ours
+
+`docs/compiler-vs-handwritten.md` puts the real compiler's output for the same method next to our hand-written sample, with a row-by-row mapping. The shapes match field for field. `tools/decompile.ps1` regenerates it.
 
 ## Known limits
 
 1. **Rethrow wipes the stack.** .NET 3.5 has no `ExceptionDispatchInfo`. `GetResult` throws the original exception object. Before it does, it stores the first stack trace in `exception.Data["MMP.AsyncProxy.OriginalStackTrace"]`.
-2. **An iterator body cannot catch a step's fault.** When a yielded future faults, the whole operation faults. This matches how `await` propagates. The hand-written form can catch, because the `try` is yours.
-3. **Continuations run inline on the completing thread.** Same as `TaskCompletionSource` by default. A long chain of synchronous completions can grow the stack.
-4. **No cancellation token yet.** .NET 3.5 has none. A `CancelToken` is on the plan.
+2. **An iterator body cannot `catch` a step's fault.** When a yielded future faults, the whole operation faults, which is how `await` propagates. To handle it in the body, yield `Futures.Observe(step)` and then check `step.IsFaulted`. The hand-written form can `catch`, because the `try` is yours.
+3. **Continuations run inline on the completing thread by default.** Same as `TaskCompletionSource`. Pass `true` to the `Promise` constructor to send them to the pool.
+4. **Cancellation is cooperative.** `CancelToken` stops a `Delay`, skips a `Run` that has not started, and lets your code stop itself with `ThrowIfCancelRequested`. Nothing stops a running thread from outside.
 
 ## Plan
 

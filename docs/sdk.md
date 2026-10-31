@@ -122,6 +122,54 @@ yield return Futures.WhenAll(all);     // one await for the lot
 
 If any failed, `WhenAll` faults with an `AggregateFutureException` that holds every failure, in order.
 
+## First one wins
+
+```csharp
+IFuture<IFuture> first = Futures.WhenAny(FetchAsync(primary), FetchAsync(mirror));
+yield return first;
+if (first.Result == primaryFuture) { /* primary answered first */ }
+```
+
+The losers keep running. Cancel them with a token if you care.
+
+## Handle a failed step inside an iterator
+
+A faulted step faults the whole method, so the body never gets a `catch`. Wrap the step in `Observe`, which always succeeds, then look at the step yourself:
+
+```csharp
+IFuture<int> risky = ReadAsync(stream, buffer);
+yield return Futures.Observe(risky);
+if (risky.IsFaulted) { log.Warn(risky.Exception.Message); ret.Value = fallback; yield break; }
+ret.Value = risky.Result;
+```
+
+## Cancel
+
+Keep a `CancelSource`. Hand out its `Token`. `Delay` and `Run` take one. Your own loops check it:
+
+```csharp
+CancelSource source = new CancelSource();
+IFuture work = AsyncProxy.Run(Poll(source.Token));
+// later, from any thread
+source.Cancel();
+
+static IEnumerable<IFuture> Poll(CancelToken token)
+{
+    while (true)
+    {
+        token.ThrowIfCancelRequested();        // ends the method Canceled, not Faulted
+        yield return Futures.Delay(1000, token);
+        DoOnePoll();
+    }
+}
+```
+
+A method that ends by throwing `FutureCanceledException` completes its future as Canceled. Callers that await it get the same exception. `Register` on a token runs a callback at cancel time; dispose the handle to take it back.
+
+## Continuations off your stack
+
+By default `SetResult` runs every waiting continuation on the calling thread before it returns. When the completer holds a lock, sits on a deep stack, or has a deadline, build the promise with `new Promise<T>(true)` and continuations go to the thread pool instead.
+
 ## Faults and stacks
 
 .NET 3.5 has no `ExceptionDispatchInfo`, so a rethrow resets the stack trace. Before it rethrows, the library copies the first stack into the exception:
@@ -136,4 +184,4 @@ catch (Exception ex)
 
 ## What is on the plan
 
-`WhenAny`, `Observe`, `CancelToken`, and a `RunContinuationsAsync` option. See `docs/prd.md`.
+A Compact Framework build, and the public release. See `docs/prd.md`.

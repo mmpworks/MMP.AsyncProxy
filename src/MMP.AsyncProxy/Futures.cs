@@ -38,8 +38,23 @@ namespace MMP.AsyncProxy
         /// </summary>
         public static IFuture Delay(int milliseconds)
         {
+            return Delay(milliseconds, CancelToken.None);
+        }
+
+        /// <summary>
+        /// Same delay, but the token can cut it short. Cancel wins the race: the
+        /// future ends Canceled, the timer is thrown away, and the registration is
+        /// released either way so the source does not keep dead timers alive.
+        /// </summary>
+        public static IFuture Delay(int milliseconds, CancelToken token)
+        {
             if (milliseconds < 0) throw new ArgumentOutOfRangeException("milliseconds");
             Promise promise = new Promise();
+            if (token.IsCancelRequested)
+            {
+                promise.SetCanceled();
+                return promise.Future;
+            }
             if (milliseconds == 0)
             {
                 promise.SetResult();
@@ -48,12 +63,58 @@ namespace MMP.AsyncProxy
             // The callback needs the timer to dispose it, and the timer needs the
             // callback to exist. A one-slot array breaks the chicken-and-egg.
             Timer[] holder = new Timer[1];
+            IDisposable[] registration = new IDisposable[1];
             holder[0] = new Timer(delegate
             {
                 Timer t = holder[0];
                 if (t != null) t.Dispose();
+                IDisposable r = registration[0];
+                if (r != null) r.Dispose();
                 promise.TrySetResult();
             }, null, milliseconds, Timeout.Infinite);
+            registration[0] = token.Register(delegate
+            {
+                Timer t = holder[0];
+                if (t != null) t.Dispose();
+                promise.TrySetCanceled();
+            });
+            return promise.Future;
+        }
+
+        /// <summary>
+        /// Done when the first input is done, and it tells you which one. The
+        /// others keep running; nobody stops them. Task.WhenAny, same rules.
+        /// </summary>
+        public static IFuture<IFuture> WhenAny(params IFuture[] futures)
+        {
+            if (futures == null) throw new ArgumentNullException("futures");
+            if (futures.Length == 0) throw new ArgumentException("WhenAny needs at least one future.", "futures");
+            Promise<IFuture> promise = new Promise<IFuture>();
+            for (int i = 0; i < futures.Length; i++)
+            {
+                IFuture future = futures[i];
+                if (future == null) throw new ArgumentException("A null future was passed to WhenAny.", "futures");
+                // First one to get here wins. TrySetResult refuses the rest.
+                future.ContinueOnAnyThread().OnCompleted(delegate { promise.TrySetResult(future); });
+            }
+            return promise;
+        }
+
+        /// <summary>
+        /// Wraps a future so that awaiting the wrapper never throws. When the
+        /// inner one finishes, in any state, the wrapper succeeds. Then you read
+        /// the inner future's IsFaulted or IsCanceled yourself. This is how an
+        /// iterator body handles a step's failure, since it cannot catch one.
+        /// <code>
+        /// yield return Futures.Observe(risky);
+        /// if (risky.IsFaulted) { /* handle it */ }
+        /// </code>
+        /// </summary>
+        public static IFuture Observe(IFuture future)
+        {
+            if (future == null) throw new ArgumentNullException("future");
+            Promise promise = new Promise();
+            future.ContinueOnAnyThread().OnCompleted(delegate { promise.TrySetResult(); });
             return promise.Future;
         }
 
@@ -95,11 +156,23 @@ namespace MMP.AsyncProxy
         /// </summary>
         public static IFuture<T> Run<T>(Func<T> work)
         {
+            return Run(work, CancelToken.None);
+        }
+
+        /// <summary>
+        /// Same, with a token. If it is already canceled when the work item
+        /// starts, the work never runs. Once running, the work has to check the
+        /// token itself; nothing can stop a thread from the outside, and nothing should.
+        /// </summary>
+        public static IFuture<T> Run<T>(Func<T> work, CancelToken token)
+        {
             if (work == null) throw new ArgumentNullException("work");
             Promise<T> promise = new Promise<T>();
             ThreadPool.QueueUserWorkItem(delegate
             {
+                if (token.IsCancelRequested) { promise.TrySetCanceled(); return; }
                 try { promise.TrySetResult(work()); }
+                catch (OperationCanceledException) { promise.TrySetCanceled(); }
                 catch (Exception ex) { promise.TrySetException(ex); }
             });
             return promise;

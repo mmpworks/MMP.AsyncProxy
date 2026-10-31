@@ -5,6 +5,7 @@
   <Folder Name="/samples/">
     <Project Path="samples/MMP.AsyncProxy.Samples/MMP.AsyncProxy.Samples.csproj" />
     <Project Path="samples/MMP.AsyncProxy.Comparison/MMP.AsyncProxy.Comparison.csproj" />
+    <Project Path="samples/MMP.AsyncProxy.CompilerReference/MMP.AsyncProxy.CompilerReference.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MMP.AsyncProxy.Tests/MMP.AsyncProxy.Tests.csproj" />

@@ -56,9 +56,15 @@ namespace MMP.AsyncProxy
             _promise.TrySetResult(result);
         }
 
+        /// <summary>
+        /// A FutureCanceledException escaping the body means "someone pulled the
+        /// cord", so the future ends Canceled, not Faulted. Any other exception is a fault.
+        /// The real builder makes the same call for OperationCanceledException.
+        /// </summary>
         public void SetException(Exception exception)
         {
-            _promise.TrySetException(exception);
+            if (exception is OperationCanceledException) _promise.TrySetCanceled();
+            else _promise.TrySetException(exception);
         }
     }
 }

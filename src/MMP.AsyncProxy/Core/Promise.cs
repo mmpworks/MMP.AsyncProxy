@@ -8,7 +8,14 @@ namespace MMP.AsyncProxy
     /// </summary>
     public sealed class Promise
     {
-        private readonly Promise<VoidResult> _inner = new Promise<VoidResult>();
+        private readonly Promise<VoidResult> _inner;
+
+        public Promise() : this(false) { }
+
+        public Promise(bool runContinuationsAsync)
+        {
+            _inner = new Promise<VoidResult>(runContinuationsAsync);
+        }
 
         public IFuture Future { get { return _inner; } }
 

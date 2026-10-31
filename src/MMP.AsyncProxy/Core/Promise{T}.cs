@@ -12,6 +12,8 @@ namespace MMP.AsyncProxy
     ///
     /// When you call SetResult, the callbacks run right there, on your thread,
     /// before SetResult returns. TaskCompletionSource does the same by default.
+    /// Build it with runContinuationsAsync = true and they go to the pool instead,
+    /// which is TaskCreationOptions.RunContinuationsAsynchronously in .NET 4.6.
     /// </summary>
     public sealed class Promise<T> : IFuture<T>
     {
@@ -22,11 +24,23 @@ namespace MMP.AsyncProxy
         public const string OriginalStackTraceKey = "MMP.AsyncProxy.OriginalStackTrace";
 
         private readonly object _gate = new object();
+        private readonly bool _runContinuationsAsync;
         private FutureStatus _status;
         private T _result;
         private Exception _exception;
         private List<Action> _continuations;
         private ManualResetEvent _done;
+
+        public Promise() : this(false) { }
+
+        /// <summary>
+        /// Pass true when the completer must never run someone else's code on its
+        /// own stack. A lock holder, a deep chain, or a thread with a deadline.
+        /// </summary>
+        public Promise(bool runContinuationsAsync)
+        {
+            _runContinuationsAsync = runContinuationsAsync;
+        }
 
         /// <summary>The view to give away. It is this same object, typed so the setters are out of reach.</summary>
         public IFuture<T> Future { get { return this; } }
@@ -185,7 +199,17 @@ namespace MMP.AsyncProxy
             if (toSignal != null) toSignal.Set();
             if (toRun != null)
             {
-                for (int i = 0; i < toRun.Count; i++) toRun[i]();
+                if (_runContinuationsAsync)
+                {
+                    ThreadPool.QueueUserWorkItem(delegate
+                    {
+                        for (int i = 0; i < toRun.Count; i++) toRun[i]();
+                    });
+                }
+                else
+                {
+                    for (int i = 0; i < toRun.Count; i++) toRun[i]();
+                }
             }
             return true;
         }

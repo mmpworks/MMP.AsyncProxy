@@ -83,14 +83,15 @@ private static IEnumerable<IFuture> ReadLength(IFuture<string> source, Return<in
 
 Two things, and you should know them before you lean on this.
 
-**You cannot catch a step's fault inside the body.** When a yielded future faults, the driver's `GetResult` throws, which faults the whole operation. The body never sees the exception. Real `await` would let you wrap it in a `try`. If you need that, yield the future, then check `IsFaulted` on it before you read `Result`:
+**You cannot `catch` a step's fault inside the body.** When a yielded future faults, the driver's `GetResult` throws, which faults the whole operation. The body never sees the exception. Real `await` would let you wrap it in a `try`. The way around it is `Futures.Observe`, a wrapper that always succeeds when the inner future settles, so the driver has nothing to throw and you inspect the step yourself:
 
 ```csharp
-yield return risky;
-if (risky.IsFaulted) { /* handle */ }
+yield return Futures.Observe(risky);
+if (risky.IsFaulted) { /* handle it */ }
+else { use(risky.Result); }
 ```
 
-That does not work yet, because the driver throws before you get there. It is on the plan as `Futures.Observe(f)`, a wrapper that completes successfully and lets you inspect the inner one.
+Open `Futures.Observe` in `Futures.cs`. It is four lines. The test `Observe_never_throws_and_lets_the_body_inspect_the_step` shows a body recovering from a failed step.
 
 **`yield` cannot sit inside a `try` with a `catch`.** The C# iterator rules forbid it. `try`/`finally` is fine. Real `await` has no such limit.
 
