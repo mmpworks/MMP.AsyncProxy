@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Authors>MMPWorks LLC</Authors>
+    <Company>MMPWorks LLC</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/mmpworks/MMP.AsyncProxy</RepositoryUrl>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MMP.AsyncProxy/MMP.AsyncProxy.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/MMP.AsyncProxy.Samples/MMP.AsyncProxy.Samples.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/MMP.AsyncProxy.Tests/MMP.AsyncProxy.Tests.csproj" />
+  </Folder>
+</Solution>

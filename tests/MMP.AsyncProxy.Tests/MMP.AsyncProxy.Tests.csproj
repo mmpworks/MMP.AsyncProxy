@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Tests run on net48, which executes the net35-built library binary on the
+         .NET Framework CLR. The test project itself may use modern C#. -->
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Reference the net35 build outputs directly, so the tests prove the
+         3.5-targeted binaries work, never a net48 recompile of the same source.
+         The ProjectReference with ReferenceOutputAssembly=false only orders the build. -->
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net35" />
+    <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Samples\MMP.AsyncProxy.Samples.csproj" ReferenceOutputAssembly="false" />
+    <Reference Include="MMP.AsyncProxy">
+      <HintPath>..\..\src\MMP.AsyncProxy\bin\$(Configuration)\net35\MMP.AsyncProxy.dll</HintPath>
+    </Reference>
+    <Reference Include="MMP.AsyncProxy.Samples">
+      <HintPath>..\..\samples\MMP.AsyncProxy.Samples\bin\$(Configuration)\net35\MMP.AsyncProxy.Samples.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

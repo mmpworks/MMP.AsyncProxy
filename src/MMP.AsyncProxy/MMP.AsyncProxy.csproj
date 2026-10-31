@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net35 is the target this library exists for. net48 lets the same source
+         run under a modern test runner. Both compile with C# 3 syntax only, so
+         nothing newer than the Visual Studio 2008 compiler can slip in. -->
+    <TargetFrameworks>net35;net48</TargetFrameworks>
+    <LangVersion>3</LangVersion>
+    <RootNamespace>MMP.AsyncProxy</RootNamespace>
+    <AssemblyName>MMP.AsyncProxy</AssemblyName>
+    <Description>The async/await state machine, written by hand for .NET 3.5. Futures, awaiters, a method builder, and an iterator-driven proxy that lets C# 2.0 iterators stand in for the compiler.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>
