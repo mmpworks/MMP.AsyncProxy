@@ -1,6 +1,6 @@
 # How async/await works, from the inside
 
-A short course. Eight chapters, each one a conversation between two developers after hours, going over how the machine works. Code is from this repo, so you can open the file next to the chapter and step through it.
+A short course. Nine chapters, each one a conversation between two developers after hours, going over how the machine works. Code is from this repo, so you can open the file next to the chapter and step through it.
 
 You need: a C# compiler of any age, `dotnet` to run the samples, and about two hours.
 
@@ -14,6 +14,7 @@ You need: a C# compiler of any age, `dotnet` to run the samples, and about two h
 | 6 | [Threads versus the machine](06-threads-vs-the-machine.md) | Run the comparison console and read the table |
 | 7 | [The iterator trick](07-the-iterator-trick.md) | How `yield return` gets you async on C# 2.0 |
 | 8 | [Exercises](08-exercises.md) | Write your own machine, break it, fix it |
+| 9 | [Patterns and principles](09-patterns-and-principles.md) | The thirteen patterns that showed up, and the code held against CUPID, SOLID, and DRY |
 
 Diagrams: Mermaid blocks render on GitHub. The tldraw canvas in `diagrams/` opens in tldraw desktop or at tldraw.com.
 
