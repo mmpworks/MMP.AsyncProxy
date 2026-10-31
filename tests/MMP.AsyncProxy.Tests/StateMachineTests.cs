@@ -57,7 +57,7 @@ namespace MMP.AsyncProxy.Tests
         public void Iterator_machine_faults_when_a_yielded_future_faults() => NoContext.Run(() =>
         {
             var failing = new Promise<int>();
-            var future = AsyncProxy.Run(Steps(failing));
+            var future = AsyncProxy.Run(Steps(failing.Future));
             Assert.False(future.IsCompleted);
             failing.SetException(new InvalidOperationException("step failed"));
             Assert.True(future.IsFaulted);
@@ -75,7 +75,7 @@ namespace MMP.AsyncProxy.Tests
         public void Iterator_machine_reads_a_typed_result_after_yield()
         {
             var source = new Promise<string>();
-            var future = AsyncProxy.Run<int>(ret => ReadLength(source, ret));
+            var future = AsyncProxy.Run<int>(ret => ReadLength(source.Future, ret));
             source.SetResult("twelve chars");
             Assert.Equal(12, future.Result);
         }

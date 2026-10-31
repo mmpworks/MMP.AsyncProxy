@@ -20,7 +20,7 @@ The package lands in `artifacts/` and carries two targets: `net35` and `net48`. 
 
 | Type | Use it when |
 |------|-------------|
-| `Promise<T>` / `Promise` | You are the one who knows when the work is done. Keep the promise, hand out `.Future`. |
+| `Promise<T>` / `Promise` | You are the one who knows when the work is done. Keep the promise, hand out `.Future`. The future is a separate object; a receiver cannot cast it back. |
 | `IFuture<T>` / `IFuture` | You are waiting for someone else's work. Await it, or `Wait()` at the top of a program. |
 | `AsyncProxy.Run` | You want to write an async method as an iterator. `yield return future` is `await`. |
 | `Futures.*` | You need a delay, a pool run, a WhenAll, or a pre-completed future. |

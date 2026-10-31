@@ -15,9 +15,9 @@ namespace MMP.AsyncProxy.Tests
             var any = Futures.WhenAny(slow.Future, fast.Future);
             Assert.False(any.IsCompleted);
             fast.SetResult(2);
-            Assert.Same(fast, any.Result);
+            Assert.Same(fast.Future, any.Result);
             slow.SetResult(1);
-            Assert.Same(fast, any.Result);
+            Assert.Same(fast.Future, any.Result);
         }
 
         [Fact]
@@ -48,7 +48,7 @@ namespace MMP.AsyncProxy.Tests
         public void Observe_never_throws_and_lets_the_body_inspect_the_step()
         {
             var risky = new Promise<int>();
-            var future = AsyncProxy.Run<string>(ret => Recover(risky, ret));
+            var future = AsyncProxy.Run<string>(ret => Recover(risky.Future, ret));
             risky.SetException(new InvalidOperationException("step failed"));
             Assert.Equal("recovered from step failed", future.Result);
         }

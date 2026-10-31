@@ -4,12 +4,12 @@ Open `src/MMP.AsyncProxy/Core/Promise{T}.cs`. That file is the whole chapter.
 
 ## Two halves of one object
 
-A `Promise<T>` is one object with two faces.
+A `Promise<T>` comes with a partner.
 
-- The **promise** face has `SetResult`, `SetException`, `SetCanceled`. You keep this one.
-- The **future** face is `IFuture<T>`. It has `IsCompleted`, `Result`, `Wait`, `GetAwaiter`. You give this one away.
+- The **promise** has `SetResult`, `SetException`, `SetCanceled`. You keep this one.
+- The **future** is a separate sealed `Future<T>` that holds the promise and forwards the read members: `IsCompleted`, `Result`, `Wait`, `GetAwaiter`. You give this one away.
 
-Same object. The `Future` property returns `this`, typed as the interface. The caller gets a reference they can await, and the compiler will not let them call `SetResult` on it.
+The `Future` property hands out the same `Future<T>` instance every time. It is a different object from the promise, and `Promise<T>` does not implement `IFuture<T>` at all, so there is no cast that gets a caller from the view back to the setters. The compiler refuses `future is Promise<T>` outright. One extra allocation per promise buys that.
 
 Why bother? Because the moment a caller can complete your work, your work is no longer yours. Someone, somewhere, will "fix" a timeout by calling `SetResult` on a future they did not own, and the real result will arrive later into a promise that is already closed. This is the `Task` and `TaskCompletionSource` split in .NET 4, and it is there for the same reason. Toub makes the point at 27:05.
 

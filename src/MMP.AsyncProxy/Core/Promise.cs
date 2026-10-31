@@ -17,7 +17,7 @@ namespace MMP.AsyncProxy
             _inner = new Promise<VoidResult>(runContinuationsAsync);
         }
 
-        public IFuture Future { get { return _inner; } }
+        public IFuture Future { get { return _inner.Future; } }
 
         public bool TrySetResult() { return _inner.TrySetResult(VoidResult.Value); }
         public bool TrySetException(Exception exception) { return _inner.TrySetException(exception); }

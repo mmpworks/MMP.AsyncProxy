@@ -25,7 +25,7 @@ namespace MMP.AsyncProxy
         }
 
         /// <summary>What the caller of the async method gets back.</summary>
-        public IFuture<T> Future { get { return _promise; } }
+        public IFuture<T> Future { get { return _promise.Future; } }
 
         public void Start<TStateMachine>(ref TStateMachine stateMachine) where TStateMachine : IAsyncStateMachine
         {

@@ -18,7 +18,7 @@ We did not sit down and pick patterns. We built the smallest thing that worked a
 | **Wrapper, for the non-generic twin** | `Core/Promise.cs`, `Builder/AsyncMethodBuilder.cs` | The void versions hold a generic one over `VoidResult` and forward. One implementation to get right. |
 | **Countdown latch** | `Futures.WhenAll` | N callbacks, one counter, `Interlocked.Decrement`, whoever hits zero finishes the job. No lock, no waiting thread. |
 | **Ambient context, captured and restored** | `AsyncMethodBuilder<T>.AwaitOnCompleted`, `FutureAwaiter<T>.OnCompleted` | Grab `ExecutionContext` and `SynchronizationContext` at one point, put them back at another. Same move the state machine makes with its locals, applied to the environment. |
-| **Read-only view** | `Promise<T>.Future` returns `IFuture<T>` | Hand out a narrower type so the receiver cannot do the dangerous thing. Capability by static type. |
+| **Read-only view** | `Core/Future{T}.cs`, handed out by `Promise<T>.Future` | A separate sealed object that forwards the read members. The receiver cannot reach the setters by any cast. Capability by object identity, not only by static type. |
 
 Thirteen named shapes in about 700 lines of library. None of them were added for their own sake. Each one is the answer to a question the previous chapter asked.
 
@@ -30,7 +30,7 @@ Dan North's CUPID is five properties code can have. Not rules. Things that, when
 
 **Unix philosophy.** Does one thing well. `Promise` completes. `FutureAwaiter` answers three questions. `AsyncMethodBuilder` makes four calls. `IteratorStateMachine` pulls the next step. `CancelSource` flips a flag and runs callbacks. Open any file and the class fits on a screen with its comments. Score: good. The one that does two things is `Futures.Delay(ms, token)`, which is both a timer and a cancel race, and the comment inside says so.
 
-**Predictable.** Does what it looks like, deterministic, observable. A future moves once and never back. First completion wins and the second is refused. Continuations run inline unless you asked otherwise, and the constructor flag is the only place that changes. There are no hidden threads. Score: good, with one hole we discuss under "where we fell short".
+**Predictable.** Does what it looks like, deterministic, observable. A future moves once and never back. First completion wins and the second is refused. Continuations run inline unless you asked otherwise, and the constructor flag is the only place that changes. There are no hidden threads. A future handed out as read-only stays read-only, because it is a different object from the promise. Score: good. The first draft had a hole here; see "where we fell short".
 
 **Idiomatic.** Feels natural to a .NET developer. The names are the .NET 4.5 names with one letter changed, on purpose. `Begin`/`End` adapts through a method that looks like `Task.Factory.FromAsync`. Registrations return `IDisposable`. The C# 3 inside uses anonymous delegates where a modern reader expects lambdas, because C# 3 lambdas cannot be statement bodies in every position we needed. Score: good for 2008, slightly dated for 2026, which is the point.
 
@@ -69,9 +69,9 @@ Rule of three: duplicate once and wait, extract on the third. Here is where we e
 
 ## Where we fell short
 
-Three things a reviewer would flag, and what we would do about them.
+Three things a reviewer flagged on the first draft. One is fixed. Two are watched.
 
-1. **The read-only view is a cast away.** `Promise<T>.Future` returns `this` typed as `IFuture<T>`. Anyone who writes `(Promise<T>)future` gets the setters back. The real `Task` hides this better because `TaskCompletionSource` holds a separate `Task` object. The fix is a separate `Future<T>` class that holds a reference to the promise and forwards the read members. One more allocation per promise, and the hole closes. This is the Predictable property in CUPID with a dent in it. Worth doing before anyone builds on this for real.
+1. **The read-only view was a cast away. Fixed.** The first draft had `Promise<T>` implement `IFuture<T>` and return `this` from `Future`. Anyone who wrote `(Promise<T>)future` got the setters back. The fix was a separate sealed `Future<T>` that holds the promise and forwards the reads, which is how `TaskCompletionSource` and `Task` are arranged. Cost: one allocation per promise. The test `Future_view_cannot_be_cast_back_to_a_completer` now asserts the types are unrelated, and the compiler rejects the cast at build time. Lesson for the course: a review that names a concrete fix gets acted on. One that says "consider encapsulation" does not.
 2. **Booleans as strategy.** `continueOnCapturedContext` and `runContinuationsAsync` are flags. Two flags are fine. A third would be the moment to turn them into an options object or a small policy interface. Watch for it.
 3. **`SetStateMachine` is empty.** Fine for class machines, wrong for struct ones. Exercise 10 in chapter 8 is where you find out why. A real release would either implement it or seal the door by making the builder refuse struct machines at compile time, which C# 3 cannot express.
 

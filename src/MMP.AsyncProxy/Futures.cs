@@ -16,14 +16,14 @@ namespace MMP.AsyncProxy
         {
             Promise<T> promise = new Promise<T>();
             promise.SetResult(value);
-            return promise;
+            return promise.Future;
         }
 
         public static IFuture<T> FromException<T>(Exception exception)
         {
             Promise<T> promise = new Promise<T>();
             promise.SetException(exception);
-            return promise;
+            return promise.Future;
         }
 
         public static IFuture FromException(Exception exception)
@@ -97,7 +97,7 @@ namespace MMP.AsyncProxy
                 // First one to get here wins. TrySetResult refuses the rest.
                 future.ContinueOnAnyThread().OnCompleted(delegate { promise.TrySetResult(future); });
             }
-            return promise;
+            return promise.Future;
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace MMP.AsyncProxy
             {
                 promise.TrySetException(ex);
             }
-            return promise;
+            return promise.Future;
         }
 
         /// <summary>
@@ -175,7 +175,7 @@ namespace MMP.AsyncProxy
                 catch (OperationCanceledException) { promise.TrySetCanceled(); }
                 catch (Exception ex) { promise.TrySetException(ex); }
             });
-            return promise;
+            return promise.Future;
         }
 
         public static IFuture Run(Action work)

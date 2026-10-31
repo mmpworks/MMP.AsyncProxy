@@ -8,14 +8,16 @@ namespace MMP.AsyncProxy
     /// The counter where answers get filled in. You keep the Promise. You hand
     /// out its Future. Whoever holds the Future can wait or subscribe, and that
     /// is all they can do. This is TaskCompletionSource, and the split exists
-    /// so a caller can never complete work it did not do.
+    /// so a caller can never complete work it did not do. The Future is a
+    /// separate sealed object, not this one wearing an interface, so a cast
+    /// cannot undo the split.
     ///
     /// When you call SetResult, the callbacks run right there, on your thread,
     /// before SetResult returns. TaskCompletionSource does the same by default.
     /// Build it with runContinuationsAsync = true and they go to the pool instead,
     /// which is TaskCreationOptions.RunContinuationsAsynchronously in .NET 4.6.
     /// </summary>
-    public sealed class Promise<T> : IFuture<T>
+    public sealed class Promise<T>
     {
         /// <summary>
         /// Where GetResult stashes the first stack trace before it rethrows.
@@ -30,6 +32,7 @@ namespace MMP.AsyncProxy
         private Exception _exception;
         private List<Action> _continuations;
         private ManualResetEvent _done;
+        private readonly Future<T> _future;
 
         public Promise() : this(false) { }
 
@@ -40,10 +43,11 @@ namespace MMP.AsyncProxy
         public Promise(bool runContinuationsAsync)
         {
             _runContinuationsAsync = runContinuationsAsync;
+            _future = new Future<T>(this);
         }
 
-        /// <summary>The view to give away. It is this same object, typed so the setters are out of reach.</summary>
-        public IFuture<T> Future { get { return this; } }
+        /// <summary>The view to give away. Same one every time, so reference equality works on it.</summary>
+        public IFuture<T> Future { get { return _future; } }
 
         public FutureStatus Status
         {
@@ -118,19 +122,9 @@ namespace MMP.AsyncProxy
             return new FutureAwaiter<T>(this, true);
         }
 
-        IAwaiter IFuture.GetAwaiter()
-        {
-            return GetAwaiter();
-        }
-
         public IAwaiter<T> ContinueOnAnyThread()
         {
             return new FutureAwaiter<T>(this, false);
-        }
-
-        IAwaiter IFuture.ContinueOnAnyThread()
-        {
-            return ContinueOnAnyThread();
         }
 
         /// <summary>

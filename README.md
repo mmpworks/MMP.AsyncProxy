@@ -88,6 +88,7 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 |---|---|---|
 | `IFuture`, `IFuture<T>` | `Task`, `Task<T>` | Read-only view of a result that arrives later |
 | `Promise`, `Promise<T>` | `TaskCompletionSource<T>` | The only type that can complete a future |
+| `Future<T>` | `Task<T>` (the object) | The sealed read-only partner a promise hands out. No cast reaches the setters |
 | `IAwaiter`, `FutureAwaiter<T>` | `INotifyCompletion`, `TaskAwaiter<T>` | `IsCompleted`, `OnCompleted`, `GetResult` |
 | `IAsyncStateMachine` | `IAsyncStateMachine` | `MoveNext` runs the method to its next await |
 | `AsyncMethodBuilder<T>` | `AsyncTaskMethodBuilder<T>` | `Start`, `AwaitOnCompleted`, `SetResult`, `SetException` |

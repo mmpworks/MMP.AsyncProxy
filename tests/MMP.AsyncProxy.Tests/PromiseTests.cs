@@ -97,13 +97,17 @@ namespace MMP.AsyncProxy.Tests
         [Fact]
         public void Future_view_cannot_be_cast_back_to_a_completer()
         {
-            // Promise<T> is the future. The protection is the static type the caller
-            // receives: IFuture<T> exposes no Set methods. This test pins the shape.
+            // The future is a separate sealed object. No cast reaches the setters,
+            // and the view is the same instance every time so reference equality holds.
             var promise = new Promise<int>();
             IFuture<int> view = promise.Future;
-            Assert.Null(typeof(IFuture<int>).GetMethod("SetResult"));
-            Assert.Null(typeof(IFuture<int>).GetMethod("TrySetResult"));
-            Assert.Same(promise, view);
+            Assert.IsType<Future<int>>(view);
+            // The compiler rejects "view is Promise<int>" outright (CS0184), which is the point.
+            Assert.False(typeof(IFuture<int>).IsAssignableFrom(typeof(Promise<int>)));
+            Assert.False(typeof(IFuture).IsAssignableFrom(typeof(Promise<int>)));
+            Assert.Null(typeof(Future<int>).GetMethod("SetResult"));
+            Assert.Null(typeof(Future<int>).GetMethod("TrySetResult"));
+            Assert.Same(promise.Future, view);
         }
     }
 }
