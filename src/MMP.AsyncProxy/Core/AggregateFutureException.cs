@@ -5,7 +5,8 @@ using System.Collections.ObjectModel;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// Holds every fault from a WhenAll. .NET 3.5 has no AggregateException.
+    /// WhenAll can fail more than once. This holds every failure, in input order.
+    /// .NET 4.0 added AggregateException for the same job. .NET 3.5 has nothing, so here it is.
     /// </summary>
     public class AggregateFutureException : Exception
     {

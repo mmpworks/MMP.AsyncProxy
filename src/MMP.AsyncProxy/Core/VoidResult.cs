@@ -1,8 +1,9 @@
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The result type of a future that carries no value. Stands in for the
-    /// non-generic Task so that one generic implementation serves both shapes.
+    /// A value that means "nothing". A future with no result still needs a type
+    /// parameter, so this fills the slot. It lets one generic Promise serve both
+    /// the Task and the Task&lt;T&gt; shapes.
     /// </summary>
     public struct VoidResult
     {

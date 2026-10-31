@@ -93,13 +93,22 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 | `AsyncMethodBuilder<T>` | `AsyncTaskMethodBuilder<T>` | `Start`, `AwaitOnCompleted`, `SetResult`, `SetException` |
 | `ContinueOnAnyThread()` | `ConfigureAwait(false)` | Skip the `SynchronizationContext` post-back |
 | `Futures.Delay`, `Run`, `WhenAll`, `FromResult` | `Task.Delay`, `Run`, `WhenAll`, `FromResult` | Factories and combinators |
+| `Futures.FromAsync` | `Task.Factory.FromAsync` | Wraps a Begin/End pair so OS I/O completes the future |
 | `AsyncProxy.Run` | the C# 5 compiler | Drives an iterator as an async method |
 
 Context flows the way the real one does. The builder captures `ExecutionContext` at each suspend and restores it before `MoveNext`. The awaiter captures `SynchronizationContext` and posts the continuation back to it.
 
 ## Where no thread is used
 
-`Futures.Delay` is a `System.Threading.Timer`. `await` on it holds no thread. The timer fires, the pool runs `MoveNext`, and the method continues. `Futures.Run` is the one place a thread is used, because CPU work needs one.
+`Futures.Delay` is a `System.Threading.Timer`. `await` on it holds no thread. The timer fires, the pool runs `MoveNext`, and the method continues. `Futures.FromAsync` wraps `BeginRead`/`EndRead`, so a file or socket read is done by the OS and completes through an I/O completion port. `Futures.Run` is the one place a thread is used, because CPU work needs one.
+
+Run `samples/MMP.AsyncProxy.Comparison` to see it. 2000 requests that each wait 200 ms: a thread per request peaked at 1357 threads, the state machines did the same work at 33 threads, which is the idle count.
+
+## Learn how it works
+
+`docs/course/` is an eight-chapter walk through the machine, written as two developers going over it after hours. Mermaid diagrams inline. Start at `docs/course/README.md`.
+
+`docs/sdk.md` is the short guide to using the library.
 
 ## Build and test
 
@@ -110,7 +119,9 @@ dotnet test MMP.AsyncProxy.slnx
 
 The library and samples compile for `net35` with `LangVersion` 3. The tests run on `net48` and load the `net35` binaries. Three tests pin that: the assembly under test has CLR header `v2.0.50727` and no `TargetFrameworkAttribute`.
 
-Last run, 2026-10-31: 28 tests, 28 passed.
+Last run, 2026-10-31: 31 tests, 31 passed.
+
+`dotnet pack src/MMP.AsyncProxy -c Release` builds the NuGet package into `artifacts/`.
 
 ## Known limits
 

@@ -4,13 +4,13 @@ using System.Collections.Generic;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// Entry point for iterator-driven async methods.
-    /// Write a method that returns IEnumerable&lt;IFuture&gt; and yield each future
-    /// where you would have written await. Pass it here.
+    /// The front door for iterator-style async. Write a method that returns
+    /// IEnumerable&lt;IFuture&gt;. Everywhere you would have typed "await x",
+    /// type "yield return x". Hand the method here and you get a future back.
     /// </summary>
     public static class AsyncProxy
     {
-        /// <summary>Runs an iterator with no return value.</summary>
+        /// <summary>For a method that finishes with "done" and no value.</summary>
         public static IFuture Run(IEnumerable<IFuture> steps)
         {
             if (steps == null) throw new ArgumentNullException("steps");
@@ -20,7 +20,10 @@ namespace MMP.AsyncProxy
             return machine.Future;
         }
 
-        /// <summary>Runs an iterator that sets a value on its Return slot before it ends.</summary>
+        /// <summary>
+        /// For a method that produces a value. You get a Return&lt;T&gt; box as a
+        /// parameter. Set its Value before the iterator ends.
+        /// </summary>
         public static IFuture<T> Run<T>(Func<Return<T>, IEnumerable<IFuture>> body)
         {
             if (body == null) throw new ArgumentNullException("body");

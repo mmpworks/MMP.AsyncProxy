@@ -2,7 +2,7 @@ using System;
 
 namespace MMP.AsyncProxy
 {
-    /// <summary>Builder for an async method that returns a future with no value.</summary>
+    /// <summary>The builder for an async method that finishes with "done" and no value.</summary>
     public struct AsyncMethodBuilder
     {
         private AsyncMethodBuilder<VoidResult> _inner;

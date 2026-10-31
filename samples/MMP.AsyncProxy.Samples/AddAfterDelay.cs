@@ -3,7 +3,7 @@ using System;
 namespace MMP.AsyncProxy.Samples
 {
     /// <summary>
-    /// The method a C# 5 programmer would write:
+    /// Okay, here is the method we would write if we had C# 5:
     /// <code>
     /// async IFuture&lt;int&gt; AddAfterDelayAsync(int a, int b)
     /// {
@@ -14,8 +14,9 @@ namespace MMP.AsyncProxy.Samples
     ///     return sum * 2;
     /// }
     /// </code>
-    /// Below is what the compiler emits for it, written by hand in C# 3.
-    /// The method body becomes a stub that builds the machine and starts it.
+    /// We do not have C# 5. So below is what the compiler would have written
+    /// for us, typed out by hand. The public method shrinks to a stub: make the
+    /// machine, fill in the parameters, kick it once, hand back the future.
     /// </summary>
     public static class AddAfterDelay
     {
@@ -33,24 +34,25 @@ namespace MMP.AsyncProxy.Samples
     }
 
     /// <summary>
-    /// The state machine. Parameters and locals that live across an await are
-    /// hoisted to fields. State -1 is "running", -2 is "done", 0 and up name
-    /// the await the machine is parked at.
+    /// The machine itself. Every local that has to survive an await moves out of
+    /// the method and into a field, because the method's stack frame is gone the
+    /// moment we return. State says where we are: -1 means running, -2 means
+    /// finished, 0 and up means "parked at await number N".
     /// </summary>
     internal sealed class AddAfterDelayMachine : IAsyncStateMachine
     {
         public int State;
         public AsyncMethodBuilder<int> Builder;
 
-        // Parameters, hoisted.
+        // The parameters. They used to live on the stack. Now they live here.
         public int A;
         public int B;
         public int DelayMs;
 
-        // The local that lives across the second await, hoisted.
+        // "sum" is computed before the second await and read after it, so it moves up too.
         private int _sum;
 
-        // The awaiter the machine is parked on, so Resume can call GetResult on it.
+        // The awaiter we are parked on. When we wake up, we call GetResult on it.
         private IAwaiter _awaiter;
 
         public void MoveNext()
@@ -59,6 +61,7 @@ namespace MMP.AsyncProxy.Samples
             try
             {
                 IAwaiter awaiter;
+                // First thing on every entry: where were we? Jump back to that spot.
                 switch (State)
                 {
                     case 0:
@@ -74,6 +77,10 @@ namespace MMP.AsyncProxy.Samples
                 }
 
                 // await Futures.Delay(delayMs);
+                // Ask the awaiter if it is done. If yes, fall straight through to
+                // Resume0 on this same thread. If no, remember where we are, hand
+                // the builder our awaiter, and leave. Note the return: that is the
+                // thread walking away.
                 awaiter = Futures.Delay(DelayMs).GetAwaiter();
                 if (!awaiter.IsCompleted)
                 {
@@ -84,12 +91,14 @@ namespace MMP.AsyncProxy.Samples
                     return;
                 }
             Resume0:
+                // Back again, maybe on another thread. GetResult throws if the awaited thing failed.
                 awaiter.GetResult();
 
                 if (A < 0) throw new ArgumentOutOfRangeException("a");
                 _sum = A + B;
 
                 // await Futures.Delay(delayMs);
+                // Same dance, second verse.
                 awaiter = Futures.Delay(DelayMs).GetAwaiter();
                 if (!awaiter.IsCompleted)
                 {
@@ -107,6 +116,8 @@ namespace MMP.AsyncProxy.Samples
             }
             catch (Exception ex)
             {
+                // Any throw, from any state, lands here. It does not escape MoveNext.
+                // It becomes the future's fault, and the awaiting caller sees it there.
                 State = -2;
                 Builder.SetException(ex);
                 return;

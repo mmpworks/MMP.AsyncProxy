@@ -4,11 +4,14 @@ using System.Threading;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The AsyncTaskMethodBuilder shape. A state machine holds one as a field and
-    /// calls four things: Start once, AwaitOnCompleted at each suspend, then
-    /// SetResult or SetException once at the end.
-    /// Captures ExecutionContext at the suspend and restores it before MoveNext,
-    /// so thread-local-style data set before an await is visible after it.
+    /// The compiler's helper. A state machine keeps one of these as a field and
+    /// makes four kinds of call: Start once, AwaitOnCompleted every time it has
+    /// to suspend, and SetResult or SetException once at the end.
+    ///
+    /// It also carries ExecutionContext across the gap. Set a logical call
+    /// context value before an await and it is still there after, even though
+    /// the method may wake up on a different thread. The builder grabs the
+    /// context at suspend time and puts it back right before MoveNext.
     /// </summary>
     public struct AsyncMethodBuilder<T>
     {
@@ -21,7 +24,7 @@ namespace MMP.AsyncProxy
             return builder;
         }
 
-        /// <summary>The future the caller gets back from the async method.</summary>
+        /// <summary>What the caller of the async method gets back.</summary>
         public IFuture<T> Future { get { return _promise; } }
 
         public void Start<TStateMachine>(ref TStateMachine stateMachine) where TStateMachine : IAsyncStateMachine
@@ -35,6 +38,7 @@ namespace MMP.AsyncProxy
             where TStateMachine : IAsyncStateMachine
         {
             IAsyncStateMachine machine = stateMachine;
+            // Capture returns null when flow is suppressed. Then there is nothing to carry.
             ExecutionContext captured = ExecutionContext.Capture();
             if (captured == null)
             {

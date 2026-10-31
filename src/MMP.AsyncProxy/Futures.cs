@@ -4,12 +4,12 @@ using System.Threading;
 
 namespace MMP.AsyncProxy
 {
-    /// <summary>Factories and combinators. The static side of Task.</summary>
+    /// <summary>The static helpers. Think of the static side of Task: Delay, Run, WhenAll, FromResult.</summary>
     public static class Futures
     {
         private static readonly IFuture CompletedFuture = CreateCompleted();
 
-        /// <summary>A future that was complete before you asked.</summary>
+        /// <summary>A future that was done before you asked. Awaiting it never suspends.</summary>
         public static IFuture Completed { get { return CompletedFuture; } }
 
         public static IFuture<T> FromResult<T>(T value)
@@ -32,8 +32,9 @@ namespace MMP.AsyncProxy
         }
 
         /// <summary>
-        /// Completes after the delay. Uses a timer, so no thread waits.
-        /// Thread.Sleep inside a work item would hold a pool thread for the whole time.
+        /// Waits without a thread. A timer fires once and completes the promise.
+        /// Compare Thread.Sleep inside a work item: that holds a pool thread hostage
+        /// for the whole time and does nothing with it. Await this instead.
         /// </summary>
         public static IFuture Delay(int milliseconds)
         {
@@ -44,6 +45,8 @@ namespace MMP.AsyncProxy
                 promise.SetResult();
                 return promise.Future;
             }
+            // The callback needs the timer to dispose it, and the timer needs the
+            // callback to exist. A one-slot array breaks the chicken-and-egg.
             Timer[] holder = new Timer[1];
             holder[0] = new Timer(delegate
             {
@@ -54,7 +57,42 @@ namespace MMP.AsyncProxy
             return promise.Future;
         }
 
-        /// <summary>Queues CPU work to the thread pool. The one place a thread is really used.</summary>
+        /// <summary>
+        /// Turns a Begin/End pair into a future. This is how real I/O stays off a
+        /// thread in .NET 3.5: FileStream.BeginRead hands the read to the OS, the OS
+        /// signals an I/O completion port when the bytes land, and a pool thread runs
+        /// our callback for a few microseconds. Nobody waited.
+        /// <code>
+        /// Futures.FromAsync&lt;int&gt;(
+        ///     delegate(AsyncCallback cb, object s) { return stream.BeginRead(buf, 0, buf.Length, cb, s); },
+        ///     stream.EndRead);
+        /// </code>
+        /// Task.Factory.FromAsync does the same job in .NET 4.
+        /// </summary>
+        public static IFuture<T> FromAsync<T>(Func<AsyncCallback, object, IAsyncResult> begin, Func<IAsyncResult, T> end)
+        {
+            if (begin == null) throw new ArgumentNullException("begin");
+            if (end == null) throw new ArgumentNullException("end");
+            Promise<T> promise = new Promise<T>();
+            try
+            {
+                begin(delegate(IAsyncResult ar)
+                {
+                    try { promise.TrySetResult(end(ar)); }
+                    catch (Exception ex) { promise.TrySetException(ex); }
+                }, null);
+            }
+            catch (Exception ex)
+            {
+                promise.TrySetException(ex);
+            }
+            return promise;
+        }
+
+        /// <summary>
+        /// Runs CPU work on a pool thread. This is the one place in the library
+        /// where a thread does the waiting, because CPU work has no other way to happen.
+        /// </summary>
         public static IFuture<T> Run<T>(Func<T> work)
         {
             if (work == null) throw new ArgumentNullException("work");
@@ -74,8 +112,9 @@ namespace MMP.AsyncProxy
         }
 
         /// <summary>
-        /// Completes when every input completes. Counts down with Interlocked.Decrement.
-        /// Faults with every fault collected, never only the first.
+        /// Done when every input is done. No thread waits; each input's callback
+        /// decrements a counter, and whoever brings it to zero completes the result.
+        /// If any input failed, the result fails with all of the failures, in order.
         /// </summary>
         public static IFuture WhenAll(params IFuture[] futures)
         {
@@ -96,8 +135,8 @@ namespace MMP.AsyncProxy
             {
                 IFuture future = futures[i];
                 if (future == null) throw new ArgumentException("A null future was passed to WhenAll.", "futures");
-                // Library-internal continuation. Never post to a UI context from here;
-                // the caller's own await on the WhenAll result does that.
+                // This is library plumbing, so it uses the no-context awaiter. Hopping to
+                // a UI thread here would be wasted work; the caller's own await does that.
                 IAwaiter awaiter = future.ContinueOnAnyThread();
                 awaiter.OnCompleted(delegate
                 {

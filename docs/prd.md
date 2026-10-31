@@ -29,7 +29,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 
 1. `dotnet build` of the library succeeds for `net35` with `LangVersion` 3 and zero warnings.
 2. The test project references the `net35` binary, never a recompile, and runs on `net48`.
-3. Tests prove: completion before and after registration, result and fault paths, `ExecutionContext` flow across an await, `SynchronizationContext` post-back, `WhenAll` fault aggregation, `Wait` blocking, the hand-written machine, and the iterator machine. Count on 2026-10-31: 28 of 28. Sign-off date: ___.
+3. Tests prove: completion before and after registration, result and fault paths, `ExecutionContext` flow across an await, `SynchronizationContext` post-back, `WhenAll` fault aggregation, `Wait` blocking, the hand-written machine, and the iterator machine. Count on 2026-10-31: 31 of 31. Sign-off date: ___.
 4. `docs/compiler-vs-handwritten.md` shows the `ilspycmd` decompile of a real `async` method next to the hand-written sample, with the matching parts labelled.
 5. README states the three limitations in the Decisions table.
 
@@ -73,6 +73,9 @@ tests/MMP.AsyncProxy.Tests/       xunit on net48, references the net35 dll
 Build order:
 
 1. Slice 1 (done 2026-10-31): skeleton, Core, Builder, Iterate, `Futures` basics, sample machine, tests.
+   Same day: `Futures.FromAsync` with a real async `FileStream` test, the comparison console, the
+   eight-chapter course in `docs/course/`, `docs/sdk.md`, NuGet pack metadata, comment pass in the
+   two-developers voice.
 2. Slice 2: `WhenAny`, `Observe`, `RunContinuationsAsync`, `ContinueOnAnyThread`, stack-dive test.
 3. Slice 3: `CancelSource`/`CancelToken`, `Delay` with cancel, `docs/compiler-vs-handwritten.md` from `ilspycmd`.
 4. Slice 4: README for public release, NETCF notes, Steve's publish decision.

@@ -2,7 +2,10 @@ using System;
 
 namespace MMP.AsyncProxy
 {
-    /// <summary>A promise with no value. Wraps Promise&lt;VoidResult&gt; so one implementation serves both shapes.</summary>
+    /// <summary>
+    /// A promise with no value to deliver, only "done". Under the hood it is a
+    /// Promise&lt;VoidResult&gt;, so there is one implementation to get right.
+    /// </summary>
     public sealed class Promise
     {
         private readonly Promise<VoidResult> _inner = new Promise<VoidResult>();

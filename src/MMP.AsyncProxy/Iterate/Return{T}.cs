@@ -1,8 +1,9 @@
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The return slot of an iterator-driven async method. An iterator cannot
-    /// return a value, so the body sets Value before it ends.
+    /// An iterator method cannot "return x". So we hand it a box, and it sets
+    /// Value before it runs out of steps. Whatever is in the box when the
+    /// iterator ends becomes the future's result.
     /// </summary>
     public sealed class Return<T>
     {

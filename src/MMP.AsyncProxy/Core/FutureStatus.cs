@@ -1,6 +1,6 @@
 namespace MMP.AsyncProxy
 {
-    /// <summary>The three terminal states of a future, plus the one before them.</summary>
+    /// <summary>Where a future is in its life. It starts Pending and moves once, to one of the other three.</summary>
     public enum FutureStatus
     {
         Pending = 0,

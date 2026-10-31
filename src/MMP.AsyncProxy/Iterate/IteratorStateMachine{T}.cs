@@ -4,9 +4,14 @@ using System.Collections.Generic;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// Drives a C# 2.0 iterator as if the compiler had emitted an async state
-    /// machine for it. Each yielded future is an await. The iterator's own
-    /// compiler-generated state field plays the part of the async machine's state.
+    /// Here is the trick. C# 2.0 already had a compiler that turns a method into
+    /// a state machine: the iterator. "yield return" saves the locals, records
+    /// where it stopped, and returns. That is nine tenths of what "await" needs.
+    ///
+    /// This class supplies the last tenth. It pulls one future at a time from
+    /// the iterator. If the future is done, it pulls the next. If the future is
+    /// pending, it parks on it with the same builder the hand-written machine
+    /// uses, and comes back when the future completes.
     /// </summary>
     internal sealed class IteratorStateMachine<T> : IAsyncStateMachine
     {
@@ -36,6 +41,8 @@ namespace MMP.AsyncProxy
             {
                 while (true)
                 {
+                    // Coming back from a suspend? Observe the step we parked on.
+                    // If it failed, GetResult throws and the catch below faults the whole run.
                     if (_pending != null)
                     {
                         IAwaiter finished = _pending;
@@ -43,6 +50,7 @@ namespace MMP.AsyncProxy
                         finished.GetResult();
                     }
 
+                    // Ask the iterator for its next future. No more? The method is done.
                     if (!_steps.MoveNext())
                     {
                         _steps.Dispose();
@@ -53,6 +61,7 @@ namespace MMP.AsyncProxy
                     IFuture step = _steps.Current;
                     if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
 
+                    // Fast path: the future is already done, so no suspend. Keep going in this loop.
                     IAwaiter awaiter = step.GetAwaiter();
                     if (awaiter.IsCompleted)
                     {
@@ -60,6 +69,7 @@ namespace MMP.AsyncProxy
                         continue;
                     }
 
+                    // Slow path: park here. The builder will call MoveNext again when the future completes.
                     _pending = awaiter;
                     IteratorStateMachine<T> self = this;
                     _builder.AwaitOnCompleted(ref awaiter, ref self);

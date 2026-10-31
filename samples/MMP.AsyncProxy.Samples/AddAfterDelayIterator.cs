@@ -4,9 +4,10 @@ using System.Collections.Generic;
 namespace MMP.AsyncProxy.Samples
 {
     /// <summary>
-    /// The same method as <see cref="AddAfterDelay"/>, written as a C# 2.0
-    /// iterator. The compiler writes the state machine for the iterator, and
-    /// AsyncProxy drives it. Each yield return is an await.
+    /// Same method as <see cref="AddAfterDelay"/>, but this time we let the
+    /// compiler write the state machine. It already knows how, for iterators.
+    /// Every "yield return future" is an await. AsyncProxy drives it.
+    /// Compare the line count with the hand-written one. That gap is what C# 5 bought us.
     /// </summary>
     public static class AddAfterDelayIterator
     {

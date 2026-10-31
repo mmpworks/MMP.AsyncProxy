@@ -5,14 +5,20 @@ using System.Threading;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The one type that can complete a future. The TaskCompletionSource shape.
-    /// Hand the <see cref="Future"/> view to callers so they can await but never complete.
-    /// Continuations run inline on the thread that completes the promise, as
-    /// TaskCompletionSource does by default.
+    /// The counter where answers get filled in. You keep the Promise. You hand
+    /// out its Future. Whoever holds the Future can wait or subscribe, and that
+    /// is all they can do. This is TaskCompletionSource, and the split exists
+    /// so a caller can never complete work it did not do.
+    ///
+    /// When you call SetResult, the callbacks run right there, on your thread,
+    /// before SetResult returns. TaskCompletionSource does the same by default.
     /// </summary>
     public sealed class Promise<T> : IFuture<T>
     {
-        /// <summary>Key under which GetResult stores the stack trace a rethrow would wipe.</summary>
+        /// <summary>
+        /// Where GetResult stashes the first stack trace before it rethrows.
+        /// See <see cref="PreserveStackTrace"/> for why.
+        /// </summary>
         public const string OriginalStackTraceKey = "MMP.AsyncProxy.OriginalStackTrace";
 
         private readonly object _gate = new object();
@@ -22,7 +28,7 @@ namespace MMP.AsyncProxy
         private List<Action> _continuations;
         private ManualResetEvent _done;
 
-        /// <summary>The read-only view to hand out.</summary>
+        /// <summary>The view to give away. It is this same object, typed so the setters are out of reach.</summary>
         public IFuture<T> Future { get { return this; } }
 
         public FutureStatus Status
@@ -81,6 +87,8 @@ namespace MMP.AsyncProxy
 
         public void Wait()
         {
+            // The event is made on first use. Most futures are awaited, never waited on,
+            // so most of them never pay for a kernel handle.
             ManualResetEvent handle;
             lock (_gate)
             {
@@ -111,7 +119,11 @@ namespace MMP.AsyncProxy
             return ContinueOnAnyThread();
         }
 
-        /// <summary>Runs the continuation now if complete, else stores it for the completer to run.</summary>
+        /// <summary>
+        /// Two cases. Already done: run the callback now, on this thread. Still
+        /// pending: put it on the list, and Complete will run it later. The lock
+        /// closes the gap where a completion could slip in between the check and the add.
+        /// </summary>
         internal void RegisterContinuation(Action continuation)
         {
             if (continuation == null) throw new ArgumentNullException("continuation");
@@ -127,7 +139,7 @@ namespace MMP.AsyncProxy
             continuation();
         }
 
-        /// <summary>Value or throw. Caller guarantees completion.</summary>
+        /// <summary>Value, or throw. Only called once the future has settled.</summary>
         internal T GetResultCore()
         {
             FutureStatus status;
@@ -155,6 +167,9 @@ namespace MMP.AsyncProxy
 
         private bool Complete(FutureStatus status, T result, Exception exception)
         {
+            // Settle the state under the lock, then let go of it before running
+            // anyone's callback. A callback that takes its own lock, or completes
+            // another promise, must never run while we hold ours.
             List<Action> toRun;
             ManualResetEvent toSignal;
             lock (_gate)
@@ -176,8 +191,10 @@ namespace MMP.AsyncProxy
         }
 
         /// <summary>
-        /// .NET 3.5 has no ExceptionDispatchInfo. A rethrow resets the stack.
-        /// Keep the first stack in Data so a log still shows where the fault began.
+        /// In .NET 3.5, "throw ex" resets the stack trace to the throw site, so the
+        /// line that failed is gone from the log. Newer runtimes fix this with
+        /// ExceptionDispatchInfo. We cannot. What we can do is copy the first
+        /// trace into Data before the rethrow, so a log still has the evidence.
         /// </summary>
         private static void PreserveStackTrace(Exception exception)
         {

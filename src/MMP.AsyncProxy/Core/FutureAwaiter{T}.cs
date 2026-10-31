@@ -4,8 +4,14 @@ using System.Threading;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The TaskAwaiter shape. Captures the SynchronizationContext at OnCompleted
-    /// and posts the continuation back to it, unless built by ContinueOnAnyThread.
+    /// The thing an await talks to. It knows two facts: which promise it watches,
+    /// and whether to bring the continuation back to the thread that started it.
+    ///
+    /// That second fact is the whole UI-thread story. A WinForms or WPF thread
+    /// has a SynchronizationContext. If we capture it here and Post the callback
+    /// to it later, the code after the await runs on the UI thread again, and
+    /// touching a control is safe. Skip the capture and the callback runs on
+    /// whatever thread finished the work.
     /// </summary>
     public struct FutureAwaiter<T> : IAwaiter<T>
     {
@@ -22,6 +28,8 @@ namespace MMP.AsyncProxy
 
         public void OnCompleted(Action continuation)
         {
+            // Capture happens here, at the await, on the awaiting thread.
+            // That is the only moment we know which context the caller meant.
             SynchronizationContext context = _continueOnCapturedContext ? SynchronizationContext.Current : null;
             if (context == null)
             {
