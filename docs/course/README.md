@@ -21,4 +21,6 @@ Diagrams: Mermaid blocks render on GitHub. The tldraw canvas in `diagrams/` open
 
 `await` does not wait. It cuts the method in two at that line, hands the second half to the thing you awaited as a callback, and returns. Whatever finishes the work calls the second half, on whatever thread it happens to be on.
 
+![await is a callback, not a thread](diagrams/async-state-machine.png)
+
 Everything else in these chapters is the plumbing that makes that sentence true.
