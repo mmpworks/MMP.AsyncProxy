@@ -2,9 +2,10 @@
 
   <PropertyGroup>
     <!-- net35 is the target this library exists for. net48 lets the same source
-         run under a modern test runner. Both compile with C# 3 syntax only, so
+         run under a modern test runner. netstandard2.0 lets a modern .NET app
+         reference the same source. All three compile with C# 3 syntax only, so
          nothing newer than the Visual Studio 2008 compiler can slip in. -->
-    <TargetFrameworks>net35;net48</TargetFrameworks>
+    <TargetFrameworks>net35;net48;netstandard2.0</TargetFrameworks>
     <LangVersion>3</LangVersion>
     <RootNamespace>MMP.AsyncProxy</RootNamespace>
     <AssemblyName>MMP.AsyncProxy</AssemblyName>

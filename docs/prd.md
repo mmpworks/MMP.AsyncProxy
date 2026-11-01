@@ -45,7 +45,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 
 | # | Question | Pick | Why |
 |---|----------|------|-----|
-| 1 | Target frameworks | `net35;net48` for the library, `net48` for tests | `net35` is the point. `net48` runs the same CLR family so xunit can load the `net35` binary. |
+| 1 | Target frameworks | `net35;net48;netstandard2.0` for the library, `net48` for tests | `net35` is the point. `net48` runs the same CLR family so xunit can load the `net35` binary. `netstandard2.0` (added 2026-11-01) lets a .NET 10 consumer reference the library; same C# 3 source, no new APIs. |
 | 2 | Language version | `LangVersion` 3 on library and samples | Roslyn enforces it. Nothing from C# 4 and later can leak in. |
 | 3 | Machine type | Hand-written machines are classes | A struct machine needs `SetStateMachine` boxing tricks. C# 3 code is easier to read with a class. The interface keeps `SetStateMachine` so the shape matches. |
 | 4 | Continuation thread | Continuations run inline on the completer's thread | Same as `TaskCompletionSource` default. Deep chains can stack-dive. Slice 2 adds a `RunContinuationsAsync` option. |

@@ -14,7 +14,7 @@ Or build it yourself and point at the `.nupkg`:
 dotnet pack src/MMP.AsyncProxy -c Release
 ```
 
-The package lands in `artifacts/` and carries two targets: `net35` and `net48`. Visual Studio 2008 projects reference the `net35` dll directly from the extracted package.
+The package lands in `artifacts/` and carries three targets: `net35`, `net48`, and `netstandard2.0`. The last one lets a modern .NET app reference the same source, which is how MMP.GasPumpSimulator runs its third dispatch strategy on it. Visual Studio 2008 projects reference the `net35` dll directly from the extracted package.
 
 ## The five types you use
 
