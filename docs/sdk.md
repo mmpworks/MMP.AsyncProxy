@@ -210,4 +210,4 @@ catch (Exception ex)
 
 ## What is on the plan
 
-A Compact Framework build, and the public release. See `docs/prd.md`.
+The public release. See `docs/prd.md`. The Compact Framework 3.5 build landed 2026-11-02: `src/MMP.AsyncProxy.NetCF`, built and tested by `tools/netcf-build.ps1`, described in `docs/netcf-port.md`. On that build `ex.Data` is unavailable, so the `where` line above is desktop only.

@@ -139,14 +139,18 @@ Last run, 2026-11-02: 67 tests, 67 passed. The training track adds 49 on net48 a
 
 ## Known limits
 
-1. **Rethrow wipes the stack.** .NET 3.5 has no `ExceptionDispatchInfo`. `GetResult` throws the original exception object. Before it does, it stores the first stack trace in `exception.Data["MMP.AsyncProxy.OriginalStackTrace"]`.
+1. **Rethrow wipes the stack.** .NET 3.5 has no `ExceptionDispatchInfo`. `GetResult` throws the original exception object. Before it does, it stores the first stack trace in `exception.Data["MMP.AsyncProxy.OriginalStackTrace"]`. The Compact Framework build has no `Exception.Data`, so there the first trace is lost.
 2. **An iterator body cannot `catch` a step's fault.** When a yielded future faults, the whole operation faults, which is how `await` propagates. To handle it in the body, yield `Futures.Observe(step)` and then check `step.IsFaulted`. The hand-written form can `catch`, because the `try` is yours.
 3. **Continuations run inline on the completing thread by default.** Same as `TaskCompletionSource`. Pass `true` to the `Promise` constructor to send them to the pool.
 4. **Cancellation is cooperative.** `CancelToken` stops a `Delay`, skips a `Run` that has not started, and lets your code stop itself with `ThrowIfCancelRequested`. Nothing stops a running thread from outside.
 
 ## Plan
 
-`docs/prd.md` holds the decisions, the slices, and the acceptance list. `docs/netcf-port.md` is the audit of the library against the .NET Compact Framework 3.5 reference assemblies and the five changes a Windows CE port makes; `tools/netcf-audit.ps1` reruns it.
+`docs/prd.md` holds the decisions, the slices, and the acceptance list.
+
+## Compact Framework 3.5 build
+
+`src/MMP.AsyncProxy.NetCF` compiles the same source against the .NET Compact Framework 3.5 reference assemblies, with `NETCF` defined. `tools/netcf-build.ps1` builds it, builds Kevin's forecourt sample the same way, and runs the test suite against both binaries on the desktop CLR. What changes on that target, and what the assemblies do and do not have, is in `docs/netcf-port.md`; `tools/netcf-audit.ps1` reruns the audit. The CF build has no `ExecutionContext` flow and no `SynchronizationContext`; a display thread that wants continuations back registers an `IPostTarget` through `PostTarget.SetForCurrentThread`, which the desktop builds honour too, after `SynchronizationContext.Current`. `BuildInfo.Target` says which build is loaded.
 
 ## Licence
 

@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The .NET Compact Framework 3.5 build of the same source. There is no reference
+       pack for CF on NuGet, so this project turns the SDK's framework references off
+       and points at the CF assemblies by path. They are Microsoft binaries and live
+       outside the repo; docs/netcf-port.md says where they come from. Pass the folder
+       with -p:NetCFRefDir=<dir> or keep the default below.
+
+         dotnet build src/MMP.AsyncProxy.NetCF -c Release
+
+       The output is MMP.AsyncProxy.dll compiled against CF mscorlib 3.5. CF references
+       are retargetable, so the desktop CLR loads it too, which is how the test suite
+       runs against this build (tools/netcf-build.ps1). -->
+
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>3</LangVersion>
+    <AssemblyName>MMP.AsyncProxy</AssemblyName>
+    <RootNamespace>MMP.AsyncProxy</RootNamespace>
+    <DefineConstants>$(DefineConstants);NETCF</DefineConstants>
+    <NetCFRefDir Condition="'$(NetCFRefDir)' == ''">E:\dev\tools\netcf35-ref</NetCFRefDir>
+
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <!-- MSBuild looks for a .NET Framework 3.5 targeting pack. Point it at the CF folder instead. -->
+    <FrameworkPathOverride>$(NetCFRefDir)</FrameworkPathOverride>
+    <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
+    <NoStdLib>true</NoStdLib>
+    <NoCompilerStandardLib>true</NoCompilerStandardLib>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1685</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\MMP.AsyncProxy\**\*.cs" Exclude="..\MMP.AsyncProxy\bin\**;..\MMP.AsyncProxy\obj\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="mscorlib">
+      <HintPath>$(NetCFRefDir)\mscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System">
+      <HintPath>$(NetCFRefDir)\System.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core">
+      <HintPath>$(NetCFRefDir)\System.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CheckNetCFRefDir" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(NetCFRefDir)\mscorlib.dll')" Text="CF 3.5 reference assemblies missing at $(NetCFRefDir). See docs/netcf-port.md." />
+  </Target>
+
+</Project>

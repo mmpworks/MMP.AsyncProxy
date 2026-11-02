@@ -30,13 +30,23 @@ namespace MMP.AsyncProxy
         {
             // Capture happens here, at the await, on the awaiting thread.
             // That is the only moment we know which context the caller meant.
+#if !NETCF
             SynchronizationContext context = _continueOnCapturedContext ? SynchronizationContext.Current : null;
-            if (context == null)
+            if (context != null)
+            {
+                _promise.RegisterContinuation(delegate { context.Post(delegate { continuation(); }, null); });
+                return;
+            }
+#endif
+            // The Compact Framework has no SynchronizationContext. A thread that wants
+            // continuations back registers an IPostTarget once; see PostTarget.
+            IPostTarget target = _continueOnCapturedContext ? PostTarget.Current : null;
+            if (target == null)
             {
                 _promise.RegisterContinuation(continuation);
                 return;
             }
-            _promise.RegisterContinuation(delegate { context.Post(delegate { continuation(); }, null); });
+            _promise.RegisterContinuation(delegate { target.Post(continuation); });
         }
 
         public T GetResult()

@@ -86,7 +86,7 @@ namespace MMP.AsyncProxy.Tests
             ret.Value = source.Result.Length;
         }
 
-        [Fact]
+        [DesktopFact("ExecutionContext")]
         public void ExecutionContext_flows_across_the_await()
         {
             CallContext.LogicalSetData("tenant", "acme");
@@ -108,7 +108,7 @@ namespace MMP.AsyncProxy.Tests
             ret.Value = CallContext.LogicalGetData("tenant");
         }
 
-        [Fact]
+        [DesktopFact("SynchronizationContext")]
         public void Continuation_posts_back_to_the_captured_SynchronizationContext()
         {
             var context = new RecordingContext();

@@ -223,8 +223,13 @@ namespace MMP.AsyncProxy
         /// </summary>
         private static void PreserveStackTrace(Exception exception)
         {
+#if NETCF
+            // The Compact Framework has no Exception.Data, so the first trace is lost on
+            // the rethrow. README known limit 1 says so for this target.
+#else
             if (exception.Data.Contains(OriginalStackTraceKey)) return;
             exception.Data[OriginalStackTraceKey] = exception.StackTrace;
+#endif
         }
 
         private static InvalidOperationException AlreadyCompleted()
