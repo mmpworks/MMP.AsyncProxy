@@ -50,7 +50,7 @@ Quick stop for the word. A **thread** is one worker inside a program. A program 
 
 (A **serial line** is a wire that sends one thing at a time, like a one-lane road.)
 
-(The **forecourt** is the paved area of a gas station where the pumps sit. The **forecourt controller** is the station's computer that looks after every pump out there. The pump itself only runs the nozzle and counts fuel. It does not handle money. So when a card is tapped, the pump asks the controller, and the controller asks the bank.)
+(The **forecourt** is the paved area of a gas station where the pumps sit. The **forecourt controller** is the station's computer that looks after every pump out there. The pump itself only runs the nozzle and counts fuel. It does not handle money. So when a card is tapped, the pump asks the controller, and the controller asks the bank. There is usually one controller for the whole station, not one per pump. Every dispenser on every island is a numbered fueling position on a shared wire, and the controller talks to them all. To keep the story simple, Kevin's board is drawn with a wire of its own.)
 
 ```mermaid
 flowchart LR
