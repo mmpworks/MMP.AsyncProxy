@@ -194,7 +194,7 @@ The training track's pipeline went from 1.8 KB per item to about 300 bytes with 
 
 ## Continuations off your stack
 
-By default `SetResult` runs every waiting continuation on the calling thread before it returns. When the completer holds a lock, sits on a deep stack, or has a deadline, build the promise with `new Promise<T>(true)` and continuations go to the thread pool instead.
+By default `SetResult` runs every waiting continuation on the calling thread before it returns. When the completer holds a lock, sits on a deep stack, or has a deadline, build the promise with `new Promise<T>(PromiseOptions.RunContinuationsAsynchronously)` and continuations go to the thread pool instead.
 
 ## Faults and stacks
 

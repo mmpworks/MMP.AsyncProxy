@@ -62,7 +62,7 @@ namespace MMP.AsyncProxy.Forecourt
 
         private IEnumerable<IFuture> AuthorizeBody(string card, int timeoutMs, Return<string> ret)
         {
-            Promise<string> reply = new Promise<string>(true);
+            Promise<string> reply = new Promise<string>(PromiseOptions.RunContinuationsAsynchronously);
             Action<string> onData = delegate(string text) { reply.TrySetResult(text); };
             _link.DataReceived += onData;
             try

@@ -72,7 +72,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
                 {
                     _held = item;                       // full: hold the item at the door, hand out an IOU
                     _holding = true;
-                    _waitingPutter = new Promise<bool>(true);
+                    _waitingPutter = new Promise<bool>(PromiseOptions.RunContinuationsAsynchronously);
                     return _waitingPutter.Future;
                 }
             }
@@ -121,7 +121,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
             T item;
             if (TryTake(out item))
             {
-                Promise<T> ready = new Promise<T>(true);
+                Promise<T> ready = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
                 ready.SetResult(item);
                 return ready.Future;
             }
@@ -129,7 +129,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
             {
                 if (_items.Count > 0 || _holding) return TakeAsync();   // an item landed between the two calls
                 if (_closed) return Cancelled();
-                _waitingTaker = new Promise<T>(true);   // empty: hand out an IOU
+                _waitingTaker = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);   // empty: hand out an IOU
                 return _waitingTaker.Future;
             }
         }
@@ -152,7 +152,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 
         private static IFuture<T> Cancelled()
         {
-            Promise<T> p = new Promise<T>(true);
+            Promise<T> p = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
             p.SetCanceled();
             return p.Future;
         }

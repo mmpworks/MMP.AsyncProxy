@@ -92,12 +92,12 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
             {
                 if (_slips.Count > 0)
                 {
-                    Promise<T> ready = new Promise<T>(true);
+                    Promise<T> ready = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
                     ready.SetResult(_slips.Dequeue());
                     return ready.Future;
                 }
                 if (_closed) return Cancelled();
-                _waiting = new Promise<T>(true);
+                _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
                 return _waiting.Future;
             }
         }
@@ -109,7 +109,7 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
 
         private static IFuture<T> Cancelled()
         {
-            Promise<T> p = new Promise<T>(true);
+            Promise<T> p = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
             p.SetCanceled();
             return p.Future;
         }

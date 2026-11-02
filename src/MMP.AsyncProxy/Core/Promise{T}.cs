@@ -14,8 +14,9 @@ namespace MMP.AsyncProxy
     ///
     /// When you call SetResult, the callbacks run right there, on your thread,
     /// before SetResult returns. TaskCompletionSource does the same by default.
-    /// Build it with runContinuationsAsync = true and they go to the pool instead,
-    /// which is TaskCreationOptions.RunContinuationsAsynchronously in .NET 4.6.
+    /// Build it with PromiseOptions.RunContinuationsAsynchronously and they go to the
+    /// thread pool instead, which is TaskCreationOptions.RunContinuationsAsynchronously
+    /// in .NET 4.6.
     /// </summary>
     public sealed class Promise<T>
     {
@@ -34,17 +35,26 @@ namespace MMP.AsyncProxy
         private ManualResetEvent _done;
         private readonly Future<T> _future;
 
-        public Promise() : this(false) { }
+        public Promise() : this(PromiseOptions.None) { }
 
         /// <summary>
-        /// Pass true when the completer must never run someone else's code on its
-        /// own stack. A lock holder, a deep chain, or a thread with a deadline.
+        /// Pass PromiseOptions.RunContinuationsAsynchronously when the completer must
+        /// never run someone else's code on its own stack. A lock holder, a deep chain,
+        /// or a thread with a deadline.
         /// </summary>
-        public Promise(bool runContinuationsAsync)
+        public Promise(PromiseOptions options)
         {
-            _runContinuationsAsync = runContinuationsAsync;
+            _runContinuationsAsync = (options & PromiseOptions.RunContinuationsAsynchronously) != 0;
             _future = new Future<T>(this);
         }
+
+        /// <summary>
+        /// The original spelling, kept so existing callers still build. true means
+        /// PromiseOptions.RunContinuationsAsynchronously. Prefer the options overload:
+        /// <c>new Promise&lt;T&gt;(true)</c> does not say what the true is for.
+        /// </summary>
+        public Promise(bool runContinuationsAsync)
+            : this(runContinuationsAsync ? PromiseOptions.RunContinuationsAsynchronously : PromiseOptions.None) { }
 
         /// <summary>The view to give away. Same one every time, so reference equality works on it.</summary>
         public IFuture<T> Future { get { return _future; } }

@@ -54,7 +54,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 | 7 | Iterator result | `AsyncProxy.Run<T>(Func<Return<T>, IEnumerable<IFuture>>)`. The body sets `ret.Value`. | An iterator cannot `return` a value. A typed box is the smallest shape that says what it does. |
 | 8 | Iterator fault handling | A faulted yielded future faults the whole operation. The body cannot `catch` it. | Same as real `await` propagation. A body that must handle a step's fault yields `Futures.Observe(f)`, then reads `f.IsFaulted`. Built in slice 2. |
 | 9 | Cancellation | `CancelSource` and `CancelToken`, cooperative. A `FutureCanceledException` escaping a body ends the future Canceled, not Faulted. | .NET 3.5 lacks `CancellationToken`. The builder maps `OperationCanceledException` to Canceled the way the real one does. Built in slice 2. |
-| 11 | Continuation thread option | `new Promise<T>(true)` queues continuations to the pool | The `RunContinuationsAsynchronously` stand-in. Default stays inline to match `TaskCompletionSource`. Built in slice 2. |
+| 11 | Continuation thread option | `new Promise<T>(PromiseOptions.RunContinuationsAsynchronously)` queues continuations to the pool | The `RunContinuationsAsynchronously` stand-in. Default stays inline to match `TaskCompletionSource`. Built in slice 2. |
 | 10 | Licence and repo | MIT, `mmpworks/MMP.AsyncProxy`, created private, Steve flips to public | Public creation is gated. Private creation is free. |
 
 ## Program design
@@ -77,7 +77,7 @@ Build order:
    Same day: `Futures.FromAsync` with a real async `FileStream` test, the comparison console, the
    eight-chapter course in `docs/course/`, `docs/sdk.md`, NuGet pack metadata, comment pass in the
    two-developers voice.
-2. Slice 2 (done 2026-10-31): `WhenAny`, `Observe`, `Promise(runContinuationsAsync)`, `CancelSource`/`CancelToken`,
+2. Slice 2 (done 2026-10-31): `WhenAny`, `Observe`, `Promise(PromiseOptions.RunContinuationsAsynchronously)`, `CancelSource`/`CancelToken`,
    `Delay` and `Run` with a token, canceled iterators end Canceled, `docs/compiler-vs-handwritten.md` from
    `ilspycmd` with `tools/decompile.ps1`. Tests 50 of 50.
 3. Slice 3: README for public release, NETCF notes, Steve's publish decision.

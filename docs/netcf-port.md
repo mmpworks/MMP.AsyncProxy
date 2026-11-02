@@ -27,7 +27,7 @@ Output on 2026-11-02:
 |---|---|---|---|
 | `System.Threading.ExecutionContext` | | MISSING | `AsyncMethodBuilder<T>.AwaitOnCompleted` |
 | `System.Threading.SynchronizationContext` | | MISSING | `FutureAwaiter<T>.OnCompleted` |
-| `System.Threading.ThreadPool` | `QueueUserWorkItem` | present | `Promise<T>` with `runContinuationsAsync`, `Futures.Run` |
+| `System.Threading.ThreadPool` | `QueueUserWorkItem` | present | `Promise<T>` with `PromiseOptions.RunContinuationsAsynchronously`, `Futures.Run` |
 | `System.Threading.ThreadPool` | `SetMaxThreads` | present | the CE budget |
 | `System.Threading.Timer` | ctor, `Dispose`, `Change` | present | `Futures.Delay` |
 | `System.Threading.ManualResetEvent` | | present | `Promise<T>.Wait` |

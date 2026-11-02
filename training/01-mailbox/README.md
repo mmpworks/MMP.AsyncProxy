@@ -66,12 +66,12 @@ lock (_gate)
 {
     if (_slips.Count > 0)
     {
-        Promise<T> ready = new Promise<T>(true);
+        Promise<T> ready = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
         ready.SetResult(_slips.Dequeue());    // a slip was waiting: the future is already done
         return ready.Future;
     }
     if (_closed) return Cancelled();
-    _waiting = new Promise<T>(true);          // empty: hand out an IOU
+    _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);          // empty: hand out an IOU
     return _waiting.Future;
 }
 ```
@@ -134,7 +134,7 @@ Line by line, here is what moved:
 |---|---|---|
 | `new Thread(Loop).Start()` | `AsyncProxy.Run(Loop())` | The library drives the loop; no thread is reserved for it |
 | `bool TakeBlocking(out T slip)` | `IFuture<T> TakeAsync()` | A blocking call becomes a future you can park on |
-| `Monitor.Wait(_gate)` | `_waiting = new Promise<T>(true)` | The parked thread becomes a promise the next post pays |
+| `Monitor.Wait(_gate)` | `_waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously)` | The parked thread becomes a promise the next post pays |
 | `Monitor.Pulse(_gate)` | `wake.TrySetResult(slip)` | A kernel wake-up becomes a pool work item |
 | `while (TakeBlocking(out slip))` | `yield return Futures.Observe(next)` | The sleep becomes a bookmark |
 | `_thread.Join(2000)` | an `OnCompleted` callback on the loop's future and `WaitOne(2000)` | Waiting for the clerk to go home, with a bound either way |
