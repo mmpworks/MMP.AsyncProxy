@@ -16,11 +16,15 @@
 
 "Does CE have that bag?"
 
-Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. So on your box, the bag is off the table, and you do the first fix. Which is the better fix anyway. The sale object already has the sale id in it. Pass the sale."
+Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pulled the 3.5 assemblies and looked. So on your box, the bag is off the table, and you do the first fix. Which is the better fix anyway. The sale object already has the sale id in it. Pass the sale."
 
 "And the display thread? It's the one thread I'm keeping. It owns the LCD."
 
-"That one gets the other context. `SynchronizationContext`. It's how a continuation says, run me back on the thread that owns the controls. WinForms sets one up on the UI thread. If your display loop is a plain thread you wrote, you make a tiny one yourself: a queue the display thread drains. The awaiter captures it and posts the continuation back. In 4.5 the switch for that is `ConfigureAwait`. Here it's `ContinueOnAnyThread`, and your pulser loop should use it, because the pulser loop has no business bouncing to the display thread to compare two numbers."
+"That one gets the other context. `SynchronizationContext`. It's how a continuation says, run me back on the thread that owns the controls. WinForms sets one up on the UI thread on the desktop. In 4.5 the switch for it is `ConfigureAwait`. Here it's `ContinueOnAnyThread`, and your pulser loop should use it, because the pulser loop has no business bouncing to the display thread to compare two numbers."
+
+"Does CE have that one?"
+
+"No. Same look, same answer. CF 3.5 has neither context. So the port gets a small interface of its own, one method, post this to my thread, and your display loop implements it with a queue it drains. The awaiter captures that instead. It's the one design decision in the port, and it's written down in `docs/netcf-port.md` with the rest of what the assemblies do and don't have."
 
 "Two contexts."
 

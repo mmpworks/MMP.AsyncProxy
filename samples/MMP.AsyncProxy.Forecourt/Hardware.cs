@@ -12,12 +12,17 @@ namespace MMP.AsyncProxy.Forecourt
     {
         private int _pulses;
 
-        public int Pulses { get { return Thread.VolatileRead(ref _pulses); } }
+        // Interlocked.CompareExchange with no change is the volatile read the Compact Framework has.
+        // Thread.VolatileRead is not in its mscorlib; the audit in docs/netcf-port.md lists what is.
+        public int Pulses { get { return Interlocked.CompareExchange(ref _pulses, 0, 0); } }
 
         /// <summary>The test's hand on the flow. The nozzle is open and fuel is moving.</summary>
         public void Pulse(int count)
         {
-            Interlocked.Add(ref _pulses, count);
+            // Interlocked.Add is missing on the Compact Framework too. A compare-and-swap loop is the same add.
+            int seen;
+            do { seen = _pulses; }
+            while (Interlocked.CompareExchange(ref _pulses, seen + count, seen) != seen);
         }
     }
 
@@ -28,7 +33,7 @@ namespace MMP.AsyncProxy.Forecourt
     public sealed class Valve
     {
         private int _open;
-        public bool IsOpen { get { return Thread.VolatileRead(ref _open) == 1; } }
+        public bool IsOpen { get { return Interlocked.CompareExchange(ref _open, 0, 0) == 1; } }
         public void Open() { Interlocked.Exchange(ref _open, 1); }
         public void Close() { Interlocked.Exchange(ref _open, 0); }
     }

@@ -38,7 +38,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 1. No `ValueTask`, no `IAsyncEnumerable`, no async streams.
 2. No PLINQ or `Parallel.For`.
 3. No source generator or Fody weaver that writes the machine for you. The point is to see it.
-4. No .NET Compact Framework build in slice 1 to 3. The code avoids `Monitor.Wait` and `Monitor.Pulse` so a NETCF port stays possible. A CE port is slice 4 and needs a device or emulator.
+4. No .NET Compact Framework build in slice 1 to 3. The code avoids `Monitor.Wait` and `Monitor.Pulse` so a NETCF port stays possible. A CE port is slice 4 and needs a device or emulator. Audited 2026-11-02 against the CF 3.5 reference assemblies: `docs/netcf-port.md` lists what is missing (`ExecutionContext`, `SynchronizationContext`, `Exception.Data`, `Interlocked.Add`, `Thread.VolatileRead`, `Monitor.Wait`) and the five changes the port makes.
 5. No `ExceptionDispatchInfo`. .NET 3.5 lacks it. See decision 6.
 
 ## Decisions
