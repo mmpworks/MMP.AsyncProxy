@@ -105,16 +105,23 @@ namespace MMP.AsyncProxy
 
         public void Wait()
         {
+            Wait(Timeout.Infinite);
+        }
+
+        /// <summary>True when the promise completed before the time ran out.</summary>
+        public bool Wait(int millisecondsTimeout)
+        {
             // The event is made on first use. Most futures are awaited, never waited on,
             // so most of them never pay for a kernel handle.
             ManualResetEvent handle;
             lock (_gate)
             {
-                if (_status != FutureStatus.Pending) return;
+                if (_status != FutureStatus.Pending) return true;
                 if (_done == null) _done = new ManualResetEvent(false);
                 handle = _done;
             }
-            handle.WaitOne();
+            // The two-argument overload is the one the Compact Framework has.
+            return handle.WaitOne(millisecondsTimeout, false);
         }
 
         public IAwaiter<T> GetAwaiter()

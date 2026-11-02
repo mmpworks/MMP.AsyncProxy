@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace MMP.AsyncProxy.Training.Pipeline.Async
@@ -24,13 +25,39 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 
         public PromiseTray(int capacity) { _capacity = capacity; }
 
-        /// <summary>True when the item went in (now or once there was room); false if the tray closed first.</summary>
+        /// <summary>
+        /// The fast path in: true when the item went in now, with no promise made. False
+        /// when the tray is full or closed, and then the producer calls PutAsync. A stage
+        /// tries this first, the way a Channel writer tries TryWrite before it waits.
+        /// </summary>
+        public bool TryPut(T item)
+        {
+            Promise<T> wakeTaker = null;
+            lock (_gate)
+            {
+                if (_closed || _holding) return false;
+                if (_waitingTaker != null) { wakeTaker = _waitingTaker; _waitingTaker = null; }
+                else if (_items.Count < _capacity) { _items.Enqueue(item); return true; }
+                else return false;
+            }
+            wakeTaker.TrySetResult(item);               // outside the lock
+            return true;
+        }
+
+        /// <summary>
+        /// True when the item went in (now or once there was room); false if the tray
+        /// closed first. The decision to park is taken under the same lock as the check
+        /// for a waiting consumer. A first draft checked in one lock and parked in a
+        /// second, and a consumer that drained the tray and parked in between left both
+        /// sides waiting on each other; the bench hung on the 10,000th item.
+        /// </summary>
         public IFuture<bool> PutAsync(T item)
         {
             Promise<T> wakeTaker = null;
             lock (_gate)
             {
-                if (_closed) return Done(false);
+                if (_closed) return Futures.False;
+                if (_holding) throw new InvalidOperationException("one producer per tray: an item is already held at the door");
                 if (_waitingTaker != null)
                 {
                     wakeTaker = _waitingTaker;          // the consumer is waiting: hand it straight over
@@ -39,7 +66,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
                 else if (_items.Count < _capacity)
                 {
                     _items.Enqueue(item);
-                    return Done(true);
+                    return Futures.True;                // shared, so the common case allocates nothing
                 }
                 else
                 {
@@ -50,14 +77,16 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
                 }
             }
             wakeTaker.TrySetResult(item);               // outside the lock
-            return Done(true);
+            return Futures.True;
         }
 
-        /// <summary>The next item, now or when one arrives. Cancelled when the tray is closed and drained.</summary>
-        public IFuture<T> TakeAsync()
+        /// <summary>
+        /// The fast path out: true with the next item when one is there, with no promise
+        /// made. Taking one may let the held item in and pay the producer's IOU.
+        /// </summary>
+        public bool TryTake(out T item)
         {
             Promise<bool> wakePutter = null;
-            T item;
             lock (_gate)
             {
                 if (_items.Count > 0)
@@ -80,17 +109,29 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
                     wakePutter = _waitingPutter;
                     _waitingPutter = null;
                 }
-                else if (_closed) return Cancelled();
-                else
-                {
-                    _waitingTaker = new Promise<T>(true);   // empty: hand out an IOU
-                    return _waitingTaker.Future;
-                }
+                else { item = default(T); return false; }
             }
             if (wakePutter != null) wakePutter.TrySetResult(true);
-            Promise<T> ready = new Promise<T>(true);
-            ready.SetResult(item);
-            return ready.Future;
+            return true;
+        }
+
+        /// <summary>The next item, now or when one arrives. Cancelled when the tray is closed and drained.</summary>
+        public IFuture<T> TakeAsync()
+        {
+            T item;
+            if (TryTake(out item))
+            {
+                Promise<T> ready = new Promise<T>(true);
+                ready.SetResult(item);
+                return ready.Future;
+            }
+            lock (_gate)
+            {
+                if (_items.Count > 0 || _holding) return TakeAsync();   // an item landed between the two calls
+                if (_closed) return Cancelled();
+                _waitingTaker = new Promise<T>(true);   // empty: hand out an IOU
+                return _waitingTaker.Future;
+            }
         }
 
         /// <summary>No more puts. A waiting consumer is woken with a cancel once the tray is drained.</summary>
@@ -107,13 +148,6 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
             }
             if (wakeTaker != null) wakeTaker.TrySetCanceled();
             if (wakePutter != null) wakePutter.TrySetResult(false);
-        }
-
-        private static IFuture<bool> Done(bool value)
-        {
-            Promise<bool> p = new Promise<bool>(true);
-            p.SetResult(value);
-            return p.Future;
         }
 
         private static IFuture<T> Cancelled()

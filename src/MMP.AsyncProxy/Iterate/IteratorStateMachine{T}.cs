@@ -61,7 +61,12 @@ namespace MMP.AsyncProxy
                     IFuture step = _steps.Current;
                     if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
 
-                    // Fast path: the future is already done, so no suspend. Keep going in this loop.
+                    // Fast path: the future already succeeded, so no suspend and no awaiter. Asking
+                    // the future directly skips boxing a FutureAwaiter struct into IAwaiter, which
+                    // the first version paid on every step, done or not. A step that settled in a
+                    // fault or a cancel takes the awaiter path below so GetResult can throw.
+                    if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;
+
                     IAwaiter awaiter = step.GetAwaiter();
                     if (awaiter.IsCompleted)
                     {

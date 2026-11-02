@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MMP.AsyncProxy.Training.Deadline;
+using MMP.AsyncProxy.Training.Deadline.Threaded;
 using MMP.AsyncProxy.Training.Support;
 using Xunit;
 
@@ -116,15 +117,13 @@ public class DeadlineContractTests
     [Fact]
     public void Fifty_abandoned_threaded_attempts_leave_fifty_threads_behind()
     {
-        using var caller = Callers.Open("threaded");
-        Thread.Sleep(300);                                       // let the pool shed what the last test added, so "before" is a floor
-        var before = Process.GetCurrentProcess().Threads.Count;
+        var caller = new ThreadPerAttemptCaller();
         for (var i = 0; i < 50; i++) caller.Call(new FlakyService(Never), timeoutMs: 5, maxAttempts: 1, new GiveUp());
+        Thread.Sleep(200);
         // Each abandoned attempt is a thread parked inside Ask with nothing to wake it. They are
         // background threads, so the process can still exit; until then they are gone for good.
-        var deadline = DateTime.UtcNow.AddSeconds(3);
-        while (Process.GetCurrentProcess().Threads.Count - before < 45 && DateTime.UtcNow < deadline) Thread.Sleep(10);
-        var after = Process.GetCurrentProcess().Threads.Count;
-        Assert.True(after - before >= 45, $"only {after - before} threads stayed behind after 50 abandoned attempts");
+        // The caller counts its own threads, because the process count also moves as the pool
+        // retires the threads earlier tests made it add, and that noise once hid the leak.
+        Assert.Equal(50, caller.ParkedAttempts);
     }
 }

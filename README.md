@@ -95,7 +95,9 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 | `ContinueOnAnyThread()` | `ConfigureAwait(false)` | Skip the `SynchronizationContext` post-back |
 | `Futures.Delay`, `Run`, `WhenAll`, `FromResult` | `Task.Delay`, `Run`, `WhenAll`, `FromResult` | Factories and combinators |
 | `Futures.FromAsync` | `Task.Factory.FromAsync` | Wraps a Begin/End pair so OS I/O completes the future |
-| `Futures.WhenAny`, `Observe` | `Task.WhenAny`, no direct match | First to finish; a wrapper that never throws so a body can inspect a step |
+| `Futures.WhenAny`, `Observe` | `Task.WhenAny`, no direct match | First to finish; a wrapper that never throws so a body can inspect a step. `Observe` of a settled future is the shared `Completed` |
+| `IFuture.Wait(int)` | `Task.Wait(int)` | Park with a bound; true when the answer came in time |
+| `Futures.True`, `Futures.False` | `Task.FromResult(true)`, cached | Shared completed yes-or-no answers, so a fast path allocates nothing |
 | `CancelSource`, `CancelToken` | `CancellationTokenSource`, `CancellationToken` | Cooperative cancel. `Delay` and `Run` take a token |
 | `new Promise<T>(true)` | `TaskCreationOptions.RunContinuationsAsynchronously` | Continuations go to the pool instead of the completer's stack |
 | `AsyncProxy.Run` | the C# 5 compiler | Drives an iterator as an async method |
@@ -104,7 +106,7 @@ Context flows the way the real one does. The builder captures `ExecutionContext`
 
 ## Where no thread is used
 
-`Futures.Delay` is a `System.Threading.Timer`. `await` on it holds no thread. The timer fires, the pool runs `MoveNext`, and the method continues. `Futures.FromAsync` wraps `BeginRead`/`EndRead`, so a file or socket read is done by the OS and completes through an I/O completion port. `Futures.Run` is the one place a thread is used, because CPU work needs one.
+`Futures.Delay` is an entry on one shared timer (`DelayWheel`): every delay in the process rides one `System.Threading.Timer`, and each completion runs as its own pool work item. `await` on it holds no thread. The timer fires, the pool runs `MoveNext`, and the method continues. `Futures.FromAsync` wraps `BeginRead`/`EndRead`, so a file or socket read is done by the OS and completes through an I/O completion port. `Futures.Run` is the one place a thread is used, because CPU work needs one.
 
 Run `samples/MMP.AsyncProxy.Comparison` to see it. 2000 requests that each wait 200 ms: a thread per request peaked at 1357 threads, the state machines did the same work at 33 threads, which is the idle count.
 
@@ -127,7 +129,7 @@ dotnet test MMP.AsyncProxy.slnx
 
 The library and samples compile for `net35` with `LangVersion` 3. The tests run on `net48` and load the `net35` binaries. Three tests pin that: the assembly under test has CLR header `v2.0.50727` and no `TargetFrameworkAttribute`.
 
-Last run, 2026-10-31: 50 tests, 50 passed.
+Last run, 2026-11-02: 67 tests, 67 passed. The training track adds 49 on net48 and 73 on net10.0 under `training/`.
 
 `dotnet pack src/MMP.AsyncProxy -c Release` builds the NuGet package into `artifacts/`.
 

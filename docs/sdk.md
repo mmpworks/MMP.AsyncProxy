@@ -96,6 +96,14 @@ future.Wait();
 Console.WriteLine(future.Result);
 ```
 
+With a bound, the way `Task.Wait(int)` has one. True when the answer came in time:
+
+```csharp
+if (!future.Wait(2000)) log.Warn("still waiting after two seconds");
+```
+
+Never poll `IsCompleted` in a `Thread.Sleep(1)` loop instead. On Windows a one millisecond sleep is a 15 ms timer tick, and the training track's first clerk took fifteen seconds to stop a thousand workers that way.
+
 Or hang a callback on it and move on:
 
 ```csharp
@@ -165,6 +173,24 @@ static IEnumerable<IFuture> Poll(CancelToken token)
 ```
 
 A method that ends by throwing `FutureCanceledException` completes its future as Canceled. Callers that await it get the same exception. `Register` on a token runs a callback at cancel time; dispose the handle to take it back.
+
+## The fast path costs nothing
+
+An iterator step that is already complete never parks and never allocates an awaiter. `Futures.Observe` of a settled future returns the shared `Futures.Completed`. A yes-or-no step answers with `Futures.True` or `Futures.False`, which are shared. So a queue or tray written for this library should offer a synchronous `TryTake` or `TryPut` beside its `TakeAsync` or `PutAsync`, and a loop should try first and yield only when the try fails:
+
+```csharp
+T item;
+if (!tray.TryTake(out item))
+{
+    IFuture<T> next = tray.TakeAsync();
+    yield return Futures.Observe(next);
+    if (next.IsCanceled) yield break;
+    item = next.Result;
+}
+Handle(item);
+```
+
+The training track's pipeline went from 1.8 KB per item to about 300 bytes with that one change.
 
 ## Continuations off your stack
 

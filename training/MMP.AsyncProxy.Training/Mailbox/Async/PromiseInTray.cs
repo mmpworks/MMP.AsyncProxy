@@ -66,10 +66,25 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
         }
 
         /// <summary>
-        /// The clerk's await. If a slip is queued the future is already complete,
-        /// so the clerk's loop keeps going without parking: that is the fast path,
-        /// and it allocates one promise. If the tray is empty the future is pending
-        /// and the clerk parks on it. If the tray is closed the future is cancelled.
+        /// The fast path. A slip that is already queued comes out with no promise, no
+        /// future, and no park. The clerk tries this first and only awaits when it
+        /// fails, the way a Channel reader tries TryRead before it waits. The first
+        /// draft awaited every time and paid two objects per slip for a value it had.
+        /// </summary>
+        internal bool TryTake(out T slip)
+        {
+            lock (_gate)
+            {
+                if (_slips.Count > 0) { slip = _slips.Dequeue(); return true; }
+                slip = default(T);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// The clerk's await, for when TryTake found nothing. If the tray is empty the
+        /// future is pending and the clerk parks on it. If the tray is closed the future
+        /// is cancelled. A slip that landed between the two calls is handed back complete.
         /// </summary>
         internal IFuture<T> TakeAsync()
         {

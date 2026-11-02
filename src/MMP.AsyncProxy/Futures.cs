@@ -8,9 +8,20 @@ namespace MMP.AsyncProxy
     public static class Futures
     {
         private static readonly IFuture CompletedFuture = CreateCompleted();
+        private static readonly IFuture<bool> TrueFuture = FromResult(true);
+        private static readonly IFuture<bool> FalseFuture = FromResult(false);
 
         /// <summary>A future that was done before you asked. Awaiting it never suspends.</summary>
         public static IFuture Completed { get { return CompletedFuture; } }
+
+        /// <summary>
+        /// Completed futures for the two answers a yes-or-no step gives. A tray that
+        /// says "it went in" on the fast path hands one of these back and allocates
+        /// nothing, where a fresh promise and future cost two objects per call. The
+        /// training track's pipeline paid that twice per item before these existed.
+        /// </summary>
+        public static IFuture<bool> True { get { return TrueFuture; } }
+        public static IFuture<bool> False { get { return FalseFuture; } }
 
         public static IFuture<T> FromResult<T>(T value)
         {
@@ -60,24 +71,21 @@ namespace MMP.AsyncProxy
                 promise.SetResult();
                 return promise.Future;
             }
-            // The callback needs the timer to dispose it, and the timer needs the
-            // callback to exist. A one-slot array breaks the chicken-and-egg.
-            Timer[] holder = new Timer[1];
-            IDisposable[] registration = new IDisposable[1];
-            holder[0] = new Timer(delegate
+            // One shared timer for every delay, not a Timer per call. The first version
+            // made a System.Threading.Timer here and disposed it in its own callback; two
+            // hundred of those firing on one tick took the timer queue's lock two hundred
+            // times and the .NET 10 pool read it as starvation and added fifty threads.
+            // The wheel fires once per due time and queues each completion to the pool.
+            DelayWheel.Entry entry = DelayWheel.Add(milliseconds, promise);
+            if (token.CanBeCanceled)
             {
-                Timer t = holder[0];
-                if (t != null) t.Dispose();
-                IDisposable r = registration[0];
-                if (r != null) r.Dispose();
-                promise.TrySetResult();
-            }, null, milliseconds, Timeout.Infinite);
-            registration[0] = token.Register(delegate
-            {
-                Timer t = holder[0];
-                if (t != null) t.Dispose();
-                promise.TrySetCanceled();
-            });
+                IDisposable registration = token.Register(delegate
+                {
+                    DelayWheel.Remove(entry);
+                    promise.TrySetCanceled();
+                });
+                entry.Registration = registration;
+            }
             return promise.Future;
         }
 
@@ -113,6 +121,10 @@ namespace MMP.AsyncProxy
         public static IFuture Observe(IFuture future)
         {
             if (future == null) throw new ArgumentNullException("future");
+            // Already settled, in any state: there is nothing to wait for, so hand back
+            // the shared completed future and allocate nothing. A mailbox loop whose
+            // next item was already queued takes this path on every item.
+            if (future.IsCompleted) return CompletedFuture;
             Promise promise = new Promise();
             future.ContinueOnAnyThread().OnCompleted(delegate { promise.TrySetResult(); });
             return promise.Future;
