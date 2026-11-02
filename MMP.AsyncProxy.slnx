@@ -6,6 +6,7 @@
     <Project Path="samples/MMP.AsyncProxy.Samples/MMP.AsyncProxy.Samples.csproj" />
     <Project Path="samples/MMP.AsyncProxy.Comparison/MMP.AsyncProxy.Comparison.csproj" />
     <Project Path="samples/MMP.AsyncProxy.CompilerReference/MMP.AsyncProxy.CompilerReference.csproj" />
+    <Project Path="samples/MMP.AsyncProxy.Forecourt/MMP.AsyncProxy.Forecourt.csproj" />
   </Folder>
   <Folder Name="/training/">
     <Project Path="training/MMP.AsyncProxy.Training/MMP.AsyncProxy.Training.csproj" />

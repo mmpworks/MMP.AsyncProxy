@@ -2,10 +2,13 @@
 
 A short course. Ten chapters, each one a conversation between two developers after hours, going over how the machine works. Code is from this repo, so you can open the file next to the chapter and step through it.
 
+The two developers are Steve and Kevin. Kevin keeps the firmware for a fuel dispenser: Windows CE 6, .NET Compact Framework 3.5, the Visual Studio 2008 compiler, four threads, and a box with 64 MB. They meet for wings. Each chapter opens at the table, where Kevin asks what a working engineer would ask and Steve answers with the thing in the chapter. The code Kevin brought (threads) and the code he left with (this library) are in `samples/MMP.AsyncProxy.Forecourt`, built for net35 with C# 3, and `tests/MMP.AsyncProxy.Tests/ForecourtTests.cs` runs both.
+
 You need: a C# compiler of any age, `dotnet` to run the samples, and about two hours.
 
 | # | Chapter | What you leave with |
 |---|---------|---------------------|
+| 0 | [Dinner](00-dinner.md) | Kevin's pump, his four threads, and the problem he brought |
 | 1 | [Why threads hurt](01-why-threads-hurt.md) | Why "one thread per thing" stops scaling, with numbers from this machine |
 | 2 | [Callbacks and promises](02-callbacks-and-promises.md) | The Promise/Future split and why only one side can finish |
 | 3 | [The state machine](03-the-state-machine.md) | What the compiler emits for an `async` method, read line by line |

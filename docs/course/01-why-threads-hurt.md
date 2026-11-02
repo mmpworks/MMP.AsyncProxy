@@ -1,5 +1,33 @@
 # 1. Why threads hurt
 
+## At the table
+
+"Four threads," Steve said, tapping the napkin. "Tell me what each one is doing right now. Not what it's for. What it's doing."
+
+"Right now? Nobody's at the pump. So the pulser thread is asleep. Fifty milliseconds, wake up, read zero pulses, go back to sleep. Card reader thread is blocked on the reader. Serial thread is blocked on a read. Display thread is... sleeping until something changes."
+
+"So four threads and all four are asleep."
+
+"They're waiting. That's the job."
+
+"Sure. And what does a sleeping thread cost you on that board?"
+
+Kevin thought about it. "The stack. CE gives you sixty-four K by default. We bumped the serial one to 256 because it blew up once."
+
+"So a quarter meg for a thread whose whole job is to sit in a read call. Plus the kernel's record of it. Plus the scheduler looks at it every time it goes around the room, decides it's still asleep, moves on. Four threads, fine. You said you're adding a second nozzle, a printer, loyalty. That's eight. Ten. And the fifteen-year-old guy's code makes a thread for every one of them because that's how you did it in 2009."
+
+"That's how you did it in 2009."
+
+"It's how I did it in 1989. Different problem, same mistake. The thread isn't doing the waiting. The UART is doing the waiting. The timer chip is doing the waiting. Your thread is standing next to the hardware so it can be the one who notices when it's done." Steve pulled a wing apart. "What if the thread left, and something else noticed?"
+
+"Something else like what."
+
+"Like a callback. The hardware finishes, it raises a signal, and a pool thread runs one small piece of code: pick up where that method left off. On whatever thread. The method doesn't care."
+
+"Pool thread. On CE."
+
+"The Compact Framework has a thread pool. It's small, because the work items are small." He turned the laptop around. "Here's the shape of what you have, and the shape of what you're going to have."
+
 So here is the thing nobody tells you when you learn threads. A thread is a great tool for doing work. It is a terrible tool for waiting.
 
 ## What a thread costs

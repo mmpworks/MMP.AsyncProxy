@@ -1,5 +1,29 @@
 # 10. Waiting without a thread
 
+## At the table
+
+The wings were gone. Steve ordered pie for both of them without asking and opened a different window on the laptop.
+
+"This is a pump," he said.
+
+It was two of them, side by side. One was green and amber and said Howard's across the top. The other was red and gold and said Samms. Each one had a dispenser on the left, a station on the right, and a wire drawn between them with counters ticking.
+
+"Two stations across the street from each other. Same code, one release apart. The dispenser's a separate process, like your head board. The station's the back office. They talk over TCP the way yours talk over the serial line, with sequence numbers and a heartbeat."
+
+"You built a whole pump."
+
+"I built a whole pump, with the card flow, the hold, the taper, the hard limits, a hash-chained ledger, the works. It's the thing I needed to prove the library on, because a timer and two integers don't convince anybody. Look at this chip." He pointed. `dispatch: threaded`. "Three workers in there. Sale, pump, payment. Each one is your napkin: wait for a message, handle it, wait. It runs them three ways, picked at startup. A thread each, like yours. The C# compiler's `async` machine, with a `Channel`. And this library, with an iterator."
+
+"And they all pass the same tests."
+
+"Same sale, same events, same order, under all three. One test, three rows. The payment worker's bank call is the one place they're allowed to differ, because a 2008 bank library blocks, and under threads that's fine and under the machine it isn't, so there's a flag." Steve scrolled. "This chapter is that pump. What a thread costs, how the mailbox wakes the worker without a thread, where the savings are, and the IL of the compiler's machine next to ours, from this build, so you can see they're the same shape."
+
+Kevin pulled the laptop toward himself.
+
+"Can I run it?"
+
+"It's on GitHub. The training track under it has your two loops, the clerk and the in-tray, written both ways with the tests, and three more after that. Eat your pie."
+
 The first nine chapters built the machine. This one puts it to work on the shape most programs have at their core: a worker that waits for something to do, does it, and waits again. The worked example is MMP.GasPumpSimulator, a forecourt simulator that runs its three workers three different ways. One of those ways is this library. Every piece of it would compile on .NET 3.5.
 
 By the end you will know what a thread costs, how a method can stop in the middle and pick up later, how an empty in-tray wakes a sleeping worker without anyone standing there, and where the saved threads, memory, and CPU cycles go. At the end the machine this library builds sits beside the machine the modern C# compiler builds, down to the IL, so you can see they are the same shape.
