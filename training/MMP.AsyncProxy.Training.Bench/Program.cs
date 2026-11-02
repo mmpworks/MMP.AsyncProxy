@@ -82,5 +82,6 @@ internal static class Rows
     public static IEnumerable<BenchRow> All(int n)
     {
         foreach (var row in MailboxRows.For(n)) yield return row;
+        foreach (var row in FanOutRows.For(n)) yield return row;
     }
 }
