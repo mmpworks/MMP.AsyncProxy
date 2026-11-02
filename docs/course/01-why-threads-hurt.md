@@ -2,7 +2,7 @@
 
 ## At the table
 
-The wings were halfway to gone. Kevin had finished the first hot one and was making the face of a man who says it's fine. Dee topped off his tea without being asked and Steve's coffee without being asked, and then she looked at the napkin on the table with the four boxes on it and said, "Is that a bomb?" and Steve said, "It's a gas pump," and she said, "Same thing, at your age," and left.
+The wings were not even halfway to gone. Kevin had finished the first hot one and was making the face of a man who says it's fine. Dee topped off his tea and filled Steve's coffee without being asked, and then she looked at the napkin on the table with the four boxes on it and said, "Is that a bomb?" and Steve said, "It's a gas pump," and she said, "Same thing, at your age," and left.
 
 "Four threads," Steve said, tapping the napkin. "Tell me what each one is doing right now. Not what it's *for*. What it's doing, this second."
 
@@ -20,7 +20,7 @@ Kevin thought about it. "The stack. CE gives you sixty-four K by default." He sa
 
 "That's how you did it in 2009."
 
-"It's how I did it in 1989. Different problem, same mistake." Steve ate a wing, wiped his fingers, and slid the napkin around so it faced Kevin. "Here's what I want you to see. The thread isn't doing the waiting. The UART is doing the waiting. The timer chip is doing the waiting. Your thread is standing next to the hardware so it can be the one who *notices* when it's done."
+"It's how I did it in 1989. Different problem, same mistake." Steve ate a wing, wiped his fingers, and slid the napkin around so it faced Kevin. "Here's what I want you to see. The thread isn't doing the waiting. The UART is doing the waiting. The timer chip is doing the waiting. Your thread is standing next to the hardware doing nothing useful in between so it can be the one who *notices* when it's done."
 
 "Somebody's got to notice, bro."
 
