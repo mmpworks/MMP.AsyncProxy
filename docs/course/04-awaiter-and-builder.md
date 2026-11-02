@@ -1,5 +1,31 @@
 # 4. Awaiter and builder
 
+## At the table
+
+"Who calls `MoveNext`," Kevin said. "You keep saying the timer calls it. The timer doesn't know about my box."
+
+"No. Two little helpers in between. Three questions and four calls. That's the protocol."
+
+"Go."
+
+"The thing you're waiting on, the timer, the promise, whatever, has to answer three questions. Are you done. Call me when you are. Give me the answer. That's an awaiter. Anything that can answer those three questions can be awaited, which is why in C# 5 you can await things that have nothing to do with `Task`."
+
+"And the four calls?"
+
+"The builder. It's the machine's assistant. Make the promise for the result. Start the machine. When the machine has to park, hook its `MoveNext` to the awaiter's call-me. When the machine finishes, put the result in the promise." Steve counted them off on wing bones. "Create, Start, AwaitOnCompleted, SetResult. The real one in 4.5 is `AsyncTaskMethodBuilder` and it has the same four."
+
+"So AwaitOnCompleted is the line where the timer learns about my box."
+
+"It's one line of idea. `awaiter.OnCompleted(machine.MoveNext)`. When you finish, call this. That's `await`. Every other line in that method is carrying context across the gap, which is next."
+
+"And on CE. `System.Threading.Timer` is there?"
+
+"It's there. Compact Framework 2.0 and up. It fires on a pool thread. The pool thread runs `MoveNext` for however long it takes to read a counter and compare it to a ceiling, which is microseconds, and goes back to the pool."
+
+"So the pool thread is the only thread in the whole thing."
+
+"The pool thread is the only thread in the whole thing, and it's shared with everything else, and it's busy for microseconds per wake-up. Watch the arrows." He turned the laptop around to the sequence diagram.
+
 Chapter 3 had two calls we hand-waved: `GetAwaiter()` and `Builder.AwaitOnCompleted(...)`. This chapter is those two calls. Open `Core/FutureAwaiter{T}.cs` and `Builder/AsyncMethodBuilder{T}.cs`.
 
 ## The awaiter: three questions

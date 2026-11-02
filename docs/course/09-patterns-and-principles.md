@@ -1,5 +1,23 @@
 # 9. Patterns and principles
 
+## At the table
+
+"What do I tell my boss," Kevin said. "He's going to ask what this is. He's going to want a name."
+
+"Give him several. None of them are new. Future and promise, 1977 and 1988. Observer. State machine, the table-driven kind. Iterator used as a coroutine. Adapter, three times over. He'll have heard of most of them."
+
+"He's going to ask why I'm pulling a library into certified firmware."
+
+"Then tell him what it is. Seven hundred lines of C# 3. No reflection, no code generation, no unsafe. Every type has the name of the thing in 4.5 it stands in for, so when the hardware finally gets retired and you move to a real runtime, the rename is mechanical. And tell him the thing he actually cares about: the sale machine doesn't change. The hard limits don't change. The pump still owns the valve. Only the waiting changed."
+
+"He'll want to know what it's bad at."
+
+"Three things, and they're in the README. You can't catch a failed step inside an iterator body, you wrap it in `Observe` and look. `yield` can't sit in a `try` with a `catch`. And continuations run on the completer's thread unless you ask for the pool, which you will, every time, because you don't want the UART interrupt running your sale logic."
+
+Kevin wrote three lines on the napkin, under the four threads.
+
+"And CUPID," Steve said. "If he's read Dan North. The chapter holds the code up against it and says where it's short."
+
 We did not sit down and pick patterns. We built the smallest thing that worked and the patterns showed up, because they are the shapes these problems take. This chapter names them after the fact, points at the file each one lives in, and then holds the code up against CUPID, SOLID, and DRY. Where it falls short, we say so.
 
 ## The patterns, by file

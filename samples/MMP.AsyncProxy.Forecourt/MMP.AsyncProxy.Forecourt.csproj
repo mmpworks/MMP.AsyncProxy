@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Kevin's pump head from the dinner in docs/course/00-dinner.md: the code he brought
+         (threads) and the code he left with (AsyncProxy). net35 and C# 3, the same build
+         chain as the Windows CE box in the story. Nothing here uses Monitor.Wait or
+         Monitor.Pulse, so the shape survives a Compact Framework port. -->
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>3</LangVersion>
+    <RootNamespace>MMP.AsyncProxy.Forecourt</RootNamespace>
+    <AssemblyName>MMP.AsyncProxy.Forecourt</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,5 +1,17 @@
 # 8. Exercises
 
+## At the table
+
+"Homework," Steve said.
+
+"I'm forty-one."
+
+"Homework. You've got the pulser loop and the host call. Tonight. Tomorrow you do the card reader thread the same way: the reader raises an event when a card is tapped, so that's a promise, same as the serial reply. Thursday you break it. Pull the lock out of the promise. Run the test a thousand times. Count the continuations that never ran. Then put the lock back and never touch it again."
+
+"Why would I break it on purpose?"
+
+"Because in two years somebody's going to look at that lock and think it's slow and take it out, and you're going to be the one who knows what happens next. The ten below are the ones I'd do. The tests are the answers."
+
 Each one is a small change to the repo. Build, run the tests, see what moved. Answers are not here on purpose; the tests are the answers.
 
 ## 1. Add a third await

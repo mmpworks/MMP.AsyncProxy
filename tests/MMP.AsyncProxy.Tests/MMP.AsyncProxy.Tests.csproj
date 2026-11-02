@@ -28,6 +28,10 @@
     <Reference Include="MMP.AsyncProxy.Samples">
       <HintPath>..\..\samples\MMP.AsyncProxy.Samples\bin\$(Configuration)\net35\MMP.AsyncProxy.Samples.dll</HintPath>
     </Reference>
+    <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Forecourt\MMP.AsyncProxy.Forecourt.csproj" ReferenceOutputAssembly="false" />
+    <Reference Include="MMP.AsyncProxy.Forecourt">
+      <HintPath>..\..\samples\MMP.AsyncProxy.Forecourt\bin\$(Configuration)\net35\MMP.AsyncProxy.Forecourt.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

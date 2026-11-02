@@ -1,5 +1,29 @@
 # 3. The state machine
 
+## At the table
+
+"Okay," Kevin said. "The slot calls the next guy. But the next guy is the middle of a method. My pulser loop is a `while` with a sleep in it. If the thread leaves at the sleep, the loop's gone. The ceiling's gone. It's a local."
+
+"Right. That's the problem. The C# 5 compiler solves it for you, and you have to look at how once to believe it. When the method has to give the thread back, the stack frame dies. So everything that has to survive moves off the stack."
+
+"To where?"
+
+"To an object. Parameters become fields. Locals that have to live across the wait become fields. Where-was-I becomes an int field. The body of the method becomes one method on that object, `MoveNext`, and it starts with a switch on the int that jumps back to the line after the wait."
+
+"That sounds awful to write."
+
+"It is awful to write. I wrote one so you can see it. Sixty lines for a method that's four lines with `await`. You're never going to write one by hand, and neither am I, and chapter 7 is the cheat. But if you don't see this one once, the cheat is magic, and I don't want you shipping magic to a pump."
+
+Kevin pulled the napkin back and drew a box with three fields in it: `ceiling`, `pulser`, `state`.
+
+"So my pulser loop becomes this. A box. And something calls `MoveNext` on it every fifty milliseconds."
+
+"The timer calls it. And between calls the box sits on the heap, forty bytes, and no thread is anywhere near it."
+
+"Forty bytes versus a 64K stack."
+
+"Versus a 64K stack, a kernel object, and a scheduler slot. Yeah."
+
 This is the chapter. If you only read one, read this one with `samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs` open beside it.
 
 ## The method we want

@@ -1,5 +1,56 @@
 # 2. Callbacks and promises
 
+## At the table
+
+"Show me your host call," Steve said. "The serial one."
+
+Kevin opened the bag after all. The method was short. He had written it himself, in 2015, after the original one deadlocked a pump in Tulsa.
+
+```csharp
+public string Authorize(string card, int timeoutMs)
+{
+    string reply = null;
+    using (AutoResetEvent arrived = new AutoResetEvent(false))
+    {
+        Action<string> onData = delegate(string text) { reply = text; arrived.Set(); };
+        _link.DataReceived += onData;
+        try
+        {
+            _link.Send("AUTH " + card);
+            if (!arrived.WaitOne(timeoutMs, false)) return "TIMEOUT";   // the thread is parked here
+            return reply;
+        }
+        finally { _link.DataReceived -= onData; }
+    }
+}
+```
+
+"That's not bad," Steve said again.
+
+"You keep saying that."
+
+"It's not bad. Look at what you built, though. You've got a slot for the answer, `reply`. You've got a signal that says the answer is in the slot, `arrived`. And you've got a thread sitting on the signal. The first two are the right idea. The third one is the problem."
+
+"The thread has to wait somewhere."
+
+"Does it? What does the thread do when `arrived` fires?"
+
+"It... returns `reply`."
+
+"To who?"
+
+"To the sale state machine. Which decides whether to arm the pump."
+
+"So the thread's whole job after the signal is: hand a string to the next guy. What if the slot could hand the string to the next guy itself? You put the answer in the slot and the slot calls whoever was waiting. No thread sitting on an event. Just a list of people to call."
+
+Kevin looked at it. "That's a callback."
+
+"That's a callback with a box around it so you can only put the answer in once, and so the people waiting can't put an answer in themselves. In this library it's called a `Promise`. The read-only half you hand out is a `Future`. In 4.5 it's `TaskCompletionSource` and `Task`. Same split. Your `reply` and your `arrived` are the two halves of a promise, and you built them by hand without knowing it."
+
+"And the thread?"
+
+"Gone. The next guy gets called when the slot fills. We'll get to who calls him. First, the slot."
+
 Open `src/MMP.AsyncProxy/Core/Promise{T}.cs`. That file is the whole chapter.
 
 ## Two halves of one object

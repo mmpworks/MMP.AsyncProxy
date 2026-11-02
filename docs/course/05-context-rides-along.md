@@ -1,5 +1,31 @@
 # 5. Context rides along
 
+## At the table
+
+"Here's one that's going to bite me," Kevin said. "I keep the current sale in a static. `CurrentSale`. The pulser thread sets it when the valve opens, the display thread reads it to draw the gallons. If my pulser loop wakes up on a pool thread now..."
+
+"Is the static thread-static?"
+
+"No. Plain static, with a lock."
+
+"Then you're fine, it's one static and the lock is doing its job. The one that bites is `[ThreadStatic]`. People use it as a cheap per-request bag. The request starts on thread A, sets the tenant, awaits, wakes up on thread B, and thread B's copy of the field is whatever the last request that used thread B left there. You're reading somebody else's card number."
+
+"We don't do that."
+
+"You don't do that yet. The guy before you didn't have pool threads to tempt him. Here's the rule, and it's older than `await`: once your code can wake up on any thread, anything tied to a thread is a bug. Two fixes. Carry it in the object you're already passing around, the sale. Or put it in the bag that travels, which on the desktop is `ExecutionContext`, and the builder captures it at the wait and restores it before `MoveNext`."
+
+"Does CE have that bag?"
+
+Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. So on your box, the bag is off the table, and you do the first fix. Which is the better fix anyway. The sale object already has the sale id in it. Pass the sale."
+
+"And the display thread? It's the one thread I'm keeping. It owns the LCD."
+
+"That one gets the other context. `SynchronizationContext`. It's how a continuation says, run me back on the thread that owns the controls. WinForms sets one up on the UI thread. If your display loop is a plain thread you wrote, you make a tiny one yourself: a queue the display thread drains. The awaiter captures it and posts the continuation back. In 4.5 the switch for that is `ConfigureAwait`. Here it's `ContinueOnAnyThread`, and your pulser loop should use it, because the pulser loop has no business bouncing to the display thread to compare two numbers."
+
+"Two contexts."
+
+"Two contexts, two jobs, one table. Next page."
+
 Chapter 4 ended on "the method wakes up on a different thread." That raises a question any real system has to answer: what happened to the stuff that was on the old thread?
 
 ## The problem

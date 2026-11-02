@@ -1,5 +1,80 @@
 # 7. The iterator trick
 
+## At the table
+
+"I'm not writing that machine by hand," Kevin said. "Chapter 3. I'm not doing it. Not for the pulser, not for the serial call, not for anything that goes in a pump."
+
+"Nobody is. Here's the cheat, and it's the part that makes this work on your compiler." Steve typed for a minute. "C# 2 had `yield return`. Iterators. The compiler takes a method with `yield` in it and builds a class with a state field and a `MoveNext` with a switch. That's chapter 3. It's been doing it since 2005. Your 2008 compiler does it."
+
+"Okay."
+
+"The only thing an iterator can't do is wake itself up. Somebody has to call `MoveNext` again. So the library calls it. You write a method that yields futures, one per thing you'd have awaited, and the driver pulls them one at a time, parks on the ones that aren't done, and calls `MoveNext` when they finish."
+
+He turned the laptop around. Kevin's pulser loop was on the left. The new one was on the right.
+
+```csharp
+// Kevin's: a thread, parked in Sleep
+while (_running)
+{
+    Thread.Sleep(_pollMs);
+    if (_pulser.Pulses / 1000.0 >= ceilingGallons)
+    {
+        _valve.Close();
+        onStopped();
+        return;
+    }
+}
+```
+
+```csharp
+// Steve's: an iterator, parked on a timer
+private IEnumerable<IFuture> PollUntilCeiling(double ceilingGallons)
+{
+    while (!_stop.Token.IsCancelRequested)
+    {
+        yield return Futures.Delay(_pollMs);
+        if (_pulser.Pulses / 1000.0 >= ceilingGallons)
+        {
+            _valve.Close();
+            yield break;
+        }
+    }
+}
+```
+
+Kevin read them side by side for a long time.
+
+"That's the same loop."
+
+"It's the same loop. `yield return` where `Sleep` was. `yield break` where `return` was. The method returns a future instead of needing a callback, so the sale machine awaits it or hangs a continuation on it. And between polls there's no thread. There's a forty-byte object with a 1 in its state field."
+
+"And the serial call?"
+
+"Same move. The reply completes a promise. A timer races it. `WhenAny` says which one won. Body's six lines. It's in the sample."
+
+```csharp
+private IEnumerable<IFuture> AuthorizeBody(string card, int timeoutMs, Return<string> ret)
+{
+    Promise<string> reply = new Promise<string>(true);
+    Action<string> onData = delegate(string text) { reply.TrySetResult(text); };
+    _link.DataReceived += onData;
+    try
+    {
+        _link.Send("AUTH " + card);
+        IFuture<IFuture> first = Futures.WhenAny(reply.Future, Futures.Delay(timeoutMs));
+        yield return first;
+        ret.Value = first.Result == reply.Future ? reply.Future.Result : "TIMEOUT";
+    }
+    finally { _link.DataReceived -= onData; }
+}
+```
+
+"Your `reply` and your `arrived`," Steve said. "Same two halves. The thread's gone. And if the controller never answers, the timer wins, nobody's stuck, and the watchdog never hears about it."
+
+"`yield return` is `await`."
+
+"`yield return` is `await`. Two things you give up, and you need to know them before you lean on it."
+
 So you have read chapter 3 and you are thinking: I am never writing one of those machines by hand for real code. Right. Neither are we. Here is the cheat.
 
 ## C# 2.0 already had a state machine compiler

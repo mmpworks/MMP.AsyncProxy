@@ -1,5 +1,29 @@
 # 6. Threads versus the machine
 
+## At the table
+
+"Numbers," Kevin said. "Before I believe any of this I want numbers."
+
+"Good. You should." Steve had the console up already. "Two thousand requests. Each one waits two hundred milliseconds and adds two numbers. Three ways. Watch the thread column."
+
+The table came up. Kevin read it twice.
+
+"Thirteen hundred threads."
+
+"Thirteen fifty-seven at the peak, for the thread-per-request row. And it worked. Five hundred milliseconds. Row three did the same work in two hundred and change with thirty-three threads, and thirty-three is what this process has sitting idle before the test starts."
+
+"That's a 24-core desktop."
+
+"It's a 24-core desktop. Your box is one ARM core and 64 meg. The numbers will be different. The shape won't. Row one gets worse on your box, not better, because the cost of a thread is a bigger slice of what you have. Run it yourself. It's a console. It builds for net48 so you can run it on a laptop tonight, and it's C# 3 so you can read it."
+
+"What's row two?"
+
+"Row two is the trap. The thread pool, with a sleep inside the work item. It looks like you're using the pool right. You're using it to park threads, which is the one thing it can't do, and it drains at a crawl. We capped it at sixty-four requests so the demo finishes. At two thousand it takes minutes."
+
+Kevin pointed at the napkin. "My pulser thread is row one."
+
+"Your pulser thread is row one with one row. Your serial thread is row one with one row. They're fine at one. You're about to have ten."
+
 Enough theory. Run it.
 
 ```
