@@ -144,7 +144,7 @@ Last run, 2026-10-31: 50 tests, 50 passed.
 
 ## Plan
 
-`docs/prd.md` holds the decisions, the slices, and the acceptance list.
+`docs/prd.md` holds the decisions, the slices, and the acceptance list. `docs/netcf-port.md` is the audit of the library against the .NET Compact Framework 3.5 reference assemblies and the five changes a Windows CE port makes; `tools/netcf-audit.ps1` reruns it.
 
 ## Licence
 
