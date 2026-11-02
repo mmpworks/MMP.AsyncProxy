@@ -35,7 +35,8 @@ New-Item -ItemType Directory -Path $target -Force | Out-Null
 # project name -> the type that holds the machine, on each side. Generic arity is part of the name.
 $machines = @(
     @{ Name = "mailbox"; Iterator = "MMP.AsyncProxy.Training.Mailbox.Async.IteratorClerk``1"; Modern = "MMP.AsyncProxy.Training.Modern.Mailbox.ChannelClerk``1" },
-    @{ Name = "fan-out"; Iterator = "MMP.AsyncProxy.Training.FanOut.WhenAllCourier"; Modern = "MMP.AsyncProxy.Training.Modern.FanOut.TaskCourier" }
+    @{ Name = "fan-out"; Iterator = "MMP.AsyncProxy.Training.FanOut.WhenAllCourier"; Modern = "MMP.AsyncProxy.Training.Modern.FanOut.TaskCourier" },
+    @{ Name = "pipeline"; Iterator = "MMP.AsyncProxy.Training.Pipeline.Async.IteratorLine"; Modern = "MMP.AsyncProxy.Training.Modern.Pipeline.ChannelLine" }
 )
 
 function Decompile($dll, $type, $level, $path) {
