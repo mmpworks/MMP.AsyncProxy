@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The four mini-projects, each written twice: once with threads, once with AsyncProxy.
+         net35 and C# 3, so both versions are code a 2008 team could have shipped. netstandard2.0
+         lets the .NET 10 bench and tests load the same source beside the modern copies. -->
+    <TargetFrameworks>net35;netstandard2.0</TargetFrameworks>
+    <LangVersion>3</LangVersion>
+    <RootNamespace>MMP.AsyncProxy.Training</RootNamespace>
+    <AssemblyName>MMP.AsyncProxy.Training</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" />
+  </ItemGroup>
+
+</Project>
