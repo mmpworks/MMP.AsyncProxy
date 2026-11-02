@@ -50,6 +50,26 @@ Quick stop for the word. A **thread** is one worker inside a program. A program 
 
 (A **serial line** is a wire that sends one thing at a time, like a one-lane road.)
 
+(The **forecourt** is the paved area of a gas station where the pumps sit. The **forecourt controller** is the station's computer that looks after every pump out there. The pump itself only runs the nozzle and counts fuel. It does not handle money. So when a card is tapped, the pump asks the controller, and the controller asks the bank.)
+
+```mermaid
+flowchart LR
+    P["Pump<br/>(Kevin's board)"] -->|"AUTH + card,<br/>over the serial line"| C["Forecourt controller<br/>(the station's computer)"]
+    C -->|"asks for a hold"| B["The bank"]
+    B -->|"yes or no, whenever it answers"| C
+    C -->|"yes or no,<br/>over the serial line"| P
+```
+
+**In words:**
+
+1. Someone taps a card. The pump sends the word AUTH and the card down the serial line to the forecourt controller.
+2. The controller is the only one that talks to the bank. It asks the bank to put a hold on that much money.
+3. The bank answers yes or no. That can take a moment, and sometimes it never comes.
+4. The controller sends the answer back down the serial line to the pump. The pump arms the nozzle or says "declined."
+5. The pump's serial thread is the one waiting for step 4. Kevin's worry is what happens when step 3 or step 4 never arrives.
+
+**Why it matters:** the pump asks a question of somebody else's computer and then has to wait for the answer. A wait on someone else is the job that async is good at, and the whole course is about that wait.
+
 "That's not bad," Steve said.
 
 "It's not bad. It works. It's worked for fifteen years." Kevin pushed the napkin over. "But we're adding a second nozzle per side, and a receipt printer, and a loyalty thing where you scan the app. And every one of those is another thread. And the box has 64 meg."
@@ -141,7 +161,7 @@ The rest of the course is the dinner, with the code running alongside it. Each c
 
 The code Kevin brought (the threads) and the code he left with (this library) are in `samples/MMP.AsyncProxy.Forecourt`. They are built for `net35` with the C# 3 compiler. The tests in `tests/MMP.AsyncProxy.Tests/ForecourtTests.cs` run both versions.
 
-The Compact Framework build is still on the plan, not done. The library keeps `Monitor.Wait` and `Monitor.Pulse` (two older locking tools) out of itself so the port stays possible, and the sample does the same.
+The library also builds against the Compact Framework 3.5 (`src/MMP.AsyncProxy.NetCF`), and Kevin's pump code builds there too. That build is checked on the desktop runtime, not on a real Windows CE board. The library keeps `Monitor.Wait` and `Monitor.Pulse` (two older locking tools the Compact Framework doesn't have) out of itself, and the sample does the same. Chapter 5 and `docs/netcf-port.md` say what else the port gives up.
 
 Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of one, and chapter 10 is where the two meet.
 
@@ -155,5 +175,6 @@ Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of on
 | **Kernel object** | The operating system's record of a thread | The worker's file at HR |
 | **Scheduler** | The part of the operating system that decides who runs next | The boss with the roll-call sheet |
 | **Serial line / UART** | A one-at-a-time wire, and the chip that listens to it | A one-lane road and its toll booth |
+| **Forecourt / forecourt controller** | The pump area of a gas station; the station's computer that looks after every pump and talks to the bank | The front desk that phones the bank for every pump |
 | **Watchdog** | A timer that reboots the board if nobody checks in | A night guard who locks up if he hears nothing |
 | **State machine, callback** | Two tools you'll build in chapters 2 and 3 | Coming up |
