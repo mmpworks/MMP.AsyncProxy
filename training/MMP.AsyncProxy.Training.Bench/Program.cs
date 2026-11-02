@@ -18,6 +18,12 @@ internal static partial class Program
     private static void Main(string[] args)
     {
         if (args.Length > 0 && args[0] == "injection") { InjectionProbe(); return; }
+        if (args.Length > 0 && args[0] == "crunch")
+        {
+            CrunchTable.Print(args.Length > 1 ? int.Parse(args[1]) : 20_000, args.Length > 2 ? int.Parse(args[2]) : 300);
+            return;
+        }
+        if (args.Length > 0 && args[0] == "printer") { PrinterTable.Print(args.Length > 1 ? int.Parse(args[1]) : 8); return; }
         var n = args.Length > 0 ? int.Parse(args[0]) : 1000;
         Console.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}, cores: {Environment.ProcessorCount}, N = {n}");
         Console.WriteLine();
