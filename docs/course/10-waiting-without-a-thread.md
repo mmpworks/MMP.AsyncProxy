@@ -2,75 +2,166 @@
 
 ## At the table
 
-The wings were gone. Steve ordered pie for both of them without asking and opened a different window on the laptop.
+The wings were gone. Not "mostly gone." Gone. Kevin had even gnawed the celery, which Steve decided not to mention. The bass-fishing channel was still on all four TVs. Nobody had watched a minute of it all night, and somebody in a camouflage cap was still losing a fight with a fish.
 
-"This is a pump," he said.
+Dee came by with a coffee pot in one hand and a dessert menu she did not bother to open.
 
-It was two of them, side by side. One was green and amber and said Howard's across the top. The other was red and gold and said Samms. Each one had a dispenser on the left, a station on the right, and a wire drawn between them with counters ticking.
+"Pie," she said. "You two get the pie. It's the same pie you get every time."
 
-"Two stations across the street from each other. Same code, one release apart. The dispenser's a separate process, like your head board. The station's the back office. They talk over TCP the way yours talk over the serial line, with sequence numbers and a heartbeat."
+"Pie," Steve agreed. "Two forks."
+
+"Two forks, two plates, and I'm not letting you split one plate, because last time you sat here until eleven o'clock and I had to turn the lights off around you." She was already walking away. "Kitchen closes in twenty."
+
+Kevin watched her go. Then he checked his phone, because it had buzzed twice during the pie order. It was Dale. Both texts said some version of *did you ask him about the certification yet.*
+
+"Dale?" Steve said.
+
+"Dale." Kevin turned the phone face down on the napkin pile. It was napkin number nine. "He wants to know if it's going to cost him a recertification. I told him I'd know tonight. Don't make me a liar."
+
+"I won't. Hang on." Steve pushed his plate aside and turned the laptop around. "This is a pump."
+
+It was two of them, side by side on the screen. One was green and amber and said Howard's across the top. The other was red and gold and said Samms. Each one had a dispenser on the left, a station on the right, and a wire drawn between them with little counters ticking up as messages went back and forth.
+
+"Two stations across the street from each other," Steve said. "Same code, one release apart. The dispenser is its own process, like the head board in your pump. The station is the back office. They talk over TCP the way yours talk over the serial line, with sequence numbers and a heartbeat."
 
 "You built a whole pump."
 
-"I built a whole pump, with the card flow, the hold, the taper, the hard limits, a hash-chained ledger, the works. It's the thing I needed to prove the library on, because a timer and two integers don't convince anybody. Look at this chip." He pointed. `dispatch: threaded`. "Three workers in there. Sale, pump, payment. Each one is your napkin: wait for a message, handle it, wait. It runs them three ways, picked at startup. A thread each, like yours. The C# compiler's `async` machine, with a `Channel`. And this library, with an iterator."
+"I built a whole pump, bro. The card flow. The hold. The taper at the end of the fill. The hard limits. A hash-chained ledger, where every sale is stitched to the one before it, so nobody can quietly edit last Tuesday. The whole thing. It's what I needed to prove the library on, because a timer and two integers don't convince anybody." He pointed at a little chip in the corner of Howard's screen. `dispatch: threaded`. "See that? Three workers in there. One for the sale, one for the pump, one for the payment. Each one is the same thing you drew on your first napkin: wait for a message, handle it, wait again. And the program can run those three workers three different ways. I pick one at startup."
 
-"And they all pass the same tests."
+"Three ways."
 
-"Same sale, same events, same order, under all three. One test, three rows. The payment worker's bank call is the one place they're allowed to differ, because a 2008 bank library blocks, and under threads that's fine and under the machine it isn't, so there's a flag." Steve scrolled. "This chapter is that pump. What a thread costs, how the mailbox wakes the worker without a thread, where the savings are, and the IL of the compiler's machine next to ours, from this build, so you can see they're the same shape."
+"A thread each, like yours. That's the 2008 way. Then the way the modern C# compiler does it, with `async` and something called a `Channel`. And then this library, with an iterator, the trick from chapter 7."
 
-Kevin pulled the laptop toward himself.
+Kevin leaned in. "And they all pass the same tests?"
 
-"Can I run it?"
+"Same sale, same events, same order, under all three. One test, three rows. The only place the three are allowed to differ is the payment worker's bank call. A 2008 bank library *blocks*. It makes your thread sit and stare until the bank answers. Under threads that's fine, because that thread has nothing else to do anyway. Under the machine it's a problem. There's a flag for it."
 
-"It's on GitHub. The training track under it has your two loops, the clerk and the in-tray, written both ways with the tests, and three more after that. Eat your pie."
+"A flag for it," Kevin said, writing it on the napkin.
 
-The first nine chapters built the machine. This one puts it to work on the shape most programs have at their core: a worker that waits for something to do, does it, and waits again. The worked example is MMP.GasPumpSimulator, a forecourt simulator that runs its three workers three different ways. One of those ways is this library. Every piece of it would compile on .NET 3.5.
+"This chapter is that pump." Steve scrolled. "What a thread costs. How an in-tray wakes a sleeping worker without a thread standing there. Where the savings are. And then the really fun part: the IL, which is the language the compiler writes its output in, of the compiler's machine next to ours, from the same build, so you can see they're the same shape."
 
-By the end you will know what a thread costs, how a method can stop in the middle and pick up later, how an empty in-tray wakes a sleeping worker without anyone standing there, and where the saved threads, memory, and CPU cycles go. At the end the machine this library builds sits beside the machine the modern C# compiler builds, down to the IL, so you can see they are the same shape.
+Kevin pulled the laptop toward himself like a man pulling a plate toward himself. "Can I run it?"
 
-The four projects under `training/` take this chapter's one shape and show the move on four more.
+"It's on GitHub. There's a training track under it, with your two loops written both ways, the clerk and the in-tray, with the tests, and three more problems after that. Eat your pie."
+
+Dee had started putting chairs up on the tables at the other end of the room. The legs pointed at the ceiling like the antlers of something very flat.
+
+"Twenty minutes," she called. "Not twenty-one."
+
+---
+
+The first nine chapters built the machine. This one puts it to work on the shape most programs have at their core: a **worker** that waits for something to do, does it, and waits again. Picture a store clerk behind a counter. A customer walks up, the clerk helps them, and then the clerk waits for the next one. Most of a clerk's day is spent waiting.
+
+The worked example is MMP.GasPumpSimulator, a forecourt simulator that runs its three workers three different ways. One of those ways is this library. Every piece of it would compile on .NET 3.5.
+
+By the end you will know:
+
+- what a thread costs, in terms you can picture;
+- how a method can stop in the middle and pick up later;
+- how an empty in-tray wakes a sleeping worker without anyone standing there;
+- where the saved threads, memory, and CPU time go;
+- and how the machine this library builds sits beside the machine the modern C# compiler builds, all the way down to the IL, so you can see they are the same shape.
+
+The four projects under `training/` take this chapter's one shape and show the move on four more problems.
 
 ## 1. Three ways to wait
 
-A worker in the simulator is a loop: wait for a slip in the in-tray, handle it, wait again. The slips arrive a few times a second during a sale and never for minutes at a time between sales. So the loop spends almost all of its life waiting. The question this chapter is about is simple: **what does the worker hold while it waits?**
+A worker in the simulator is a loop: wait for a slip in the in-tray, handle it, wait again. A **slip** is one message, like "the nozzle was lifted" or "the card was approved." Slips arrive a few times a second during a sale, and then not at all for minutes between sales. So the loop spends almost all of its life waiting.
 
-The simulator has three answers, picked at startup. Everything above them is the same code.
+The question this chapter asks is simple, so ask it out loud: **what does the worker hold while it waits?**
 
-1. **A thread.** `ThreadedDispatch`. Each worker gets its own thread, and the thread sits inside `BlockingCollection.Take()` until a slip arrives. Simple, and the way it was done in 2008.
-2. **The compiler's state machine.** `ChannelDispatch`. Each worker is an `async` method that `await`s a channel. When the channel is empty the method stops, gives its thread back, and holds nothing but a small object. The C# compiler wrote the machinery for that in 2012.
+Think of three ways a shop could staff a counter.
+
+1. **A worker with a desk.** Every clerk gets their own desk, chair, and filing cabinet, and sits at the counter all day. When no customers come, they sit there anyway.
+2. **A recipe with a bookmark, written by the compiler.** Nobody sits at the counter. When a customer shows up, a worker from a shared crew picks up the recipe where the bookmark is, helps the customer, and puts the bookmark back.
+3. **The same bookmarked recipe, written by hand.** The same idea as number 2, but a person wrote the bookmark and the sticky notes themselves instead of letting the compiler do it.
+
+The simulator has all three, picked at startup. Everything above them is the same code.
+
+1. **A thread.** `ThreadedDispatch`. Each worker gets its own thread, and the thread sits inside `BlockingCollection.Take()` until a slip arrives. (`Take()` means "give me the next item, and if there isn't one, I'll wait right here.") It is simple, and it is the way it was done in 2008.
+2. **The compiler's state machine.** `ChannelDispatch`. Each worker is an `async` method that `await`s a **channel**. A channel is a built-in in-tray from modern .NET. When the channel is empty, the method stops, gives its thread back, and holds nothing but a small object. The C# compiler wrote the machinery for that in 2012.
 3. **A hand-built state machine.** `AsyncProxyDispatch`. The same idea as number 2, written without the `async` keyword, using a C# 2 iterator and this library for the rest.
 
 Numbers 2 and 3 do the same thing. Number 3 is here so you can see how number 2 works with the lid off. If you understand number 3, you understand `await`.
 
 ## 2. What a thread costs
 
-> **Short version.** A thread is a worker with their own desk, chair, and filing cabinet. A parked thread is a desk nobody is sitting at that still takes up floor space and still gets a visit from the manager every time the manager walks the room.
+> **Short version.** A thread is a worker with their own desk, chair, and filing cabinet. A parked thread is a desk nobody is sitting at that still takes up floor space and still gets checked on every time the manager walks the room.
 
-A thread is the operating system's unit of running code. To make one, the system sets aside three things:
+A **thread** is the operating system's unit of running code. It is one worker who can run one piece of your program at a time. To make a thread, the system sets aside three things:
 
-- **A stack.** Memory for the thread's local variables and call chain. On Windows the default reservation for a .NET thread is about one megabyte. Most of it is never touched, but it is spoken for.
-- **A kernel object.** The system's own record of the thread: its state, its priority, its place in the scheduler's lists.
-- **A slot in the scheduler.** The scheduler is the part of the system that decides which thread runs on which CPU core, and for how long.
+- **A stack.** This is the worker's desk and filing cabinet: memory for the thread's local variables and its list of "which method called which." On Windows the default reservation for a .NET thread is about one megabyte. Most of the cabinet stays empty, but the space is spoken for.
+- **A kernel object.** This is the worker's file in the HR office. The **kernel** is the core of the operating system, and it keeps a record of every thread: what state it is in, how important it is, where it is in line.
+- **A line on the roll-call sheet.** The **scheduler** is the part of the system that decides which thread runs on which CPU core, and for how long. Think of it as a manager walking the room with a roll-call sheet. Every thread has a line on it, and the manager checks every line on every round, even the ones that are asleep.
 
-When a thread waits inside `Take()`, it is **blocked**. It runs no code, but the stack is still reserved, the kernel object still exists, and the scheduler still knows about it. When a slip finally arrives, the system has to perform a **context switch**: save whatever was running on that core, load the waiting thread's registers and stack pointer, and jump to it. A switch costs on the order of microseconds, which sounds like nothing until you do it thousands of times a second.
+When a thread waits inside `Take()`, it is **blocked**. It runs no code, but its desk is still reserved, its HR file still exists, and its name is still on the sheet. When a slip finally arrives, the system has to perform a **context switch**. That means: save whatever was running on that CPU core, load the waiting thread's notes, and jump into it. A switch costs on the order of microseconds. A microsecond is a millionth of a second, which sounds like nothing until you do it thousands of times a second.
 
 | | Threaded: a parked thread per worker | AsyncProxy: a bookmark per worker |
 |---|---|---|
-| Three workers | three threads, each with about 1 MB of reserved stack, a kernel object, and a scheduler slot, all blocked in `Take()` | three small objects, a few hundred bytes each: the fields of the loop and which step it stopped at |
-| Three thousand workers | three thousand threads, about 3 GB of reserved stack, and a scheduler walking three thousand entries | three thousand small objects, and the same handful of pool threads |
+| Three workers | three threads, each with about 1 MB of reserved stack, an HR file, and a line on the roll-call sheet, all blocked in `Take()` | three small objects, a few hundred bytes each: the fields of the loop and which step it stopped at |
+| Three thousand workers | three thousand threads, about 3 GB of reserved stack, and a manager checking three thousand names every round | three thousand small objects, and the same handful of pool threads |
 | Who runs the code | the worker's own thread, after a wake-up | a pool thread, about one per core, shared by everything, only while a slip is in hand |
 
 The left column pays for a desk per worker whether or not anyone is working. The right column pays for a sticky note per worker and shares the desks.
 
-For three workers, a thread each is fine. The simulator keeps `ThreadedDispatch` because it is the simplest to read and the best fit for a call that truly blocks, like a bank request on a 2008 library with no asynchronous version. The savings matter when workers multiply: a forecourt controller with forty dispensers, a server with thousands of connections. The way to get there is to stop holding a thread while you wait.
+### What "pool thread" means
+
+You will see "pool thread" a lot from here on, so here is the idea once, clearly. The **thread pool** is a small crew of worker threads that the whole program shares, plus a job board. You never hand it a thread. You pin a **work item**, a small piece of code on a ticket, to the board with `ThreadPool.QueueUserWorkItem`. A free crew worker takes the next ticket, runs it, and goes back to wait for the next one. A **pool thread** is one of those crew workers.
+
+The name `ThreadPool` is Microsoft's, and it is easy to misread. It sounds like a bag of threads you reach into and take one. You never do. It is closer to a motor pool: shared cars you borrow for a short trip and give back. The rule that follows is the one from chapter 6: give the pool short jobs, and never make a job sit and wait inside it. A job that waits is a parked car, and a small crew can only afford a few of those.
+
+### Who holds what while the worker is idle
+
+```mermaid
+flowchart TB
+    subgraph THREADS["Thread per worker (idle)"]
+        direction TB
+        thA["Worker A thread<br/>1 MB desk, HR file,<br/>roll-call line"]
+        thB["Worker B thread<br/>1 MB desk, HR file,<br/>roll-call line"]
+        thC["Worker C thread<br/>1 MB desk, HR file,<br/>roll-call line"]
+        takeCall["All three asleep inside Take()"]
+        thA --> takeCall
+        thB --> takeCall
+        thC --> takeCall
+    end
+    subgraph MACHINES["Machine per worker (idle)"]
+        direction TB
+        mA["Worker A: small object<br/>bookmark = 1"]
+        mB["Worker B: small object<br/>bookmark = 1"]
+        mC["Worker C: small object<br/>bookmark = 1"]
+        crew["Thread pool crew<br/>about one worker per core,<br/>waiting for job tickets"]
+        mA -.->|"no thread held"| crew
+        mB -.->|"no thread held"| crew
+        mC -.->|"no thread held"| crew
+    end
+```
+
+**In words:**
+
+1. On the left, each of the three workers owns a whole thread: a 1 MB desk, an HR file, and a line on the manager's roll-call sheet.
+2. All three threads are doing the same thing: sitting inside `Take()`, asleep, waiting for a slip.
+3. They are not working, but they are all still on the books. The memory is reserved and the manager still checks their names.
+4. On the right, each worker is just a small object on the heap with a number in it. The number is the bookmark, "I am parked at step 1."
+5. The dotted arrows say that none of those objects holds a thread. They are only sticky notes.
+6. The only threads in the right-hand picture belong to the shared pool crew. That crew is the same size whether you have three workers or three thousand, and it is busy only while a slip is actually in hand.
+
+**Why it matters:** The cost of an idle worker drops from "a whole desk" to "a sticky note." That is the entire reason to leave threads behind when workers mostly wait.
+
+For three workers, a thread each is fine. The simulator keeps `ThreadedDispatch` because it is the simplest to read, and because it is the best fit for a call that truly blocks, like a bank request on a 2008 library that has no asynchronous version. The savings matter when workers multiply: a forecourt controller with forty dispensers, or a server with thousands of connections. The way to get there is to stop holding a thread while you wait.
 
 ## 3. A method with a bookmark
 
 > **Short version.** A normal method is a recipe you read top to bottom without stopping. An iterator is the same recipe with a bookmark. You can read a step, put the bookmark in, close the book, and come back later to the next step with everything you had in your hands still there.
 
-Here is the whole trick behind `await`, and it is older than `await`. In 2005, C# 2 added `yield return`. You write a method that returns a sequence, and every time it says `yield return x`, it hands out `x` and **stops**. When the caller asks for the next item, the method **resumes** on the line after the `yield`, with all its local variables intact.
+Here is the whole trick behind `await`, and it is older than `await`. In 2005, C# 2 added `yield return`. You write a method that returns a **sequence**, a list of things handed out one at a time. Every time the method says `yield return x`, it hands out `x` and **stops**. When the caller asks for the next item, the method **resumes** on the line after the `yield`, with all its local variables still there.
 
-The compiler makes that possible by rewriting your method into a class. The class has one field per local variable, one field for "which step am I on", and one method, `MoveNext`, that is your code chopped into pieces with a `switch` at the top that jumps to the right piece. The compiler has been doing this since 2005. It is a state machine, and the compiler wrote it for you.
+How does a method stop in the middle and remember its variables? The method's variables normally live on the stack, and the stack is the desk. A method that leaves loses its desk. So the compiler rewrites your method into a class. A **class** here is just a labeled box that can hold data. The box has:
+
+- one **field** (a labeled compartment) for each local variable, so nothing is lost when the thread leaves;
+- one field for "which step am I on," which is the bookmark;
+- and one method, `MoveNext`, which is your code chopped into pieces, with a `switch` at the top that jumps to the right piece.
+
+The compiler has been doing this since 2005. It is a **state machine**: a thing that is always in one named state, and that moves to the next state when you poke it. The compiler wrote it for you.
 
 What you write:
 
@@ -87,7 +178,15 @@ IEnumerable<IFuture> Loop(Mailbox<T> box, Action<T> handle)
 }
 ```
 
-What the compiler builds, from the Release build of the simulator:
+**Read it like this:**
+
+1. `while (!_stopping)`: keep doing this until somebody tells the worker to stop.
+2. `box.DequeueAsync()`: "ask the in-tray for the next slip." It does not wait. It hands back an **IOU**, which is a future: a ticket that will hold the slip when one arrives.
+3. `yield return Futures.Observe(next)`: "put in the bookmark and go away until that IOU is paid." `Observe` makes sure the wait cannot crash the loop even if the in-tray is closed.
+4. `if (next.IsCanceled) yield break;`: if the in-tray was closed while we waited, there is no slip. End the method.
+5. `handle(next.Result)`: the IOU was paid, so the slip is in hand. Do the work.
+
+What the compiler builds from that, from the Release build of the simulator:
 
 ```csharp
 class <Loop>d__5 : IEnumerator<IFuture>
@@ -105,9 +204,9 @@ class <Loop>d__5 : IEnumerator<IFuture>
 }
 ```
 
-The field named `state` is the bookmark. The locals became fields so they survive between calls.
+**Read it like this:** The class name `<Loop>d__5` has angle brackets so it can never collide with a name you wrote. Each field is something the method needs to remember. `<>1__state` is the bookmark: a plain number that says which step you stopped at. `<>2__current` is the IOU that was just handed out. `box` and `handle` are the method's parameters, now kept in the box. And `<next>5__2` is the local variable `next`, kept in the box because it has to survive the pause. The compiler wraps your name in angle brackets and adds a marker and a number so its names can never clash with yours. You will see that pattern again in section 9.
 
-Now the one-line insight this library is built on: **a method that pauses at each `yield` and a method that pauses at each `await` need the same machine.** Both save the locals, record where they stopped, and return. The only thing `await` adds is *who calls `MoveNext` next*. With `yield`, the caller pulls the next item whenever it likes. With `await`, the thing you were waiting for calls `MoveNext` when it finishes. So the library's job is small: take an iterator that yields *futures* (promises of a value), and arrange for each future to call `MoveNext` when it completes.
+Now the one-line idea this library is built on: **a method that pauses at each `yield` and a method that pauses at each `await` need the same machine.** Both save the locals, record where they stopped, and return. The only thing `await` adds is *who calls `MoveNext` next*. With `yield`, the caller pulls the next item whenever it likes. With `await`, the thing you were waiting for calls `MoveNext` when it finishes. So the library's job is small: take an iterator that yields *futures* (promises of a value), and arrange for each future to call `MoveNext` when it completes.
 
 ```csharp
 // src/MMP.AsyncProxy/Iterate/IteratorStateMachine{T}.cs: the last tenth that turns an iterator into async.
@@ -142,11 +241,46 @@ public void MoveNext()
 
 Read it as a clerk working a to-do list. Pull the next item. If it is already done, cross it off and pull the next. If it is not done, write "call me when this finishes" on it and go home. There is no thread standing at the desk while the item is out. When the item finishes, whoever finished it calls the clerk back, and the clerk picks up the list where the bookmark is.
 
+**Read it like this, line by line:**
+
+1. `if (_pending != null) ...`: "Did I come back from a nap?" If yes, look at the result of the step I was waiting on. If that step failed, `GetResult()` throws here, and the failure is handled at the bottom.
+2. `if (!_steps.MoveNext()) ...`: "Ask the iterator for its next future." That one call is the compiler's `switch` doing its jump. If there is no next one, the method is finished: close the iterator and put the final answer into the result future (`SetResult`).
+3. `IAwaiter awaiter = step.GetAwaiter()`: get the object that can answer "are you done yet?"
+4. `if (awaiter.IsCompleted) { ...; continue; }`: the **fast path**. The thing we asked for is already done, so there is nothing to wait for. Read the result and go around the loop again. No thread leaves and no callback is needed.
+5. `_pending = awaiter;` and `AwaitOnCompleted(...)`: the **slow path**. Remember what we are parked on, tell the builder "when this finishes, call `MoveNext` on me again," and `return`. That `return` is the thread walking away.
+6. `catch (Exception ex)`: if anything went wrong at any point, the failure is put into the result future, so the caller sees it when they ask for the result.
+
+Here is the same loop as a picture.
+
+```mermaid
+flowchart TD
+    start["MoveNext is called"] --> back{"Did I just come back<br/>from waiting?"}
+    back -->|"yes"| obs["Look at the result of the step I waited on<br/>(GetResult). A failure is thrown here."]
+    back -->|"no"| nxt
+    obs --> nxt["Ask the iterator for its next future<br/>(steps.MoveNext)"]
+    nxt --> more{"Is there a next one?"}
+    more -->|"no"| fin["SetResult: the method is finished"]
+    more -->|"yes"| ready{"Is that future already done?"}
+    ready -->|"yes: fast path"| obs2["Read the result"] --> nxt
+    ready -->|"no: slow path"| park["Remember it, ask to be called back,<br/>and return. No thread is held."]
+```
+
+**In words:**
+
+1. Somebody calls `MoveNext`. This happens once at the start, and then once after each time the method was parked.
+2. If we just came back from waiting, the first job is to read the result of the step we waited on. A failed step is thrown here, and the loop's `catch` turns it into a failed result.
+3. Then we ask the iterator for its next future. This is where the compiler's bookmark does its work: the iterator picks up right after the last `yield return`.
+4. If there is no next future, the method has reached its end. We put the final value into the result future and stop.
+5. If there is one, we check whether it is already done. If it is, we read it and loop straight back for the next one. Nothing waits and no thread leaves.
+6. If it is not done, we leave a note ("call me back"), and the method returns. At this moment no thread is inside the method at all. It is a bookmarked recipe sitting on the shelf.
+
+**Why it matters:** This one loop is what turns a plain C# 2 iterator into something that behaves like `await`. The compiler's switch does the jumping; this loop does the waking up.
+
 ## 4. How the mailbox wakes the worker
 
 > **Short version.** An empty in-tray hands the worker an IOU instead of a slip. When a slip finally arrives, the person dropping it off cashes the IOU, and that is what wakes the worker up, on whatever thread happens to be free.
 
-In the threaded design the mailbox is a `BlockingCollection` and the worker's thread sleeps inside it. In the AsyncProxy design the mailbox is a plain queue plus one **promise**. A promise is a box that will hold a value later; the matching **future** is the read-only view of that box you hand to whoever is waiting.
+In the threaded design the mailbox is a `BlockingCollection` and the worker's thread sleeps inside it. In the AsyncProxy design the mailbox is a plain queue plus one **promise**. A promise is a box that will hold a value later. Think of a pickup window at a restaurant: the kitchen holds the promise and is the only one who can put food in the window. The matching **future** is the customer's side of the window. It is the read-only view you hand to whoever is waiting. They can look, and they can ask to be buzzed, but they cannot put anything in.
 
 ```csharp
 // GasPump.Dispatch/AsyncProxyDispatch.cs, the mailbox
@@ -157,11 +291,11 @@ public IFuture<T> DequeueAsync()
         if (_closed) return Canceled();
         if (_items.Count > 0)
         {
-            var ready = new Promise<T>(true);
+            var ready = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
             ready.SetResult(_items.Dequeue());   // already done: the fast path, no suspend
             return ready.Future;
         }
-        _waiting = new Promise<T>(true);          // empty: hand out an IOU
+        _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);          // empty: hand out an IOU
         return _waiting.Future;
     }
 }
@@ -183,6 +317,54 @@ public bool TryPost(T item)
 }
 ```
 
+**Read it like this.** First, what is a `lock`? It is a rule that says "only one thread at a time may be inside these braces." Two threads touching the same queue at the same moment would corrupt it, so both methods take the lock before they touch it.
+
+`DequeueAsync` is the worker asking, "Is there a slip for me?"
+
+1. If the in-tray is closed, hand back a future that is already canceled, so the worker knows to stop.
+2. If there is already a slip in the tray, take it out. Make a promise, fill it right away, and hand back its future. The future is already done, so the worker takes the **fast path**: no waiting, no parking.
+3. If the tray is empty, make a promise and **keep it** in `_waiting`. Hand back its future. That future is the IOU: "when a slip shows up, it will be here." The worker parks on it.
+
+`TryPost` is the sender dropping a slip off.
+
+1. If the tray is closed, refuse.
+2. If a worker is parked (`_waiting` holds a promise), take that promise out of `_waiting`, and set it aside. That is paying the IOU.
+3. If nobody is waiting and the tray is full, refuse. The sender has to wait. If nobody is waiting and there is room, just put the slip in the tray.
+4. After the lock is let go, fill the promise (`TrySetResult(item)`). That is the moment the parked worker wakes up.
+
+Here are the same two decisions as a picture.
+
+```mermaid
+flowchart LR
+    subgraph DQ["DequeueAsync: the worker asks"]
+        d1{"Closed?"} -->|"yes"| d2["Return a canceled future"]
+        d1 -->|"no"| d3{"Slip in the tray?"}
+        d3 -->|"yes"| d4["Return an already-done future<br/>(fast path, no parking)"]
+        d3 -->|"no"| d5["Keep a promise in _waiting.<br/>Return its future: the IOU."]
+    end
+    subgraph TP["TryPost: the sender drops a slip"]
+        p1{"Closed?"} -->|"yes"| p2["Refuse"]
+        p1 -->|"no"| p3{"Is a worker parked?"}
+        p3 -->|"yes"| p4["Take the promise out of _waiting.<br/>After the lock: fill it."]
+        p3 -->|"no"| p5{"Tray full?"}
+        p5 -->|"yes"| p6["Refuse: sender waits"]
+        p5 -->|"no"| p7["Put the slip in the tray"]
+    end
+```
+
+**In words:**
+
+1. The left half is the worker asking for a slip. The first question is whether the tray is closed. If it is, the answer is a canceled future, and the worker stops.
+2. If the tray is open and a slip is sitting there, the worker gets an already-finished future back. It never parks. This is the fast path.
+3. If the tray is open and empty, the worker gets an IOU: the future of a promise the tray keeps in `_waiting`. The worker parks on it and the thread leaves.
+4. The right half is a sender dropping a slip off. A closed tray refuses.
+5. If a worker is parked, the sender does not put the slip in the tray at all. It takes the waiting promise, and once it has let go of the lock, it fills the promise with the slip. That is the wake-up.
+6. If no worker is parked, the slip goes in the tray if there is room, and the sender is told to wait if there is not.
+
+**Why it matters:** A parked worker is not a thread. It is one promise sitting in one field. Paying that promise is the only thing that wakes it.
+
+Now the whole round trip, over time:
+
 ```mermaid
 sequenceDiagram
   participant W as Worker machine (no thread of its own)
@@ -200,12 +382,22 @@ sequenceDiagram
   Note over W: resume after the yield, handle(slip), loop, DequeueAsync again
 ```
 
-Nobody waits. The sender finishes posting in microseconds. The worker runs only while there is a slip in its hand.
+**In words:**
+
+1. The worker machine asks the mailbox for a slip with `DequeueAsync()`.
+2. The tray is empty, so the mailbox makes a promise, keeps it as `_waiting`, and hands the worker the matching future.
+3. The worker does `yield return` on that future. That writes the bookmark and returns. From here on, the worker holds no thread.
+4. Later, a sender (a timer, the UI, or another worker) calls `TryPost` with a slip.
+5. The mailbox sees `_waiting` is set, so it gives the slip to that promise instead of putting it in the tray.
+6. Filling the promise does not run the worker on the sender's thread. It queues a job ticket on the pool's job board.
+7. A free pool thread takes the ticket and calls the worker's `MoveNext`. The worker resumes right after its `yield`, handles the slip, loops, and asks for the next one.
+
+**Why it matters:** Nobody waits. The sender finishes posting in microseconds. The worker runs only while there is a slip in its hand.
 
 Two details carry the weight here.
 
-- **The promise is built with `runContinuationsAsync = true`.** When the sender pays the IOU, the worker's code does not run on the sender's thread. It is queued to the thread pool. That keeps the sender fast and keeps a lock held by the sender from ever being held while the worker runs. The modern name for this flag is `TaskCreationOptions.RunContinuationsAsynchronously`.
-- **The handoff happens outside the lock.** `TryPost` takes the waiting promise out from under the lock and completes it after letting go. A callback that takes its own lock can never deadlock against the mailbox's.
+- **The promise is built with `PromiseOptions.RunContinuationsAsynchronously`.** A **continuation** is the code that is waiting on a promise: "when this finishes, run this next." Normally, whoever fills the promise runs that code right there on their own thread. This option changes that. When the sender pays the IOU, the worker's code does not run on the sender's thread. The promise pins a ticket for it to the thread pool's job board and returns right away. That keeps the sender fast, and it means a lock held by the sender is never still held while the worker runs. The modern name for this option is `TaskCreationOptions.RunContinuationsAsynchronously`. (Older code spells it as a bare `true`: `new Promise<T>(true)`. That still compiles, but a lone `true` does not say what it is for, so we write the option by name.)
+- **The handoff happens outside the lock.** `TryPost` takes the waiting promise out from under the lock and fills it after letting go. A callback that takes its own lock can then never deadlock against the mailbox's. (A **deadlock** is two things each waiting for the other, forever.)
 
 ## 5. The parts, and their modern names
 
@@ -213,13 +405,14 @@ Everything in this library is a copy of something in the modern runtime, written
 
 | In MMP.AsyncProxy | In .NET today | What it is |
 |---|---|---|
-| `Promise<T>` | `TaskCompletionSource<T>` | The box the answer gets put in. You keep it; you hand out its future. |
-| `IFuture<T>` | `Task<T>` | The read-only view of the box. Wait on it, or ask to be called when it fills. |
+| `Promise<T>` | `TaskCompletionSource<T>` | The box the answer gets put in. You keep it; you hand out its future. (The kitchen side of the pickup window.) |
+| `IFuture<T>` | `Task<T>` | The read-only view of the box. Wait on it, or ask to be called when it fills. (The customer side of the window.) |
 | `FutureAwaiter<T>` | `TaskAwaiter<T>` | What an await talks to: is it done, call me when it is, give me the result. |
 | `AsyncMethodBuilder<T>` | `AsyncTaskMethodBuilder<T>` | Starts the machine, parks it on an awaiter, completes the future at the end. |
 | `IteratorStateMachine<T>` | the class the C# compiler emits for an `async` method | The `MoveNext` loop above. Ours drives a C# 2 iterator; the compiler's is the method itself, rewritten. |
 | `yield return future;` | `await task;` | The bookmark. |
 | `AsyncProxy.Run(Loop(...))` | calling an `async` method | Build the machine, start it, hand back its future. |
+| `PromiseOptions.RunContinuationsAsynchronously` | `TaskCreationOptions.RunContinuationsAsynchronously` | When the promise finishes, pin the waiting code to the pool's job board instead of running it on the finisher's thread. |
 
 ## 6. The shift, step by step
 
@@ -265,10 +458,45 @@ IEnumerable<IFuture> Loop(...)
 
 - No thread made. One small object holds the loop's state.
 - Between slips nothing runs and nothing is reserved.
-- Each slip costs a pool work item, not a kernel wake-up.
+- Each slip costs a pool work item (a ticket on the job board), not a kernel wake-up.
 - Harder to debug: the stack shows the pool, and the "where was I" lives in a field.
 
 Notice what did not change. Still one message at a time, because the loop is sequential. Still no shared state between workers. Still a bounded mailbox that makes a flood wait. The three rules every strategy keeps are kept here by the shape of the loop, not by a lock.
+
+Here is the difference in time, for one worker handling two slips:
+
+```mermaid
+sequenceDiagram
+    participant T as Worker thread (threaded design)
+    participant K as Kernel wake-up
+    participant Q as In-tray
+    participant PT as Pool thread (machine design)
+    Note over T: Sits asleep inside Take(). Desk reserved the whole time.
+    Q->>K: slip 1 arrives
+    K->>T: wake this one thread (context switch)
+    T->>T: handle(slip 1)
+    Note over T: back to sleep in Take()
+    Q->>K: slip 2 arrives
+    K->>T: wake it again
+    T->>T: handle(slip 2)
+    Note over PT: Machine design: no thread exists between slips
+    Q->>PT: slip 1 arrives, ticket on the job board
+    PT->>PT: MoveNext, handle(slip 1), park, return to the crew
+    Q->>PT: slip 2 arrives, ticket on the job board
+    PT->>PT: MoveNext, handle(slip 2), park, return to the crew
+```
+
+**In words:**
+
+1. At the top, the threaded worker has one thread of its own and it is asleep inside `Take()`.
+2. Slip 1 arrives. The system has to find that one specific sleeping thread and wake it with a context switch.
+3. The thread handles the slip, and goes back to sleep. It keeps its desk the entire time.
+4. Slip 2 does the same thing: another wake-up of the same thread.
+5. Below, the machine design has no worker thread at all between slips.
+6. Slip 1 arrives and a ticket goes on the job board. Whichever pool thread is free takes it, runs `MoveNext`, handles the slip, parks the machine again, and goes back to the crew.
+7. Slip 2 does the same, possibly on a different pool thread. The machine does not care which one.
+
+**Why it matters:** The work is identical. What changes is what is reserved between slips, and how the next slip finds a worker.
 
 ## 7. Where the savings are
 
@@ -278,10 +506,12 @@ Notice what did not change. Still one message at a time, because the loop is seq
 | Memory while idle | about 1 MB reserved stack per worker, plus a kernel object | a few hundred bytes per worker: the loop's fields and one pending promise | The locals that cross the yield became fields. Nothing else is kept. |
 | Cost to deliver one slip | a kernel wake-up and a context switch to a specific thread | a queue push to the pool and a run on whichever thread is free | The pool thread is already running and warm in cache. No specific thread has to be found and woken. |
 | Scaling to thousands of workers | thousands of threads; the scheduler and memory give out first | thousands of small objects; the pool stays the size of the machine | Work is proportional to messages, not to workers. |
-| A call that truly blocks (a 2008 bank library) | fine: it blocks its own thread and nobody else waits | bad: it would block a pool thread that everything shares | This is why the simulator has `PrefersBlockingIo`. The payment worker blocks under threads and continues on a callback under the other two. |
+| A call that truly blocks (a 2008 bank library) | fine: it blocks its own thread and nobody else waits | bad: it would block a pool thread that everything shares | This is the parked-car problem from chapter 6. A pool thread that sits and waits is a crew worker parked at the curb, and a small crew can only afford a few of those. This is why the simulator has `PrefersBlockingIo`. The payment worker blocks under threads and continues on a callback under the other two. |
 | Allocation per message | none beyond the message | one promise when the mailbox was empty; none when a slip was already waiting | The fast path in `DequeueAsync` hands back a completed future and the machine never parks. |
 
-The summary: for three workers the two columns cost about the same and the thread version is easier to read. The state machine wins the moment workers outnumber cores by a lot, or the moment a worker spends most of its time waiting, which a pump worker does. The simulator keeps all three so the trade is visible instead of argued about. The bench under `training/` puts numbers on each row.
+("Warm in cache" means the CPU's quick memory already holds what the thread needs, so it starts fast.)
+
+The summary: for three workers the two columns cost about the same, and the thread version is easier to read. The state machine wins the moment workers outnumber cores by a lot, or the moment a worker spends most of its time waiting, which a pump worker does. The simulator keeps all three so the trade is visible instead of argued about. The bench under `training/` puts numbers on each row.
 
 ## 8. Which thread problems go away, and which stay
 
@@ -295,16 +525,20 @@ People sometimes say async "removes threading problems." It removes some and lea
 
 **Still there, and handled by the actor rules, never by async**
 
-- **Races on shared state.** Two machines resumed on two pool threads at once can still stomp on a shared field. The simulator avoids this by the rule that workers share nothing and pass messages. Async did not buy that; the design did.
-- **Reentrancy.** A continuation can run while you still hold a lock if you complete a promise inside the lock. The mailbox completes outside the lock and the promise queues to the pool, which is why that is written down twice in the code.
-- **Lost exceptions.** A faulted future nobody observes is a silent failure. The loop wraps each dequeue in `Futures.Observe` and checks `IsFaulted` so a closed mailbox ends the loop instead of throwing into nowhere.
-- **Debugging.** The stack trace of a resumed machine shows the pool, and nothing of your code's history. The library copies the first stack trace into the exception's data before rethrowing, because .NET 3.5 had no other way to keep it.
+(The **actor rules** are the simulator's house rules: each worker owns its own data, and workers talk only by sending slips.)
+
+- **Races on shared state.** A **race** is when two things touch the same data at about the same time and the answer depends on who gets there first. Two machines resumed on two pool threads at once can still stomp on a shared field. The simulator avoids this by the rule that workers share nothing and pass messages. Async did not buy that; the design did.
+- **Reentrancy.** This is when code runs again while an earlier run is still going. A continuation can run while you still hold a lock if you complete a promise inside the lock. The mailbox completes outside the lock and the promise queues to the pool, which is why that is written down twice in the code.
+- **Lost exceptions.** A faulted future nobody observes is a silent failure: it broke, and nobody was told. The loop wraps each dequeue in `Futures.Observe` and checks `IsFaulted`, so a closed mailbox ends the loop instead of throwing into nowhere.
+- **Debugging.** The stack trace of a resumed machine shows the pool, and nothing of your code's history. The library copies the first stack trace into the exception's data before rethrowing, because .NET 3.5 had no other way to keep it. (The Compact Framework build can't even do that: it has no `Exception.Data`, so the first trace is lost on the rethrow. The README lists it as a known limit.)
 
 > **The one-sentence rule.** Async decides *what a worker holds while it waits*. The actor rules decide *what a worker may touch while it runs*. You need both, and they are different decisions.
 
 ## 9. The same machine, in IL
 
-Is the code the compiler emits for `async` really the same shape as what the C# 2 iterator plus this library produce? Here is the evidence from the simulator's build. `GasPump.Dispatch.dll` was compiled in Release and decompiled with ILSpy 10.0.1. The Channel worker is a real `async` lambda, so the modern compiler built its machine. The AsyncProxy worker is an iterator, so the C# 2 machinery built its machine. Both are shown with the sugar turned off (`-lv CSharp1` for the iterator so `yield` is not re-sugared, `-lv CSharp4` for the async one so `await` is not).
+Is the code the compiler emits for `async` really the same shape as what the C# 2 iterator plus this library produce? Here is the evidence from the simulator's build.
+
+First, a few words you will need. **IL** (intermediate language) is the plain, low-level language a .NET compiler writes its output in before the machine runs it. A **decompiler** is a tool that reads that output and shows it back to you as C# or as IL text. `GasPump.Dispatch.dll` was compiled in Release and decompiled with ILSpy 10.0.1. The Channel worker is a real `async` lambda, so the modern compiler built its machine. The AsyncProxy worker is an iterator, so the C# 2 machinery built its machine. Both are shown with the sugar turned off (`-lv CSharp1` for the iterator so `yield` is not re-sugared, `-lv CSharp4` for the async one so `await` is not). "Sugar" is the friendly keyword, like `yield` or `await`, that the compiler turns into the plain machine.
 
 **Iterator machine (AsyncProxy worker)**
 
@@ -345,6 +579,14 @@ private sealed class <Loop>d__5 : IEnumerable<IFuture>, IEnumerator<IFuture>, ID
     }
 }
 ```
+
+**Read it like this.** "Hoisted" means lifted off the stack and into a field. The names with angle brackets are the compiler's own. It wraps a name in `<...>` and adds a marker and a number so that nothing it makes can ever clash with something you wrote. So `<next>5__2` is your variable `next`, kept in a field because it has to survive the pause, with a number the compiler added. And `<>1__state` is the bookmark.
+
+1. `int num = <>1__state; switch (num)`: read the bookmark and jump based on it.
+2. `case 0`: the first run. Mark the machine "running" (`-1`) and fall out of the switch to start at the top of the loop.
+3. `case 1`: we were parked at step 1, which means we are resuming after the `yield`. Mark "running," check whether the IOU was canceled, and if not, handle the slip we were waiting for.
+4. `default: return false`: any other state means the method is already finished. Do nothing.
+5. After the switch, if we are not stopping: ask the in-tray for the next slip, hand out the IOU as the thing we yielded (`<>2__current`), write `1` into the bookmark, and `return true`. That `return true` is the "go park" moment.
 
 **Async machine (Channel worker)**
 
@@ -388,15 +630,59 @@ private struct <<-ctor>b__0>d : IAsyncStateMachine
 }
 ```
 
+**Read it like this.** This is the machine the modern compiler writes for the `async` worker. It is a `struct`, which is a kind of box that does not need a separate memory allocation when it never has to wait. Walk through it the same way:
+
+1. `<>1__state` is the bookmark again, and `-2` means finished.
+2. `<>t__builder` is the helper that starts the machine, parks it, and completes its result. (In this library, the same job belongs to `AsyncMethodBuilder<T>`.)
+3. `<>7__wrap1`, `<>u__1`, and `<>u__2` are the sticky notes: a local that has to cross an await, and the awaiters it parked on.
+4. Inside `MoveNext`: read the bookmark, and if we are resuming (`num == 1`), jump back to the right spot with a `goto`.
+5. `if (!awaiter2.IsCompleted)`: if what we asked for is not done yet, write the bookmark (`<>1__state = 0`), save the awaiter, and give *the machine itself* to the builder with `AwaitUnsafeOnCompleted(ref awaiter2, ref this)`, which means "when that is done, call me again." Then `return`. That is the thread walking away.
+6. The `catch` and the last two lines are the two exits: a failure goes to `SetException`, and success goes to `SetResult`.
+
 Line them up and the skeleton is identical:
 
 - a field named `<>1__state` holding which step the method is parked at, with the same conventions: `-1` running, `-2` finished, `0` and up for each parking spot;
-- every local that has to survive a pause hoisted into a field, with the compiler's slot number in the name (`<next>5__2`, `<>7__wrap1`);
+- every local that has to survive a pause hoisted into a field, with a number the compiler adds to the name (`<next>5__2`, `<>7__wrap1`);
 - one `MoveNext` that reads the state, jumps to the right piece, runs until the next pause, writes the new state, and returns.
+
+```mermaid
+flowchart TD
+    a["MoveNext is called"] --> b["Read the bookmark: the state field"]
+    b --> c{"Which state?"}
+    c -->|"first run"| d["Start at the top of the method"]
+    c -->|"parked at step n"| e["Jump to the line after step n"]
+    c -->|"finished"| f["Do nothing and return"]
+    d --> g["Run until the next pause"]
+    e --> g
+    g --> h["Write the new bookmark and return"]
+    h --> i["Iterator: return true, leaving the future for the driver<br/>Async: hand yourself to the builder, then return"]
+```
+
+**In words:**
+
+1. Something calls `MoveNext`. Both machines, the iterator's and the async one, begin the same way.
+2. The first thing they do is read the bookmark, the `<>1__state` field.
+3. The bookmark decides where to go. A first run starts at the top. A parked machine jumps to the line just after the pause it was parked on. A finished machine does nothing.
+4. From wherever it landed, the machine runs ordinary code until it reaches the next pause.
+5. At the pause it writes the new bookmark into the field and returns, so the thread is free.
+6. The last box is the only place the two machines differ, and it is explained next.
+
+**Why it matters:** Two machines built by two different compilers are one skeleton: read the bookmark, jump, run, write the bookmark, return.
 
 And the one difference, which is the whole of what `async` adds. The iterator's `MoveNext` returns `true` and leaves the future in `<>2__current` for someone else to deal with. The async machine's `MoveNext` deals with it itself: it asks the awaiter whether it is done, and if not it hands *itself* to the builder (`AwaitUnsafeOnCompleted(ref awaiter, ref this)`) so the awaiter can call `MoveNext` again later. This library's `IteratorStateMachine` is that missing paragraph, written once and reused for every iterator you hand it.
 
-Down at the IL level the resemblance is clearer still, because the names fall away and only the moves are left. Both methods open the same way: load the state field into a local, branch on it.
+Down at the IL level the resemblance is clearer still, because the names fall away and only the moves are left. Here is a small dictionary for the instructions you are about to see. Each line is one tiny step the machine takes.
+
+| IL word | What it does, in plain words |
+|---|---|
+| `ldarg.0` | Load argument zero. In a method on an object, that is `this`: the machine itself. |
+| `ldfld` | Load a field: read one of the machine's labeled compartments. |
+| `stfld` | Store into a field: write to one of those compartments. |
+| `stloc` / `ldloc` | Store to or load from a local scratch variable inside this one method. |
+| `ldc.i4.1`, `ldc.i4.m1`, `ldc.i4.0` | Load the small whole number 1, minus 1, or 0. |
+| `brfalse.s` | Branch if false (or zero): jump to another line if the value is zero. |
+| `beq.s` | Branch if equal: jump if the two values just loaded are the same. |
+| `ret` | Return: leave the method. |
 
 **Iterator MoveNext, first instructions**
 
@@ -428,6 +714,8 @@ IL_004c: ldc.i4.1
 IL_004d: ret
 ```
 
+**Read it like this.** The first seven instructions are "read the bookmark into a scratch variable, and read the owner object (`<>4__this`) into another." Then comes the branching. `ldloc.0; brfalse.s` means "if the bookmark is zero, jump to the first-run code." `ldloc.0; ldc.i4.1; beq.s` means "if the bookmark is one, jump to the resume code." Anything else falls through to `ldc.i4.0; ret`, which means "return false: finished." Further down, `ldarg.0; ldc.i4.1; stfld '<>1__state'` is the machine writing "1" into its bookmark, and `ldc.i4.1; ret` is "return true," the park. (`newslot` on the first line is just an IL word that says "this method is a new entry in the class's method table." It has nothing to do with this chapter's story.)
+
 **Async MoveNext, first instructions**
 
 ```
@@ -458,13 +746,15 @@ catch [System.Runtime]System.Exception
 }
 ```
 
+**Read it like this.** It opens exactly the same way: `ldarg.0; ldfld '<>1__state'; stloc.0` is "read the bookmark." Then the same two branches: bookmark zero jumps to the resume point after await 0, bookmark one jumps to the resume point after await 1. Anything else is a first run. The new part is `.try { ... } catch`: the whole body is wrapped so that any failure is caught and sent to `SetException`, the same job the iterator driver's `catch` does.
+
 Decompiled 2026-11-02 from `src/GasPump.Dispatch/bin/Release/net10.0/GasPump.Dispatch.dll` with ilspycmd 10.0.1 (`-lv CSharp1`, `-lv CSharp4`, `-il`). Names, offsets, and code sizes are as printed; long type names are shortened for the page.
 
 Same opening: `ldarg.0`, `ldfld <>1__state`, `stloc.0`, then a branch on the state. Same parking move: store the new state, return. The async version is wrapped in a `.try` so that any exception becomes a faulted task instead of escaping, and it is a `struct` so that a method that never waits allocates nothing. Those are refinements on the same machine, and they are the same refinements `docs/compiler-vs-handwritten.md` records against the hand-written sample. The training track's `docs/compiler-output/training/` folder holds the same comparison for four more programs.
 
 ## 10. The proof
 
-The claim is that the three strategies behave the same. The simulator's test suite runs the whole sale under each one, with a fake clock, and the happy-path trace test prints the same event list three times:
+The claim is that the three strategies behave the same. How would you check that? You would run the same sale three times, once under each strategy, and compare what happened. The simulator's test suite does exactly that, with a fake clock so nothing depends on real time, and the happy-path trace test prints the same event list three times:
 
 ```
 Passed  HappyPathTraceTests.The_happy_path_hits_the_events_in_this_order(strategy: "threaded")
@@ -475,6 +765,8 @@ events:  CardPresented > CodeEntered > Approved > PumpArmed > GradeSelected > No
          > SpoutInserted > FlowStarted > Progress > FlowPaused > FlowResumed > Progress
          > NozzleHung > CompletionSent
 ```
+
+**Read it like this.** Each `Passed` line is one run of the same test under a different worker strategy. The `events:` line is the story of one sale in the order things happened: the card goes in, the code is entered, the bank approves, the pump is armed, the customer picks a grade, lifts the nozzle, fuel flows, pauses, resumes, the nozzle goes back, and the completion message is sent. All three strategies produced that exact same list.
 
 Under the AsyncProxy strategy, no worker owns a thread. The pool runs a machine when a slip lands and nothing otherwise. The one place the strategies are allowed to differ is the payment worker's bank call, and the difference is written in one `if` on `PrefersBlockingIo`.
 
@@ -489,4 +781,20 @@ The training track does the same thing in miniature: one contract, one test suit
 5. `training/01-mailbox/`. The in-tray and the clerk, written with threads and then with this library, with the tests that prove the two agree.
 6. In MMP.GasPumpSimulator, `src/GasPump.Dispatch/AsyncProxyDispatch.cs` beside `ThreadedDispatch.cs`. The mailbox as a promise and the worker as an iterator, in a program that sells fuel.
 
+## Words you just met
+
+| Term | Plain meaning | The metaphor |
+|---|---|---|
+| **Worker** | A loop that waits for something to do, does it, and waits again. | A clerk behind a counter. |
+| **Thread** | The operating system's unit of running code. | A worker with their own desk, chair, and filing cabinet. |
+| **Stack / kernel object / scheduler** | Reserved memory for a thread's notes; the OS's record of the thread; the part that decides who runs. | The desk and filing cabinet; the HR file; the manager with the roll-call sheet. |
+| **Context switch** | Saving one thread's place and loading another's. | The manager pulling one worker off the job and putting another on. |
+| **Thread pool / pool thread / work item** | A small shared crew of worker threads, one of those workers, and one small job. | A crew sharing a job board; a crew worker; a ticket on the board. |
+| **State machine** | A box that holds a method's variables and a number for where it stopped. | A recipe with a bookmark and a sticky note. |
+| **Promise / future** | The writable box for a value that arrives later; its read-only view. | The two sides of a pickup window. |
+| **Continuation** | The code waiting on a promise: "run this when it finishes." | The pager that buzzes when the order is ready. |
+| **IL** | The low-level language a .NET compiler writes its output in. | The compiler's shorthand notes. |
+
 Source: MMP.GasPumpSimulator at `main` 95b8191 and MMP.AsyncProxy v0.1.0 on 2026-11-02; 322 dotnet tests and 10 Playwright specs passed that day.
+
+Next: [11. When threads win](11-when-threads-win.md), the cases where the plain thread is the right tool.

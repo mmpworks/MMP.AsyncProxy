@@ -176,7 +176,7 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 | `IFuture.Wait(int)` | `Task.Wait(int)` | Park with a bound; true when the answer came in time |
 | `Futures.True`, `Futures.False` | `Task.FromResult(true)`, cached | Shared completed yes-or-no answers, so a fast path allocates nothing |
 | `CancelSource`, `CancelToken` | `CancellationTokenSource`, `CancellationToken` | Cooperative cancel. `Delay` and `Run` take a token |
-| `new Promise<T>(true)` | `TaskCreationOptions.RunContinuationsAsynchronously` | Continuations go to the pool instead of the completer's stack |
+| `new Promise<T>(PromiseOptions.RunContinuationsAsynchronously)` | `TaskCreationOptions.RunContinuationsAsynchronously` | Continuations go to the pool instead of the completer's stack |
 | `AsyncProxy.Run` | the C# 5 compiler | Drives an iterator as an async method |
 
 Context flows the way the real one does. The builder captures `ExecutionContext` at each suspend and restores it before `MoveNext`. The awaiter captures `SynchronizationContext` and posts the continuation back to it.
@@ -189,7 +189,7 @@ Run `samples/MMP.AsyncProxy.Comparison` to see it. 2000 requests that each wait 
 
 ## Learn how it works
 
-`docs/course/` is a ten-chapter walk through the machine, written as two developers going over it over dinner: Steve, and Kevin, who keeps the firmware for a fuel dispenser on Windows CE and .NET Compact Framework 3.5 and cannot change compilers. Each chapter opens at the table. Kevin's pump code, before and after, is in `samples/MMP.AsyncProxy.Forecourt` with tests. Mermaid diagrams inline. Start at `docs/course/README.md`.
+`docs/course/` is an eleven-chapter walk through the machine, written as two developers going over it over dinner: Steve, and Kevin, who keeps the firmware for a fuel dispenser on Windows CE and .NET Compact Framework 3.5 and cannot change compilers. Each chapter opens at the table. Kevin's pump code, before and after, is in `samples/MMP.AsyncProxy.Forecourt` with tests. Mermaid diagrams inline, each with a plain-words walkthrough. The last chapter covers the jobs where plain threads beat async. Start at `docs/course/README.md`.
 
 `docs/sdk.md` is the short guide to using the library.
 
