@@ -30,7 +30,7 @@ namespace MMP.AsyncProxy.Tests
             Assert.Equal(42, seen);
         });
 
-        [Fact]
+        [DesktopFact("SynchronizationContext")]
         public void Under_a_SynchronizationContext_the_continuation_is_posted_not_run_inline()
         {
             // xunit's own context is in place here. This pins the Task-like behaviour.
@@ -52,7 +52,7 @@ namespace MMP.AsyncProxy.Tests
             Assert.Equal(1, promise.Result);
         }
 
-        [Fact]
+        [DesktopFact("Exception.Data")]
         public void Fault_rethrows_the_original_and_keeps_its_first_stack()
         {
             var promise = new Promise<int>();

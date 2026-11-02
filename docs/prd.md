@@ -38,7 +38,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 1. No `ValueTask`, no `IAsyncEnumerable`, no async streams.
 2. No PLINQ or `Parallel.For`.
 3. No source generator or Fody weaver that writes the machine for you. The point is to see it.
-4. No .NET Compact Framework build in slice 1 to 3. The code avoids `Monitor.Wait` and `Monitor.Pulse` so a NETCF port stays possible. A CE port is slice 4 and needs a device or emulator. Audited 2026-11-02 against the CF 3.5 reference assemblies: `docs/netcf-port.md` lists what is missing (`ExecutionContext`, `SynchronizationContext`, `Exception.Data`, `Interlocked.Add`, `Thread.VolatileRead`, `Monitor.Wait`) and the five changes the port makes.
+4. No .NET Compact Framework build in slice 1 to 3. The code avoids `Monitor.Wait` and `Monitor.Pulse` so a NETCF port stays possible. Audited 2026-11-02 against the CF 3.5 reference assemblies, then built the same day: `src/MMP.AsyncProxy.NetCF` compiles the library against them, `tools/netcf-build.ps1` runs the suite against that binary (71 pass, 4 desktop-only facts skipped), and `docs/netcf-port.md` records what changed. A run on a device or emulator is still open; the reference assemblies say what compiles, never how the CF runtime behaves.
 5. No `ExceptionDispatchInfo`. .NET 3.5 lacks it. See decision 6.
 
 ## Decisions
@@ -81,6 +81,7 @@ Build order:
    `Delay` and `Run` with a token, canceled iterators end Canceled, `docs/compiler-vs-handwritten.md` from
    `ilspycmd` with `tools/decompile.ps1`. Tests 50 of 50.
 3. Slice 3: README for public release, NETCF notes, Steve's publish decision.
+   The CF 3.5 build itself landed 2026-11-02 (version 0.3.0): `src/MMP.AsyncProxy.NetCF`, `IPostTarget`/`PostTarget`, `BuildInfo`, `tools/netcf-build.ps1`.
 4. The training track (2026-11-02): its own plan in `docs/prd-training.md`. Course chapter 10, four threaded-to-AsyncProxy mini-projects with tests, IL comparisons, and a bench.
 
 ## Prior art

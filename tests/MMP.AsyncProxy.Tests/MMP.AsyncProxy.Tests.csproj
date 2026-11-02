@@ -7,6 +7,10 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Which MMP.AsyncProxy.dll the suite loads. The default is the net35 build. tools/netcf-build.ps1
+         passes the Compact Framework build's folder instead, so the same suite proves both. -->
+    <AsyncProxyDllDir Condition="'$(AsyncProxyDllDir)' == ''">..\..\src\MMP.AsyncProxy\bin\$(Configuration)\net35\</AsyncProxyDllDir>
+    <ForecourtDllDir Condition="'$(ForecourtDllDir)' == ''">..\..\samples\MMP.AsyncProxy.Forecourt\bin\$(Configuration)\net35\</ForecourtDllDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -23,14 +27,14 @@
     <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net35" />
     <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Samples\MMP.AsyncProxy.Samples.csproj" ReferenceOutputAssembly="false" />
     <Reference Include="MMP.AsyncProxy">
-      <HintPath>..\..\src\MMP.AsyncProxy\bin\$(Configuration)\net35\MMP.AsyncProxy.dll</HintPath>
+      <HintPath>$(AsyncProxyDllDir)MMP.AsyncProxy.dll</HintPath>
     </Reference>
     <Reference Include="MMP.AsyncProxy.Samples">
       <HintPath>..\..\samples\MMP.AsyncProxy.Samples\bin\$(Configuration)\net35\MMP.AsyncProxy.Samples.dll</HintPath>
     </Reference>
     <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Forecourt\MMP.AsyncProxy.Forecourt.csproj" ReferenceOutputAssembly="false" />
     <Reference Include="MMP.AsyncProxy.Forecourt">
-      <HintPath>..\..\samples\MMP.AsyncProxy.Forecourt\bin\$(Configuration)\net35\MMP.AsyncProxy.Forecourt.dll</HintPath>
+      <HintPath>$(ForecourtDllDir)MMP.AsyncProxy.Forecourt.dll</HintPath>
     </Reference>
   </ItemGroup>
 

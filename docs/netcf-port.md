@@ -1,5 +1,7 @@
 # What a Compact Framework 3.5 port needs
 
+Status: BUILT 2026-11-02. `src/MMP.AsyncProxy.NetCF` compiles the library against the CF 3.5 assemblies and `tools/netcf-build.ps1` runs the test suite against that binary. The "Result" section at the end has the numbers. The audit below is what the build was designed from.
+
 Checked 2026-11-02 against the .NET Compact Framework 3.5 reference assemblies, not against documentation. The current Microsoft Learn pages do not record Compact Framework support per class, and the old MSDN pages that did are gone, so the assemblies themselves are the source.
 
 ## Where the assemblies came from
@@ -38,6 +40,9 @@ Output on 2026-11-02:
 | `System.Threading.Thread` | `VolatileRead` | MISSING | `Pulser.Pulses`, first draft |
 | `System.Threading.Thread` | `Thread(ThreadStart, int maxStackSize)`, `Name`, `IsBackground`, `Join(int)`, `Sleep` | present | `KevinsPump` |
 | `System.Exception` | `Data` | MISSING | `Promise<T>.PreserveStackTrace` |
+| `System.OperationCanceledException` | | MISSING | `FutureCanceledException` base, `AsyncMethodBuilder<T>.SetException`, `Futures.Run` (found by the compiler, added to the audit the same day) |
+| `System.ThreadStaticAttribute` | | MISSING | a per-thread post target; `PostTarget` keeps a copy-on-write array keyed by `ManagedThreadId` instead |
+| `System.Reflection.AssemblyFileVersionAttribute` | | MISSING | the SDK's generated AssemblyInfo; turned off with `GenerateAssemblyFileVersionAttribute` |
 | `System.Delegate` | `Combine`, `Remove` | present | `SerialLink.DataReceived` |
 | `System.Collections.Generic.List<T>`, `Queue<T>` | | present | continuations, the training tray |
 | `System.Action`, `System.Func<...>` | | present, in `System.Core` | everywhere |
@@ -59,6 +64,40 @@ Five things, and four of them are small.
 
 Everything else the library touches is there: the pool, the timer, the events, `Monitor.Enter` for `lock`, `Interlocked` for the counters and the first-wins race in `WhenAny`, the Begin/End pair for `FromAsync`, and the sockets and serial port Kevin's board talks through.
 
+## Result, 2026-11-02
+
+What the port did against the list above.
+
+1. `AsyncMethodBuilder<T>.AwaitOnCompleted` under `#if NETCF` is `awaiter.OnCompleted(machine.MoveNext)`. Done.
+2. `FutureAwaiter<T>.OnCompleted` reads `PostTarget.Current` when no `SynchronizationContext` applies. The interface is `IPostTarget` with one method, `Post(Action)`. A thread registers once with `PostTarget.SetForCurrentThread(target)` and `null` removes it. The registry is a copy-on-write array keyed by `Thread.ManagedThreadId`, because CF has no `ThreadStaticAttribute`. The desktop builds keep `SynchronizationContext.Current` first and check the registry second, so the same test proves the path on both. Done.
+3. `Promise<T>.PreserveStackTrace` is empty under `#if NETCF`. README known limit 1 says so. Done.
+4. The forecourt sample was already clean, and it now compiles against the CF assemblies too (`samples/MMP.AsyncProxy.Forecourt.NetCF`). Done.
+5. Build: the second route works. An SDK project with `TargetFramework` net35, `NoStdLib`, `DisableImplicitFrameworkReferences`, `AutomaticallyUseReferenceAssemblyPackages` off, `FrameworkPathOverride` pointing at the CF folder, explicit `Reference` items for `mscorlib`, `System`, and `System.Core` by path, and `NETCF` defined. Two things the audit missed and the compiler found: `OperationCanceledException` is absent, so `FutureCanceledException` derives from `Exception` on CF and the two `is`/`catch` sites test the library's own type; and `AssemblyFileVersionAttribute` is absent, so that generated attribute is turned off. Done.
+
+The build:
+
+```
+pwsh tools/netcf-build.ps1
+   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  20,992 bytes
+   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,240 bytes
+Passed!  - Failed: 0, Passed: 71, Skipped: 4, Total: 75   (against the CF binaries, on the net48 CLR)
+Passed!  - Failed: 0, Passed: 73, Skipped: 2, Total: 75   (control: the desktop net35 binary)
+```
+
+The four skips on the CF run are the facts that need `ExecutionContext`, `SynchronizationContext` (two), and `Exception.Data`, each marked `[DesktopFact("<what it needs>")]`. The two skips on the control are the CF-only facts. `CompactFrameworkTests` is the anchor: it reads the loaded assembly's `mscorlib` reference and checks the public key token (`969db8053d3322ac` for CF, `b77a5c561934e089` for desktop) against `BuildInfo.Target`, so a mislabeled build fails there.
+
+Why the desktop CLR runs a CF binary at all: CF assembly references carry the retargetable flag, and the desktop loader binds them to its own `mscorlib`. That proves the IL the CF compiler step produced is sound and the suite passes on it. It proves nothing about the CF runtime.
+
+Footprint, from `FootprintTests` on the net48 CLR (64-bit, so an upper bound for a 32-bit board):
+
+| Measure | Bytes |
+|---|---|
+| one parked iterator worker (machine, builder, promise, pending future, observe wrapper) | 1,152 |
+| the same after one wake-up | 1,360 |
+| 1,000 parked workers | 1,168,200, no thread held by any of them |
+
+Against the 64 MB board in `docs/ce-budget.md` of MMP.GasPumpSimulator: the island's one worker is about a kilobyte, the library is 21 KB on disk, and a thousand workers would be about 1.2 MB. The pool's stacks, 25 at 128 KB, are the first real line item, and they are the runtime's, not the library's.
+
 ## What this does not say
 
-The reference assemblies say what compiles. They do not say how the CF thread pool schedules, how coarse `Timer` is on a given board, or what the runtime's own footprint is. Those are device measurements and they are items 2 and 4 in `docs/ce-budget.md` of MMP.GasPumpSimulator.
+The reference assemblies say what compiles. They do not say how the CF thread pool schedules, how coarse `Timer` is on a given board, or what the runtime's own footprint is. Those are device measurements and they are items 2 and 4 in `docs/ce-budget.md` of MMP.GasPumpSimulator. Nothing here has run on a Windows CE device or emulator.

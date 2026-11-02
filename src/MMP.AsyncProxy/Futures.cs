@@ -184,7 +184,11 @@ namespace MMP.AsyncProxy
             {
                 if (token.IsCancelRequested) { promise.TrySetCanceled(); return; }
                 try { promise.TrySetResult(work()); }
+#if NETCF
+                catch (FutureCanceledException) { promise.TrySetCanceled(); }
+#else
                 catch (OperationCanceledException) { promise.TrySetCanceled(); }
+#endif
                 catch (Exception ex) { promise.TrySetException(ex); }
             });
             return promise.Future;

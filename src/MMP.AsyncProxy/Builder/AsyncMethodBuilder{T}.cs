@@ -38,6 +38,11 @@ namespace MMP.AsyncProxy
             where TStateMachine : IAsyncStateMachine
         {
             IAsyncStateMachine machine = stateMachine;
+#if NETCF
+            // The Compact Framework has no ExecutionContext, so nothing flows across a park.
+            // A value that must survive the gap rides in the state machine's own fields.
+            awaiter.OnCompleted(machine.MoveNext);
+#else
             // Capture returns null when flow is suppressed. Then there is nothing to carry.
             ExecutionContext captured = ExecutionContext.Capture();
             if (captured == null)
@@ -49,6 +54,7 @@ namespace MMP.AsyncProxy
             {
                 ExecutionContext.Run(captured, delegate { machine.MoveNext(); }, null);
             });
+#endif
         }
 
         public void SetResult(T result)
@@ -63,7 +69,11 @@ namespace MMP.AsyncProxy
         /// </summary>
         public void SetException(Exception exception)
         {
+#if NETCF
+            if (exception is FutureCanceledException) _promise.TrySetCanceled();
+#else
             if (exception is OperationCanceledException) _promise.TrySetCanceled();
+#endif
             else _promise.TrySetException(exception);
         }
     }

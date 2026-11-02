@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Kevin's pump head compiled against the Compact Framework 3.5 reference assemblies,
+       the way his Windows CE box would compile it. Same source as the desktop sample.
+       Built by tools/netcf-build.ps1; see src/MMP.AsyncProxy.NetCF for how the CF
+       references are wired. -->
+
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <LangVersion>3</LangVersion>
+    <AssemblyName>MMP.AsyncProxy.Forecourt</AssemblyName>
+    <RootNamespace>MMP.AsyncProxy.Forecourt</RootNamespace>
+    <DefineConstants>$(DefineConstants);NETCF</DefineConstants>
+    <NetCFRefDir Condition="'$(NetCFRefDir)' == ''">E:\dev\tools\netcf35-ref</NetCFRefDir>
+
+    <AutomaticallyUseReferenceAssemblyPackages>false</AutomaticallyUseReferenceAssemblyPackages>
+    <FrameworkPathOverride>$(NetCFRefDir)</FrameworkPathOverride>
+    <GenerateAssemblyFileVersionAttribute>false</GenerateAssemblyFileVersionAttribute>
+    <NoStdLib>true</NoStdLib>
+    <NoCompilerStandardLib>true</NoCompilerStandardLib>
+    <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CS1591;CS1685</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\MMP.AsyncProxy.Forecourt\**\*.cs" Exclude="..\MMP.AsyncProxy.Forecourt\bin\**;..\MMP.AsyncProxy.Forecourt\obj\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy.NetCF\MMP.AsyncProxy.NetCF.csproj" />
+    <Reference Include="mscorlib">
+      <HintPath>$(NetCFRefDir)\mscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System">
+      <HintPath>$(NetCFRefDir)\System.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="System.Core">
+      <HintPath>$(NetCFRefDir)\System.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="CheckNetCFRefDir" BeforeTargets="CoreCompile">
+    <Error Condition="!Exists('$(NetCFRefDir)\mscorlib.dll')" Text="CF 3.5 reference assemblies missing at $(NetCFRefDir). See docs/netcf-port.md." />
+  </Target>
+
+</Project>
