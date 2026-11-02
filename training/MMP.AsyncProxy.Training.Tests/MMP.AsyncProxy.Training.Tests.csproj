@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- One suite, two runtimes. On net48 it loads the net35 binaries by path, so it proves the
+         3.5-targeted code, the way the main tests do. On net10.0 it loads the netstandard2.0 build
+         and the modern assembly, so the same contract tests run against all three versions. -->
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net35" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training\MMP.AsyncProxy.Training.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net35" />
+    <Reference Include="MMP.AsyncProxy">
+      <HintPath>..\..\src\MMP.AsyncProxy\bin\$(Configuration)\net35\MMP.AsyncProxy.dll</HintPath>
+    </Reference>
+    <Reference Include="MMP.AsyncProxy.Training">
+      <HintPath>..\MMP.AsyncProxy.Training\bin\$(Configuration)\net35\MMP.AsyncProxy.Training.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training\MMP.AsyncProxy.Training.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training.Modern\MMP.AsyncProxy.Training.Modern.csproj" />
+  </ItemGroup>
+
+</Project>

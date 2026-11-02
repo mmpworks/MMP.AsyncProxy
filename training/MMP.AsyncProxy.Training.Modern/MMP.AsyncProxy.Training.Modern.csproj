@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The same four jobs written the way a .NET 10 developer writes them: async/await, Task,
+         Channel, CancellationToken. These exist so the IL of the hand-built machine can be set
+         beside the IL the modern compiler emits, and so the bench has the runtime's own numbers. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MMP.AsyncProxy.Training.Modern</RootNamespace>
+    <AssemblyName>MMP.AsyncProxy.Training.Modern</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The contracts live in the training assembly. The modern copies implement the same ones. -->
+    <ProjectReference Include="..\MMP.AsyncProxy.Training\MMP.AsyncProxy.Training.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+  </ItemGroup>
+
+</Project>

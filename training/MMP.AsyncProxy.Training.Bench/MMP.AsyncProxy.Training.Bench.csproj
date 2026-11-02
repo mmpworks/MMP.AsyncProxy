@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- One console, two runtimes. On net48 it times the threaded and AsyncProxy versions of each
+         project on the CLR family .NET 3.5 code runs on. On net10.0 it adds the modern copies, so
+         all three versions are measured in one process on one runtime. -->
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net48;net10.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MMP.AsyncProxy.Training.Bench</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" SetTargetFramework="TargetFramework=net48" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training\MMP.AsyncProxy.Training.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training\MMP.AsyncProxy.Training.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="..\MMP.AsyncProxy.Training.Modern\MMP.AsyncProxy.Training.Modern.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -81,6 +81,7 @@ Build order:
    `Delay` and `Run` with a token, canceled iterators end Canceled, `docs/compiler-vs-handwritten.md` from
    `ilspycmd` with `tools/decompile.ps1`. Tests 50 of 50.
 3. Slice 3: README for public release, NETCF notes, Steve's publish decision.
+4. The training track (2026-11-02): its own plan in `docs/prd-training.md`. Course chapter 10, four threaded-to-AsyncProxy mini-projects with tests, IL comparisons, and a bench.
 
 ## Prior art
 

@@ -110,9 +110,13 @@ Run `samples/MMP.AsyncProxy.Comparison` to see it. 2000 requests that each wait 
 
 ## Learn how it works
 
-`docs/course/` is an eight-chapter walk through the machine, written as two developers going over it after hours. Mermaid diagrams inline. Start at `docs/course/README.md`.
+`docs/course/` is a ten-chapter walk through the machine, written as two developers going over it after hours. Mermaid diagrams inline. Start at `docs/course/README.md`.
 
 `docs/sdk.md` is the short guide to using the library.
+
+## Move a threaded program onto it
+
+`training/` is four small programs, each written with threads and then with this library, in C# 3 for .NET 3.5, with a modern `async`/`await` copy beside each for the IL comparison. One contract and one test suite per program prove the two versions behave the same. One bench prints the thread, memory, and time table on .NET Framework 4.8 and on .NET 10. Start at `training/README.md`. The plan is `docs/prd-training.md`.
 
 ## Build and test
 
