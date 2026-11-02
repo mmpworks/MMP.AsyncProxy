@@ -13,15 +13,39 @@ namespace MMP.AsyncProxy.Training.Bench;
 ///   dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48
 ///   dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     private static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0] == "injection") { InjectionProbe(); return; }
         var n = args.Length > 0 ? int.Parse(args[0]) : 1000;
         Console.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}, cores: {Environment.ProcessorCount}, N = {n}");
         Console.WriteLine();
         Console.WriteLine("{0,-12} {1,-12} {2,10} {3,13} {4,16} {5,14} {6,5}", "project", "version", "elapsed ms", "peak threads", "allocated bytes", "peak WS bytes", "ok");
         foreach (var row in Rows.All(n)) Console.WriteLine(row.Measure());
+    }
+}
+
+/// <summary>
+/// The cold-process probe behind row 6 of the improvements table: 200 delays due on the
+/// same tick, and how many threads the pool added for them. Run it as the first and only
+/// thing in the process, since a warm pool hides it:
+///
+///   dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- injection
+/// </summary>
+internal static partial class Program
+{
+    private static void InjectionProbe()
+    {
+        var before = Process.GetCurrentProcess().Threads.Count;
+        var sampler = new ThreadSampler();
+        var delays = new IFuture[200];
+        for (var i = 0; i < delays.Length; i++) delays[i] = Futures.Delay(100);
+        Futures.WhenAll(delays).Wait();
+        Thread.Sleep(50);
+        var peak = sampler.Stop();
+        Console.WriteLine($"Runtime: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+        Console.WriteLine($"200 Futures.Delay(100) at once, cold process: threads before {before}, peak {peak}, added {peak - before}");
     }
 }
 

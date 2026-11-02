@@ -24,6 +24,14 @@ namespace MMP.AsyncProxy
         void Wait();
 
         /// <summary>
+        /// Parks the calling thread until the answer arrives or the time runs out.
+        /// True when it arrived. Task.Wait(int) has the same shape. The training
+        /// track's first clerk polled IsCompleted with Thread.Sleep(1) for want of
+        /// this, and a thousand clerks took fifteen seconds to stop.
+        /// </summary>
+        bool Wait(int millisecondsTimeout);
+
+        /// <summary>
         /// Hands back the object an await talks to. Three questions, in order:
         /// is it done, call me when it is, give me the answer.
         /// </summary>

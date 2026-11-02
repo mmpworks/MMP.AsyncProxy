@@ -29,6 +29,11 @@ namespace MMP.AsyncProxy
             _promise.Wait();
         }
 
+        public bool Wait(int millisecondsTimeout)
+        {
+            return _promise.Wait(millisecondsTimeout);
+        }
+
         public IAwaiter<T> GetAwaiter()
         {
             return _promise.GetAwaiter();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace MMP.AsyncProxy.Training.Deadline.Threaded
@@ -14,7 +15,20 @@ namespace MMP.AsyncProxy.Training.Deadline.Threaded
     /// </summary>
     public sealed class ThreadPerAttemptCaller : IDeadlineCaller
     {
+        private readonly List<Thread> _attempts = new List<Thread>();
+
         public string Version { get { return "threaded"; } }
+
+        /// <summary>Attempt threads that are still alive: the ones the service never answered, parked for good.</summary>
+        public int ParkedAttempts
+        {
+            get
+            {
+                int alive = 0;
+                lock (_attempts) foreach (Thread t in _attempts) if (t.IsAlive) alive++;
+                return alive;
+            }
+        }
 
         public CallResult Call(FlakyService service, int timeoutMs, int maxAttempts, GiveUp giveUp)
         {
@@ -35,6 +49,7 @@ namespace MMP.AsyncProxy.Training.Deadline.Threaded
                 });
                 t.IsBackground = true;
                 t.Name = "attempt:" + attempt;
+                lock (_attempts) _attempts.Add(t);
                 t.Start();
 
                 int signalled = WaitHandle.WaitAny(new WaitHandle[] { answered, gaveUp }, timeoutMs, false);

@@ -38,20 +38,30 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
         {
             while (!_stopping)
             {
-                IFuture<T> next = _tray.TakeAsync();
-                // Observe, so a cancelled take (the tray closed) ends the loop instead of faulting it.
-                yield return Futures.Observe(next);
-                if (next.IsCanceled || next.IsFaulted || _stopping) yield break;
-
-                Interlocked.Exchange(ref _busy, 1);
-                try { _handle(next.Result); }
-                catch (Exception) { /* a slip that throws is still a slip handled; the clerk stays seated */ }
-                finally
+                T slip;
+                if (!_tray.TryTake(out slip))
                 {
-                    Interlocked.Increment(ref _handled);
-                    _tray.Handled();
-                    Interlocked.Exchange(ref _busy, 0);
+                    // Nothing queued: now, and only now, park on the tray's IOU.
+                    IFuture<T> next = _tray.TakeAsync();
+                    // Observe, so a cancelled take (the tray closed) ends the loop instead of faulting it.
+                    yield return Futures.Observe(next);
+                    if (next.IsCanceled || next.IsFaulted || _stopping) yield break;
+                    slip = next.Result;
                 }
+                Handle(slip);
+            }
+        }
+
+        private void Handle(T slip)
+        {
+            Interlocked.Exchange(ref _busy, 1);
+            try { _handle(slip); }
+            catch (Exception) { /* a slip that throws is still a slip handled; the clerk stays seated */ }
+            finally
+            {
+                Interlocked.Increment(ref _handled);
+                _tray.Handled();
+                Interlocked.Exchange(ref _busy, 0);
             }
         }
 

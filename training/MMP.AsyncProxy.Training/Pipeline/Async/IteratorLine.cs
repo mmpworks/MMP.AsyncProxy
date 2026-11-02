@@ -35,8 +35,9 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
             foreach (int x in inputs)
             {
                 meter.Entered();
-                IFuture<bool> room = ahead.PutAsync(Stages.Parse(x));
-                yield return room;                                      // parks only when the tray ahead is full
+                int parsed = Stages.Parse(x);
+                if (ahead.TryPut(parsed)) continue;                     // room: in it goes, nothing allocated
+                yield return ahead.PutAsync(parsed);                    // full: park on the tray's IOU
             }
             ahead.Close();
         }
@@ -45,12 +46,18 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
         {
             while (true)
             {
-                IFuture<int> next = behind.TakeAsync();
-                yield return Futures.Observe(next);                     // parks only when the tray behind is empty
-                if (next.IsCanceled) break;                             // closed and drained
+                int x;
+                if (!behind.TryTake(out x))
+                {
+                    IFuture<int> next = behind.TakeAsync();
+                    yield return Futures.Observe(next);                 // parks only when the tray behind is empty
+                    if (next.IsCanceled) break;                         // closed and drained
+                    x = next.Result;
+                }
                 int enrichedItem;
-                try { enrichedItem = Stages.Enrich(next.Result); }
-                catch (InvalidOperationException) { dropped.Add(next.Result); meter.Left(); continue; }
+                try { enrichedItem = Stages.Enrich(x); }
+                catch (InvalidOperationException) { dropped.Add(x); meter.Left(); continue; }
+                if (ahead.TryPut(enrichedItem)) continue;
                 yield return ahead.PutAsync(enrichedItem);
             }
             ahead.Close();
@@ -60,11 +67,16 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
         {
             while (true)
             {
-                IFuture<int> next = behind.TakeAsync();
-                yield return Futures.Observe(next);
-                if (next.IsCanceled) break;
+                int x;
+                if (!behind.TryTake(out x))
+                {
+                    IFuture<int> next = behind.TakeAsync();
+                    yield return Futures.Observe(next);
+                    if (next.IsCanceled) break;
+                    x = next.Result;
+                }
                 if (writeDelayMs > 0) yield return Futures.Delay(writeDelayMs);   // the slow end of the line, with no thread asleep
-                outputs.Add(next.Result);
+                outputs.Add(x);
                 meter.Left();
             }
         }
