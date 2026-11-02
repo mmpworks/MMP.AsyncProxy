@@ -108,9 +108,19 @@ flowchart LR
 1. It sounds like a bag of thread objects that you reach into and take one. You don't. You never hold a pool thread. You hold nothing. You pin a ticket and the pool decides which worker runs it.
 2. "Pool" sounds like somewhere you park things, like a parking lot. It is the opposite. A better picture is a **motor pool**, like the cars a company keeps for short trips. You borrow one, make a short run, and give it right back. Nobody keeps a motor-pool car for a week.
 
+**What everybody else calls it.** The same machine (a few shared threads pulling jobs off one queue) turns up in every language, and the usual names are **worker pool** and **executor**. Java hands your jobs to an `Executor`, and the threads inside it are called *worker threads*. Go programmers talk about a *worker pool*. So the idiomatic name for what this course calls a **pool thread** is a **worker thread**, and the idiomatic name for the whole crew-plus-board is a **worker pool**. When you see "worker" in another language's docs, it is this crew. This course says "pool thread" because .NET's own docs and stack traces say "thread pool thread", and you will meet that phrase.
+
+**Where Microsoft muddied it.** In fairness, "pool" is the industry word and Microsoft did not invent it. The mud is in how .NET dresses it up:
+
+1. `ThreadPool` is a *static class*. There is exactly one pool in your whole program. You can't make a second one, hand one to a method, or size one differently for a different kind of job. The name sounds like a thing you can have several of. It is really one global setting.
+2. `QueueUserWorkItem` is the name of a Windows 2000-era Win32 call, carried over as it was. The word "User" in the middle says nothing a reader needs.
+3. `Task` sounds like a job to do. A lot of `Task`s are just a place to wait for an answer: the read-only pickup window from chapter 2. A `TaskCompletionSource` makes `Task`s that have no work behind them at all. And .NET has three different classes named `Timer`, in three different namespaces.
+
+None of it is fatal. It is just why a newcomer reads `ThreadPool` and pictures a bag of threads.
+
 If it were up to me I would have called it `SharedWorkerCrew`. We are stuck with `ThreadPool`, so read it that way in your head.
 
-In this course, we will say **the thread pool** for the whole thing (the crew plus the board), **a pool thread** for one crew worker, **a work item** for one ticket, and **the job board** (or "the pool's queue") for the line of tickets.
+In this course, we will say **the thread pool** for the whole thing (the crew plus the board), **a pool thread** (the idiomatic name is a *worker thread*) for one crew worker, **a work item** for one ticket, and **the job board** (or "the pool's queue") for the line of tickets.
 
 **The rules for using it:**
 
@@ -209,4 +219,5 @@ Then we run the numbers in chapter 6 and cheat with iterators in chapter 7.
 | **Callback** | Code you hand over to be run when something finishes | The restaurant pager |
 | **Thread pool** | A shared crew of reusable worker threads plus a job board | A motor pool, not a parking lot |
 | **Work item** | One small job (a piece of code) waiting on the job board | A ticket on the board |
-| **Pool thread** | One of the crew that takes tickets | A worker from the break room |
+| **Pool thread** (idiomatic: *worker thread*) | One of the crew that takes tickets | A worker from the break room |
+| **Worker pool / executor** | What other languages call the thread pool | The same crew and job board, under another name |
