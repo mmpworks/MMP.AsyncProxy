@@ -26,7 +26,7 @@ Kevin thought about it. "The stack. CE gives you sixty-four K by default. We bum
 
 "Pool thread. On CE."
 
-"The Compact Framework has a thread pool. It's small, because the work items are small." He turned the laptop around. "Here's the shape of what you have, and the shape of what you're going to have."
+"The Compact Framework has a thread pool. Twenty-five threads, 128 K stacks, if the 2.0 docs still hold for your 3.5. Three megs of stack for the whole pool, worst case. It's small because the work items are small: a pool thread runs your code for the microseconds it takes to compare a pulse count to a ceiling, and goes back." He turned the laptop around. "Here's the shape of what you have, and the shape of what you're going to have."
 
 So here is the thing nobody tells you when you learn threads. A thread is a great tool for doing work. It is a terrible tool for waiting.
 
