@@ -13,7 +13,7 @@
 
     <!-- SDK packaging. `dotnet pack -c Release` drops a .nupkg with net35 and net48 in artifacts/. -->
     <PackageId>MMP.AsyncProxy</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <PackageTags>async;await;net35;state-machine;futures;promise;iterator;compact-framework</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
