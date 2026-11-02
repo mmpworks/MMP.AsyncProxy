@@ -32,11 +32,11 @@ Kill condition: every row below is true on one date, and that date is written he
 | # | Check | Count | Date |
 |---|---|---|---|
 | 1 | `docs/course/10-waiting-without-a-thread.md` exists and the course index lists it | 1 chapter | 2026-11-02 |
-| 2 | Each of the four projects has a threaded version and an AsyncProxy version in `MMP.AsyncProxy.Training` (net35, C# 3) and a modern version in `MMP.AsyncProxy.Training.Modern` (net10.0) | 1 of 4 (mailbox) | 2026-11-02 |
-| 3 | `MMP.AsyncProxy.Training.Tests` runs every behaviour test against both 3.5 versions through one contract, and against the modern version on net10 | mailbox: 15 of 15 on net48, 22 of 22 on net10.0 | 2026-11-02 |
-| 4 | `docs/compiler-output/training/` holds, per project, the decompiled iterator machine (CSharp1) and the decompiled modern machine (CSharp4), and the IL of each `MoveNext` | 4 of 16 files (mailbox) | 2026-11-02 |
-| 5 | Each project README has the sections listed under "README shape" below, with the bench numbers filled in from a run on this machine | 1 of 4 | 2026-11-02 |
-| 6 | `MMP.AsyncProxy.Training.Bench` prints the table for all four on net48 and on net10.0 | mailbox rows, 2 runs | 2026-11-02 |
+| 2 | Each of the four projects has a threaded version and an AsyncProxy version in `MMP.AsyncProxy.Training` (net35, C# 3) and a modern version in `MMP.AsyncProxy.Training.Modern` (net10.0) | 2 of 4 (mailbox, fan-out) | 2026-11-02 |
+| 3 | `MMP.AsyncProxy.Training.Tests` runs every behaviour test against both 3.5 versions through one contract, and against the modern version on net10 | 25 of 25 on net48, 37 of 37 on net10.0 | 2026-11-02 |
+| 4 | `docs/compiler-output/training/` holds, per project, the decompiled iterator machine (CSharp1) and the decompiled modern machine (CSharp4), and the IL of each `MoveNext` | 8 of 16 files | 2026-11-02 |
+| 5 | Each project README has the sections listed under "README shape" below, with the bench numbers filled in from a run on this machine | 2 of 4 | 2026-11-02 |
+| 6 | `MMP.AsyncProxy.Training.Bench` prints the table for all four on net48 and on net10.0 | mailbox and fan-out rows, 2 runs | 2026-11-02 |
 | 7 | Every library improvement found during the IL comparison is listed in the "Improvements found" table below as adopted or rejected with a reason, and each adopted one has a test | ___ rows | ___ |
 | 8 | Each adopted improvement that touches the dispatch pattern is applied in MMP.GasPumpSimulator's `AsyncProxyDispatch` with its tests green | ___ of ___ | ___ |
 | 9 | Tic-gate clean on every markdown file in the track | all | ___ |
@@ -101,7 +101,7 @@ Build order. Each slice is one PR, merged when green.
 
 0. This PRD, chapter 10, the training index, the four projects as empty shells that build, the solution entries. Done 2026-11-02.
 1. Mailbox: contract, threaded, async, modern, tests, bench row, decompile, README. Done 2026-11-02. Found improvements 1 to 5 below.
-2. Fan-out, same list.
+2. Fan-out, same list. Done 2026-11-02. Found improvement 6 below.
 3. Pipeline, same list.
 4. Deadline, same list.
 5. Improvements: the adopted rows below land in `src/` with tests, then in the gas pump simulator.
@@ -117,6 +117,7 @@ Filled in as slices 1 to 4 run. Each row names the evidence, the decision, and t
 | 3 | Same bench. `IteratorStateMachine.MoveNext` calls `step.GetAwaiter()` before checking completion, which boxes the `FutureAwaiter` struct to `IAwaiter` on every step, including completed ones. | The compiler's machine keeps the awaiter as a struct field; no boxing. | Adopt: check `step.IsCompleted` first and skip the awaiter on a completed, non-faulted step. | One interface box per step saved on the fast path; the slow path is unchanged. | slice 5 |
 | 4 | Same bench. The tray's fast path builds `new Promise<T>(true)` and completes it at once. | `ValueTask<T>` wraps the value directly. | Watch: a `Futures.FromResult<T>` is the same two objects. A pooled or cached completed future would be a new shape. | Rule of three. Revisit if projects 2 to 4 hit the same path. | |
 | 5 | `AsyncMethodBuilder<T>.AwaitOnCompleted` captures `ExecutionContext` on every park and wraps the continuation in two delegates. | `AwaitUnsafeOnCompleted` skips the flow when the runtime knows the context is the default. | Watch: measure the share of the per-wake cost first. .NET 3.5 has no "is default" check on `ExecutionContext`, so a skip would be an opt-in flag, which is decision 2 of chapter 9's booleans-as-strategy caveat. | Behaviour change for anyone relying on logical call context across a park; needs its own test and a measured win. | |
+| 6 | Fan-out (2026-11-02). 200 `Futures.Delay` timers firing on one tick made the .NET 10 pool inject 57 threads in a cold process (22 warm); the modern courier's 200 `Task.Delay` stayed under 20. At 1000 letters in the warm bench both sat at the idle count. Each `Delay` is its own `System.Threading.Timer` and its callback calls `Timer.Dispose`, which takes the timer queue's lock; 200 of those at once look like starvation to the pool's heuristic. | `Task.Delay` rides one timer queue; a fired entry is unlinked without a per-timer dispose on the callback path. | Watch, then adopt in slice 5 if the measurement holds: one shared timer wheel for `Futures.Delay`, so N delays due at the same tick are one callback that completes N promises. | The injection is transient and the claim "no thread per letter" still holds, but a CE pool of 25 has no room for a burst of 57. The shared wheel is also fewer kernel timers on the board. | |
 
 ## Boundary
 
