@@ -120,6 +120,10 @@ IAwaiter<int> awaiter = future.ContinueOnAnyThread();
 
 Never call `.Result` or `.Wait()` on a UI thread while a continuation is waiting to post back to it. That is the classic deadlock and it works the same here as in .NET 4.5.
 
+Any thread that owns something can ask for its continuations back, not only a UI thread: a printer driver that insists on one thread, a display loop. On the desktop, make that thread's `SynchronizationContext` post to a queue the thread drains, and start the async method on that thread. `training/MMP.AsyncProxy.Training/Support/OwnerThread.cs` is a small working one, and course chapter 11 shows it in use.
+
+The Compact Framework has no `SynchronizationContext`. There, implement `IPostTarget` (one method, `Post(Action)`) and register it once on the thread with `PostTarget.SetForCurrentThread`. The awaiter checks `SynchronizationContext.Current` first on the desktop builds and the registry second, so the same code works on both.
+
 ## Fan out, fan in
 
 ```csharp
@@ -207,6 +211,8 @@ catch (Exception ex)
     log.Error(ex.Message + Environment.NewLine + where);
 }
 ```
+
+The Compact Framework has no `Exception.Data`, so on that build the first stack is not kept. README known limit 1 says so.
 
 ## What is on the plan
 

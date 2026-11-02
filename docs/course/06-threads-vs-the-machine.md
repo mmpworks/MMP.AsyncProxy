@@ -221,7 +221,7 @@ Futures.WhenAll(futures).Wait();
 - `AsyncProxy.Run(...)` builds the card (the state machine) and starts it. You get back a future for it.
 - `Futures.WhenAll(futures).Wait()` is the "wait until every order is done" line. It sits at the very top of a console program, which is the one place a blocking wait is fine.
 
-Result: 212 ms for 2,000 requests, and the peak thread count is 33. That is the number of threads this process had *before* the test started, so the test added none. The 200 ms was spent by 2,000 timers, which cost nothing while they tick. In fact, every `Futures.Delay` in the process rides on one shared timer, like a single egg timer that can count down for thousands of orders.
+Result: 212 ms for 2,000 requests, and the peak thread count is 33. That is the number of threads this process had *before* the test started, so the test added none. The 200 ms was spent by 2,000 entries waiting on one shared timer, which cost nothing while they ticked. Every `Futures.Delay` in the process rides on that one timer (the library's `DelayWheel`), like a single egg timer that can count down for thousands of orders. (This table was measured on 2026-10-31, before the library moved every delay onto the shared wheel on 2026-11-02. The shape is the same.)
 
 The work is identical in all three rows. The only difference is *where the waiting happened*: on a thread, on a thread you borrowed from a shared crew, or on a timer.
 

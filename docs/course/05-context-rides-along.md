@@ -88,6 +88,11 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
 {
     IAsyncStateMachine machine = stateMachine;
     ExecutionContext captured = ExecutionContext.Capture();   // snapshot, here, now
+    if (captured == null)                                     // flow was switched off: nothing to carry
+    {
+        awaiter.OnCompleted(machine.MoveNext);
+        return;
+    }
     awaiter.OnCompleted(delegate
     {
         ExecutionContext.Run(captured, delegate { machine.MoveNext(); }, null);   // restore, there, later
@@ -99,7 +104,8 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
 
 1. `ExecutionContext.Capture()` packs the backpack. It runs right here, at the `await`, on the thread that is about to leave. Whatever the code set with `CallContext.LogicalSetData` is in the bag now.
 2. `awaiter.OnCompleted(delegate { ... })` is the pager from chapter 4. We hand over a piece of code to run when the thing finishes.
-3. Inside that code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. So the method wakes up with its bag in its hands.
+3. If `Capture()` gives back `null`, the code that set things up turned flow off (`ExecutionContext.SuppressFlow()`), so there is no backpack to carry and the continuation is just `MoveNext`. (On the Compact Framework build this whole method is that one line, `awaiter.OnCompleted(machine.MoveNext)`, because that platform has no `ExecutionContext` at all.)
+4. Inside the other branch's code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. So the method wakes up with its bag in its hands.
 
 Capture at the await. Restore right before `MoveNext`. Whatever thread runs the continuation, the method sees the same logical values it saw before it suspended. The test `ExecutionContext_flows_across_the_await` proves it: set a value, await a timer, read it back on the pool thread, same value.
 
@@ -149,19 +155,42 @@ That thread has a **`SynchronizationContext.Current`**. A synchronization contex
 ```csharp
 public void OnCompleted(Action continuation)
 {
+#if !NETCF
     SynchronizationContext context = _continueOnCapturedContext ? SynchronizationContext.Current : null;
-    if (context == null) { _promise.RegisterContinuation(continuation); return; }
-    _promise.RegisterContinuation(delegate { context.Post(delegate { continuation(); }, null); });
+    if (context != null)
+    {
+        _promise.RegisterContinuation(delegate { context.Post(delegate { continuation(); }, null); });
+        return;
+    }
+#endif
+    // The Compact Framework has no SynchronizationContext. A thread that wants continuations
+    // back registers an IPostTarget once; see PostTarget.
+    IPostTarget target = _continueOnCapturedContext ? PostTarget.Current : null;
+    if (target == null) { _promise.RegisterContinuation(continuation); return; }
+    _promise.RegisterContinuation(delegate { target.Post(continuation); });
 }
 ```
 
 **Read it like this.**
 
-1. The first line looks at the current thread's synchronization context: "is there a sign saying return to counter three?" It only looks if `_continueOnCapturedContext` is true. If the flag is false, it uses `null`, which means "no sign".
-2. If there is no sign (`context == null`), register the continuation as-is. Whoever finishes the work will run it, on their own thread.
-3. If there is a sign, register a continuation that, instead of running the code, calls `context.Post(...)`. That drops the code in counter three's in-tray. The one thread that owns the screen runs it when it gets to it.
+1. The first block (not compiled on the Compact Framework) looks at the current thread's synchronization context: "is there a sign saying return to counter three?" It only looks if `_continueOnCapturedContext` is true. If the flag is false, it uses `null`, which means "no sign".
+2. If there is a sign, register a continuation that, instead of running the code, calls `context.Post(...)`. That drops the code in counter three's in-tray. The one thread that owns the screen runs it when it gets to it. Then stop.
+3. If there is no `SynchronizationContext`, the awaiter asks for a **post target** (`IPostTarget`), which is the same idea without the .NET class. It is a registry the thread filled in earlier, and it is described just below. If there is none of those either, register the continuation as-is. Whoever finishes the work will run it, on their own thread.
 
 On a UI thread, the continuation gets posted back to the UI thread. On a pool thread or a console, `Current` is null and the continuation runs wherever the completion happened.
+
+### The same sign on the Compact Framework: `IPostTarget`
+
+The Compact Framework does not ship `SynchronizationContext`, so the library has a small copy of the idea. `IPostTarget` has one method, `Post(Action)`: "run this on my thread, later, never inline." A thread that wants continuations back, like Kevin's display thread, registers itself once at startup:
+
+```csharp
+// On the display thread, once, when it starts. It owns the LCD, so continuations come back here.
+PostTarget.SetForCurrentThread(new DisplayQueue());   // DisplayQueue.Post puts the action on the queue this thread drains
+...
+PostTarget.SetForCurrentThread(null);                 // take the sign down when the thread ends
+```
+
+**Read it like this.** `SetForCurrentThread` writes "the target for *this* thread" into a small list. The awaiter's `PostTarget.Current` looks up the calling thread in that list at the `await`. There is no thread-local variable involved, because the Compact Framework has no `ThreadStatic` either. The list is kept as a tiny array that is copied when it changes, and looked up by the thread's managed id. On the desktop builds, `SynchronizationContext.Current` is checked first and the registry second, so an app can use either one, and the same tests prove both paths.
 
 ```mermaid
 flowchart TD

@@ -223,9 +223,13 @@ public void MoveNext()
             if (!_steps.MoveNext()) { _steps.Dispose(); _builder.SetResult(_return.Value); return; }
 
             IFuture step = _steps.Current;
-            IAwaiter awaiter = step.GetAwaiter();
+            if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
 
-            // Fast path: the future is already done, so no suspend. Keep going in this loop.
+            // Fast path: the future already succeeded, so no suspend and no awaiter. Keep going in this loop.
+            if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;
+
+            // Done but failed or canceled? GetResult throws. Still running? Fall through and park.
+            IAwaiter awaiter = step.GetAwaiter();
             if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }
 
             // Slow path: park here. The builder will call MoveNext again when the future completes.
@@ -245,9 +249,9 @@ Read it as a clerk working a to-do list. Pull the next item. If it is already do
 
 1. `if (_pending != null) ...`: "Did I come back from a nap?" If yes, look at the result of the step I was waiting on. If that step failed, `GetResult()` throws here, and the failure is handled at the bottom.
 2. `if (!_steps.MoveNext()) ...`: "Ask the iterator for its next future." That one call is the compiler's `switch` doing its jump. If there is no next one, the method is finished: close the iterator and put the final answer into the result future (`SetResult`).
-3. `IAwaiter awaiter = step.GetAwaiter()`: get the object that can answer "are you done yet?"
-4. `if (awaiter.IsCompleted) { ...; continue; }`: the **fast path**. The thing we asked for is already done, so there is nothing to wait for. Read the result and go around the loop again. No thread leaves and no callback is needed.
-5. `_pending = awaiter;` and `AwaitOnCompleted(...)`: the **slow path**. Remember what we are parked on, tell the builder "when this finishes, call `MoveNext` on me again," and `return`. That `return` is the thread walking away.
+3. `IFuture step = _steps.Current;`: the future the iterator just handed out. (A null is a bug in the iterator, so it throws a clear message.)
+4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;`: the **fast path**. The thing we asked for is already done and went fine, so there is nothing to wait for. Go around the loop again. No thread leaves, no callback is needed, and no awaiter is even made. If the step is done but failed or was canceled, we fall through: `GetAwaiter()` and `GetResult()` throw so the failure reaches the caller.
+5. `_pending = awaiter;` and `AwaitOnCompleted(...)`: the **slow path**, for a step that is still running. Remember what we are parked on, tell the builder "when this finishes, call `MoveNext` on me again," and `return`. That `return` is the thread walking away.
 6. `catch (Exception ex)`: if anything went wrong at any point, the failure is put into the result future, so the caller sees it when they ask for the result.
 
 Here is the same loop as a picture.
@@ -261,7 +265,7 @@ flowchart TD
     nxt --> more{"Is there a next one?"}
     more -->|"no"| fin["SetResult: the method is finished"]
     more -->|"yes"| ready{"Is that future already done?"}
-    ready -->|"yes: fast path"| obs2["Read the result"] --> nxt
+    ready -->|"yes, and it went fine: fast path"| nxt
     ready -->|"no: slow path"| park["Remember it, ask to be called back,<br/>and return. No thread is held."]
 ```
 
@@ -271,7 +275,7 @@ flowchart TD
 2. If we just came back from waiting, the first job is to read the result of the step we waited on. A failed step is thrown here, and the loop's `catch` turns it into a failed result.
 3. Then we ask the iterator for its next future. This is where the compiler's bookmark does its work: the iterator picks up right after the last `yield return`.
 4. If there is no next future, the method has reached its end. We put the final value into the result future and stop.
-5. If there is one, we check whether it is already done. If it is, we read it and loop straight back for the next one. Nothing waits and no thread leaves.
+5. If there is one, we check whether it is already done and went fine. If it is, we loop straight back for the next one. Nothing waits and no thread leaves. (A step that finished by failing or being canceled is handled by the awaiter, which throws, so the failure is never skipped.)
 6. If it is not done, we leave a note ("call me back"), and the method returns. At this moment no thread is inside the method at all. It is a bookmarked recipe sitting on the shelf.
 
 **Why it matters:** This one loop is what turns a plain C# 2 iterator into something that behaves like `await`. The compiler's switch does the jumping; this loop does the waking up.

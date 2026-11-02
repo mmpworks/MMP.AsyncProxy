@@ -128,10 +128,16 @@ public void MoveNext()
         {
             if (_pending != null) { var f = _pending; _pending = null; f.GetResult(); }  // observe the step we parked on
 
-            if (!_steps.MoveNext()) { _builder.SetResult(_return.Value); return; }       // iterator done, method done
+            if (!_steps.MoveNext()) { _steps.Dispose(); _builder.SetResult(_return.Value); return; }  // iterator done, method done
 
-            IAwaiter awaiter = _steps.Current.GetAwaiter();
-            if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }                 // fast path, keep going
+            IFuture step = _steps.Current;
+            if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
+
+            // Fast path: already done and not failed. Skip the awaiter entirely and keep going.
+            if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;
+
+            IAwaiter awaiter = step.GetAwaiter();
+            if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }                 // done, but failed or canceled: GetResult throws
 
             _pending = awaiter;
             var self = this;
@@ -139,7 +145,7 @@ public void MoveNext()
             return;
         }
     }
-    catch (Exception ex) { _builder.SetException(ex); }
+    catch (Exception ex) { _steps.Dispose(); _builder.SetException(ex); }
 }
 ```
 
@@ -147,9 +153,9 @@ public void MoveNext()
 
 1. `if (_pending != null) ...` If this clerk is coming back from a wait, first take a look at how that step turned out. `GetResult` hands over the answer, or throws if the step failed.
 2. `if (!_steps.MoveNext()) ...` Ask the iterator for its next step. If there is none, the whole method is done: put the final value in the window with `SetResult` and stop.
-3. `IAwaiter awaiter = _steps.Current.GetAwaiter();` The step is a future. Ask it for its awaiter, the little object that can answer "are you done?" and "buzz me when you are."
-4. `if (awaiter.IsCompleted) ... continue;` If the step is *already* done, cross it off and go to the next one. No waiting. This is the fast path.
-5. Otherwise, remember the awaiter in `_pending`, call `AwaitOnCompleted` to leave the pager ("call `MoveNext` on me when this finishes"), and `return`. The clerk walks away. No thread is holding anything.
+3. `IFuture step = _steps.Current;` The step is a future. (A null here is a bug in the iterator, so it throws a clear message.)
+4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;` If the step is *already* done and went fine, cross it off and go to the next one. No waiting, and no awaiter needed. This is the fast path, and it is the common case, so it should cost almost nothing. (If the step is done but failed or was canceled, we fall through, ask for its awaiter, and `GetResult` throws so the failure is not lost.)
+5. Otherwise the step is still running. Ask it for its awaiter, the little object that can answer "are you done?" and "buzz me when you are." Remember the awaiter in `_pending`, call `AwaitOnCompleted` to leave the pager ("call `MoveNext` on me when this finishes"), and `return`. The clerk walks away. No thread is holding anything.
 6. `catch (Exception ex) ...` If anything throws, the failure goes into the result with `SetException`, so the caller sees it at their own `await`.
 
 Compare it to the hand-written machine from chapter 3. Same builder. Same `AwaitOnCompleted`. Same `IsCompleted` fast path. Same `GetResult` on resume. Same try/catch into `SetException`. The only difference is that instead of a `switch` on our own state, we call the iterator's `MoveNext()` and let the compiler's switch do the jumping.
@@ -278,7 +284,7 @@ else { use(risky.Result); }
 
 **Read it like this.** `Observe` is a padded envelope. Whatever happens to the step inside, good or bad, the envelope arrives safely. Then *you* open it and look at `IsFaulted` yourself, instead of the driver blowing up on your behalf.
 
-Open `Futures.Observe` in `Futures.cs`. It is four lines. The test `Observe_never_throws_and_lets_the_body_inspect_the_step` shows a body recovering from a failed step.
+Open `Futures.Observe` in `Futures.cs`. It is a few lines. The test `Observe_never_throws_and_lets_the_body_inspect_the_step` shows a body recovering from a failed step.
 
 **`yield` cannot sit inside a `try` with a `catch`.** The C# iterator rules forbid it. `try`/`finally` is fine, and that is why `AuthorizeBody` above uses `finally` and not `catch`. Real `await` has no such limit.
 
