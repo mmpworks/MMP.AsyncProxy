@@ -36,7 +36,8 @@ New-Item -ItemType Directory -Path $target -Force | Out-Null
 $machines = @(
     @{ Name = "mailbox"; Iterator = "MMP.AsyncProxy.Training.Mailbox.Async.IteratorClerk``1"; Modern = "MMP.AsyncProxy.Training.Modern.Mailbox.ChannelClerk``1" },
     @{ Name = "fan-out"; Iterator = "MMP.AsyncProxy.Training.FanOut.WhenAllCourier"; Modern = "MMP.AsyncProxy.Training.Modern.FanOut.TaskCourier" },
-    @{ Name = "pipeline"; Iterator = "MMP.AsyncProxy.Training.Pipeline.Async.IteratorLine"; Modern = "MMP.AsyncProxy.Training.Modern.Pipeline.ChannelLine" }
+    @{ Name = "pipeline"; Iterator = "MMP.AsyncProxy.Training.Pipeline.Async.IteratorLine"; Modern = "MMP.AsyncProxy.Training.Modern.Pipeline.ChannelLine" },
+    @{ Name = "deadline"; Iterator = "MMP.AsyncProxy.Training.Deadline.Async.WhenAnyCaller"; Modern = "MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller" }
 )
 
 function Decompile($dll, $type, $level, $path) {

@@ -84,5 +84,6 @@ internal static class Rows
         foreach (var row in MailboxRows.For(n)) yield return row;
         foreach (var row in FanOutRows.For(n)) yield return row;
         foreach (var row in PipelineRows.For(n * 10)) yield return row;
+        foreach (var row in DeadlineRows.For(n / 10)) yield return row;
     }
 }

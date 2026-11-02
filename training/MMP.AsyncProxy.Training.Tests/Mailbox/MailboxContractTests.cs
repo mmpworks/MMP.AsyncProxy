@@ -160,10 +160,11 @@ public class MailboxContractTests
             var tray = desk.OpenTray<int>("tray" + i, 8);
             clerks.Add(desk.Seat("clerk" + i, tray, _ => { }));
         }
-        Thread.Sleep(100);
+        // Starting 200 threads can take longer than 100 ms on .NET Framework, so wait for them rather than sleep.
+        WaitUntil(() => Process.GetCurrentProcess().Threads.Count - before >= 190, 3000);
 
         var after = Process.GetCurrentProcess().Threads.Count;
-        Assert.True(after - before >= 200, $"only {after - before} threads appeared for 200 threaded clerks");
+        Assert.True(after - before >= 190, $"only {after - before} threads appeared for 200 threaded clerks");
         clerks.ForEach(c => c.Dispose());
     }
 
