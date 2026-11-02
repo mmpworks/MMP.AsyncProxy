@@ -1,6 +1,6 @@
 # PRD: the training track
 
-Status: written 2026-11-02. Slice 0 (this file, course chapter 10, the project skeleton) built the same day. Decisions below stand until Steve changes one.
+Status: written 2026-11-02 and completed the same day, slices 0 to 5. Decisions below stand until Steve changes one.
 
 ## What
 
@@ -27,7 +27,7 @@ The four projects, in the order a reader meets them:
 
 ## Acceptance
 
-Kill condition: every row below is true on one date, and that date is written here.
+Kill condition: every row below is true on one date, and that date is written here. Met 2026-11-02.
 
 | # | Check | Count | Date |
 |---|---|---|---|
@@ -38,8 +38,8 @@ Kill condition: every row below is true on one date, and that date is written he
 | 5 | Each project README has the sections listed under "README shape" below, with the bench numbers filled in from a run on this machine | 4 of 4 | 2026-11-02 |
 | 6 | `MMP.AsyncProxy.Training.Bench` prints the table for all four on net48 and on net10.0 | all four, 2 runs | 2026-11-02 |
 | 7 | Every library improvement found during the IL comparison is listed in the "Improvements found" table below as adopted or rejected with a reason, and each adopted one has a test | 7 rows; 6 adopted and landed with 12 tests in `ImprovementsTests.cs`, 1 watched | 2026-11-02 |
-| 8 | Each adopted improvement that touches the dispatch pattern is applied in MMP.GasPumpSimulator's `AsyncProxyDispatch` with its tests green | ___ of ___ | ___ |
-| 9 | Tic-gate clean on every markdown file in the track | all | ___ |
+| 8 | Each adopted improvement that touches the dispatch pattern is applied in MMP.GasPumpSimulator's `AsyncProxyDispatch` with its tests green | row 7 applied (`TryDequeue` before `DequeueAsync`, `Wait(2000)` on stop); rows 2, 3, 6 through the 0.2.0 reference; 394 of 394 dotnet tests and 17 of 17 Playwright under asyncproxy with the pool at 25 | 2026-11-02 |
+| 9 | Tic-gate clean on every markdown file in the track | all | 2026-11-02 |
 
 ## Non-goals
 
@@ -104,7 +104,7 @@ Build order. Each slice is one PR, merged when green.
 2. Fan-out, same list. Done 2026-11-02. Found improvement 6 below.
 3. Pipeline, same list. Done 2026-11-02. Row 4 reached its rule of three; found row 7.
 4. Deadline, same list. Done 2026-11-02. No new library row; the bench taught that a limit near the 15.6 ms timer tick is a guess, which is a README note and a pump rule.
-5. Improvements: the adopted rows below land in `src/` with tests, then in the gas pump simulator. Library half done 2026-11-02 (version 0.2.0): rows 1, 2, 3, 4, 6 in `src/`, row 7 in the trays, 12 tests. Bench after, from the same machine: mailbox AsyncProxy allocation 10.0 MB to 3.4 MB on net10; pipeline AsyncProxy 18.3 MB to 3.1 MB on net48 and 16.6 MB to 2.7 MB on net10, elapsed 21 ms to 13 ms and 26 ms to 12 ms, now the fastest row; fan-out 1.93 MB to 1.65 MB; cold injection for 200 delays 57 to 17 to 20 threads on net10. The gas pump half is next.
+5. Improvements: the adopted rows below land in `src/` with tests, then in the gas pump simulator. Library half done 2026-11-02 (version 0.2.0): rows 1, 2, 3, 4, 6 in `src/`, row 7 in the trays, 12 tests. Bench after, from the same machine: mailbox AsyncProxy allocation 10.0 MB to 3.4 MB on net10; pipeline AsyncProxy 18.3 MB to 3.1 MB on net48 and 16.6 MB to 2.7 MB on net10, elapsed 21 ms to 13 ms and 26 ms to 12 ms, now the fastest row; fan-out 1.93 MB to 1.65 MB; cold injection for 200 delays 57 to 17 to 20 threads on net10. The gas pump half landed the same day: MMP.GasPumpSimulator PR #17.
 
 ## Improvements found
 
