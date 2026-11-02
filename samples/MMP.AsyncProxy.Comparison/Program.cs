@@ -20,6 +20,12 @@ namespace MMP.AsyncProxy.Comparison
 
         private static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "waves")
+            {
+                PoolWaves.Run(args.Length > 1 ? int.Parse(args[1]) : 64);
+                return;
+            }
+
             int n = args.Length > 0 ? int.Parse(args[0]) : 2000;
             Console.WriteLine("Requests: " + n + ", each waits " + DelayMs + " ms then adds two numbers.");
             Console.WriteLine("Cores: " + Environment.ProcessorCount);
@@ -68,7 +74,7 @@ namespace MMP.AsyncProxy.Comparison
         }
 
         // Approach 2: hand the work to the thread pool, and sleep inside the work item.
-        // Looks cheaper. It is a trap. The pool starts with about one thread per core
+        // Looks cheaper. It is a mistake. The pool starts with about one thread per core
         // and adds more slowly. Every Sleep pins one of them, so the queue drains at
         // a crawl. Stephen Toub calls this out at 50:18 in "Writing async/await from scratch".
         private static string RunPoolWithSleep(int n)
