@@ -32,20 +32,36 @@ internal sealed class BenchRow(string project, string version, Func<bool> work)
     public string Version => version;
     public Func<bool> Work => work;
 
+    /// <summary>
+    /// Two passes over the same work. The first runs under the thread sampler for elapsed time and
+    /// peak threads. The second runs with no sampler for the allocation count, because the sampler
+    /// itself allocates: on .NET Framework, Process.Threads reads the whole system process table
+    /// on every call, and a long row under a 5 ms sampler once showed 700 MB that was all sampler.
+    /// </summary>
     public string Measure()
     {
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-        var allocatedBefore = Allocated();
+        Settle();
         var sampler = new ThreadSampler();
         var clock = Stopwatch.StartNew();
         var ok = Work();
         clock.Stop();
         var peakThreads = sampler.Stop();
-        var allocated = Allocated() - allocatedBefore;
         var peakWorkingSet = Process.GetCurrentProcess().PeakWorkingSet64;
+
+        Settle();
+        var allocatedBefore = Allocated();
+        ok &= Work();
+        var allocated = Allocated() - allocatedBefore;
+
         return string.Format("{0,-12} {1,-12} {2,10} {3,13} {4,16:N0} {5,14:N0} {6,5}", Project, Version, clock.ElapsedMilliseconds, peakThreads, allocated, peakWorkingSet, ok ? "yes" : "NO");
+    }
+
+    private static void Settle()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Thread.Sleep(200);          // let the pool shed the threads the last row woke, so peaks do not bleed between rows
     }
 
     private static long Allocated()
@@ -65,6 +81,6 @@ internal static class Rows
 {
     public static IEnumerable<BenchRow> All(int n)
     {
-        yield break;
+        foreach (var row in MailboxRows.For(n)) yield return row;
     }
 }
