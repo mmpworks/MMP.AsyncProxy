@@ -32,11 +32,11 @@ Kill condition: every row below is true on one date, and that date is written he
 | # | Check | Count | Date |
 |---|---|---|---|
 | 1 | `docs/course/10-waiting-without-a-thread.md` exists and the course index lists it | 1 chapter | 2026-11-02 |
-| 2 | Each of the four projects has a threaded version and an AsyncProxy version in `MMP.AsyncProxy.Training` (net35, C# 3) and a modern version in `MMP.AsyncProxy.Training.Modern` (net10.0) | 3 of 4 (mailbox, fan-out, pipeline) | 2026-11-02 |
-| 3 | `MMP.AsyncProxy.Training.Tests` runs every behaviour test against both 3.5 versions through one contract, and against the modern version on net10 | 35 of 35 on net48, 52 of 52 on net10.0 | 2026-11-02 |
-| 4 | `docs/compiler-output/training/` holds, per project, the decompiled iterator machine (CSharp1) and the decompiled modern machine (CSharp4), and the IL of each `MoveNext` | 12 of 16 files | 2026-11-02 |
-| 5 | Each project README has the sections listed under "README shape" below, with the bench numbers filled in from a run on this machine | 3 of 4 | 2026-11-02 |
-| 6 | `MMP.AsyncProxy.Training.Bench` prints the table for all four on net48 and on net10.0 | mailbox, fan-out, and pipeline rows, 2 runs | 2026-11-02 |
+| 2 | Each of the four projects has a threaded version and an AsyncProxy version in `MMP.AsyncProxy.Training` (net35, C# 3) and a modern version in `MMP.AsyncProxy.Training.Modern` (net10.0) | 4 of 4 | 2026-11-02 |
+| 3 | `MMP.AsyncProxy.Training.Tests` runs every behaviour test against both 3.5 versions through one contract, and against the modern version on net10 | 49 of 49 on net48, 73 of 73 on net10.0 | 2026-11-02 |
+| 4 | `docs/compiler-output/training/` holds, per project, the decompiled iterator machine (CSharp1) and the decompiled modern machine (CSharp4), and the IL of each `MoveNext` | 16 of 16 files | 2026-11-02 |
+| 5 | Each project README has the sections listed under "README shape" below, with the bench numbers filled in from a run on this machine | 4 of 4 | 2026-11-02 |
+| 6 | `MMP.AsyncProxy.Training.Bench` prints the table for all four on net48 and on net10.0 | all four, 2 runs | 2026-11-02 |
 | 7 | Every library improvement found during the IL comparison is listed in the "Improvements found" table below as adopted or rejected with a reason, and each adopted one has a test | ___ rows | ___ |
 | 8 | Each adopted improvement that touches the dispatch pattern is applied in MMP.GasPumpSimulator's `AsyncProxyDispatch` with its tests green | ___ of ___ | ___ |
 | 9 | Tic-gate clean on every markdown file in the track | all | ___ |
@@ -103,7 +103,7 @@ Build order. Each slice is one PR, merged when green.
 1. Mailbox: contract, threaded, async, modern, tests, bench row, decompile, README. Done 2026-11-02. Found improvements 1 to 5 below.
 2. Fan-out, same list. Done 2026-11-02. Found improvement 6 below.
 3. Pipeline, same list. Done 2026-11-02. Row 4 reached its rule of three; found row 7.
-4. Deadline, same list.
+4. Deadline, same list. Done 2026-11-02. No new library row; the bench taught that a limit near the 15.6 ms timer tick is a guess, which is a README note and a pump rule.
 5. Improvements: the adopted rows below land in `src/` with tests, then in the gas pump simulator.
 
 ## Improvements found
