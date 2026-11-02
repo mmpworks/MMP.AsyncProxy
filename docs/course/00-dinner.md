@@ -130,6 +130,10 @@ Kevin looked at the basket. There were eleven left, between them. He picked up t
 
 This is what Kevin drew, redrawn so you can read the handwriting.
 
+One word you will see in the picture is **blocked**. A thread is blocked when it has asked for something that is not ready yet, and the operating system has put it to sleep until it is. A blocked thread runs none of your code and uses no CPU time. It just sits there, still holding its desk, until the thing it asked for shows up. Think of standing at the counter, staring at the cook until your plate comes up. You can do nothing else while you wait.
+
+Here is how that fits Kevin's board. The card thread calls something like "give me the next card," and that call does not come back until a card arrives. The reader can be tapped or inserted. The thread does not care which, because the reader hardware spots either one and tells the operating system, which wakes the thread. The serial thread works the same way. It asks the UART for the next bytes, and the call does not come back until some arrive. In both cases the hardware does the real waiting. The thread is just blocked next to it, waiting to be the one who notices.
+
 ```mermaid
 flowchart LR
     subgraph Board["Kevin's pump board: 4 threads, 64 MB"]
@@ -148,8 +152,8 @@ flowchart LR
 
 1. The big box is the board inside the pump. It has four threads, and the memory around them is only 64 MB.
 2. The pulser thread keeps a dotted line to "a timer tick". It wakes every 50 milliseconds, reads the pulse count, then goes back to sleep.
-3. The card and keypad thread has a dotted line to the card reader. It is stuck waiting until somebody taps a card.
-4. The serial thread has a dotted line to the UART. It is stuck waiting for the controller to say something. This is the thread that scares Kevin.
+3. The card and keypad thread has a dotted line to the card reader. It is blocked until somebody taps or inserts a card.
+4. The serial thread has a dotted line to the UART. It is blocked until the controller says something. This is the thread that scares Kevin.
 5. The display thread waits until something changes and then redraws.
 6. Every dotted arrow points at a thing that is *not* a thread: a timer, a reader, a chip, an event. The waiting is being done by hardware. The thread is just standing next to the hardware.
 
@@ -174,6 +178,7 @@ Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of on
 | **Stack** | A thread's private memory for its notes | The desk and filing cabinet |
 | **Kernel object** | The operating system's record of a thread | The worker's file at HR |
 | **Scheduler** | The part of the operating system that decides who runs next | The boss with the roll-call sheet |
+| **Blocked** | A thread put to sleep by the operating system until what it asked for is ready | Standing at the counter, staring at the cook |
 | **Serial line / UART** | A one-at-a-time wire, and the chip that listens to it | A one-lane road and its toll booth |
 | **Forecourt / forecourt controller** | The pump area of a gas station; the station's computer that looks after every pump and talks to the bank | The front desk that phones the bank for every pump |
 | **Watchdog** | A timer that reboots the board if nobody checks in | A night guard who locks up if he hears nothing |
