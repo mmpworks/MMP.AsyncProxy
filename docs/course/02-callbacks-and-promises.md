@@ -159,6 +159,8 @@ internal void RegisterContinuation(Action continuation)
 - *The answer isn't on the shelf yet* (`Pending`). Write the callback on the list, and leave. It will be called later.
 - *The answer is already there.* Don't bother with the list. Run the callback right now.
 
+Notice what this method does *not* do. It does not take anything off the list and put it back. The callback is **handed in** by the caller, and the method makes one decision about that one callback: put it on the list, or run it now. A callback goes on the list once and stays there. The list is emptied later, once, by a different method (`Complete`, below), which takes the whole list and runs everything on it. Programmers call this pattern **check, then act** (look at the state, then do something based on what you saw), and the job of "subscribe, but run me right away if the event already happened" is **register or run immediately**. The observer pattern in chapter 9 is the same idea.
+
 A **lock** is a rule that only lets one thread into a piece of code at a time, like a bathroom with one key. The `lock (_gate)` makes sure that "is it still pending?" and "add it to the list" happen as one move, with nobody sneaking in between them.
 
 ```mermaid
@@ -179,6 +181,32 @@ flowchart TD
 5. If the answer is already there, the promise lets go of the lock and runs the callback on the spot.
 
 **Why it matters:** both cases end with the callback running exactly once. Without the lock, a completion could land between "is it pending?" and "add to the list," and that callback would never run. That is the kind of bug that shows up once a week in production and never in a test.
+
+### The race the lock prevents
+
+Here is the bug, as a timeline of two threads. Thread A is registering a callback. Thread B is finishing the promise. Pretend there is **no lock**.
+
+```mermaid
+sequenceDiagram
+    participant A as Thread A (registering)
+    participant P as The promise
+    participant B as Thread B (finishing)
+    A->>P: is it still pending?
+    P-->>A: yes
+    B->>P: SetResult: store the answer, find no list of callbacks, run nothing
+    A->>P: start a new list and add my callback
+    Note over A,P: The list was already emptied and will never be run again. The callback is lost.
+```
+
+**In words:**
+
+1. Thread A asks the promise whether it is still pending. The answer is yes, so A decides to add its callback to the list.
+2. Before A gets to do that, thread B finishes the promise. B stores the answer and looks for waiting callbacks. There are none yet, because A has not added anything (the real code makes the list only when the first callback arrives). B runs nothing and leaves.
+3. Now A starts a new list and adds its callback. The promise is already finished, and nobody will ever look at that list again. The callback never runs, and whoever was waiting waits forever.
+
+**With the lock,** A takes the lock before step 1 and keeps it until its callback is on the list. B's `SetResult` can't start until A is done, so B finds the callback on the list and runs it. Or B goes first, and then A finds the promise already finished and runs its own callback right away. Either order, the callback runs exactly once.
+
+**Why it matters:** the check ("is it pending?") and the act ("add it") have to be one move. The lock is what makes them one move.
 
 ## Completion, in order
 
