@@ -189,7 +189,7 @@ Run `samples/MMP.AsyncProxy.Comparison` to see it. 2000 requests that each wait 
 
 ## Learn how it works
 
-`docs/course/` is an eleven-chapter walk through the machine, written as two developers going over it over dinner: Steve, and Kevin, who keeps the firmware for a fuel dispenser on Windows CE and .NET Compact Framework 3.5 and cannot change compilers. Each chapter opens at the table. Kevin's pump code, before and after, is in `samples/MMP.AsyncProxy.Forecourt` with tests. Mermaid diagrams inline, each with a plain-words walkthrough. The last chapter covers the jobs where plain threads beat async. Start at `docs/course/README.md`.
+`docs/course/` is an eleven-chapter walk through the machine, with an opening story and an epilogue, written as two developers going over it over dinner: Steve, and Kevin, who keeps the firmware for a fuel dispenser on Windows CE and .NET Compact Framework 3.5 and cannot change compilers. Each chapter opens at the table. Kevin's pump code, before and after, is in `samples/MMP.AsyncProxy.Forecourt` with tests. Mermaid diagrams inline, each with a plain-words walkthrough. The last technical chapter covers the jobs where plain threads beat async. Start at `docs/course/README.md`.
 
 `docs/sdk.md` is the short guide to using the library.
 

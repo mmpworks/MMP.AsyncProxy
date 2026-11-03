@@ -472,4 +472,4 @@ dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.
 3. **Predict, then run.** In `PostBackDesk`, start the machine on the *caller's* thread instead of inside `_owner.Invoke`. What do you expect the report to say? Then run the test and see.
 4. **Count the threads.** Run `printer 40`. Which version's elapsed time grows with the number of jobs, and which stays flat? What is each one doing in the meantime?
 
-Next: back to [the course index](README.md), or on to `training/05-crunch/README.md` and `training/06-printer/README.md` for each project's tests and the sealed numbers.
+Next: [the epilogue](12-epilogue.md). Or return to [the course index](README.md), or go on to `training/05-crunch/README.md` and `training/06-printer/README.md` for each project's tests and the sealed numbers.

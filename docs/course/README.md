@@ -1,8 +1,8 @@
 # How async/await works, from the inside
 
-A course told through conversations between two developers after hours. It has an opening story and eleven chapters about how async code runs. The examples come from this repo, so you can open the source beside a chapter and follow each step. Start with basic C#: methods, variables, and method calls. The course introduces threads and explains new terms as they appear.
+A course told through conversations between two developers after hours. It has an opening story, eleven chapters about how async code runs, and an epilogue. The examples come from this repo, so you can open the source beside a chapter and follow each step. Start with basic C#: methods, variables, and method calls. The course introduces threads and explains new terms as they appear.
 
-The two developers are Steve and Kevin. Kevin keeps the firmware for a fuel dispenser: Windows CE 6, .NET Compact Framework 3.5, the Visual Studio 2008 compiler, four threads, and a box with 64 MB. They meet for wings at a place on the frontage road where Dee, the waitress, knows both their orders. Each chapter opens at the table, where Kevin asks what a working engineer would ask and Steve answers with the thing in the chapter. The code Kevin brought (threads) and the code he left with (this library) are in `samples/MMP.AsyncProxy.Forecourt`, built for net35 with C# 3, and `tests/MMP.AsyncProxy.Tests/ForecourtTests.cs` runs both.
+The two developers are Steve and Kevin. Kevin keeps the firmware for a fuel dispenser: Windows CE 6, .NET Compact Framework 3.5, the Visual Studio 2008 compiler, four threads, and a box with 64 MB. They meet for wings at a place on the frontage road where Dee, the waitress, knows both their orders. Each technical chapter opens at the table, where Kevin asks what a working engineer would ask and Steve answers with the thing in the chapter. The code Kevin brought (threads) and the code he left with (this library) are in `samples/MMP.AsyncProxy.Forecourt`, built for net35 with C# 3, and `tests/MMP.AsyncProxy.Tests/ForecourtTests.cs` runs both.
 
 Use the .NET SDK and `dotnet` to run the desktop samples. The older compiler examples show how the library works on C# versions that lack `async` and `await`. Kevin's device uses a separate Compact Framework build.
 
@@ -20,6 +20,7 @@ Use the .NET SDK and `dotnet` to run the desktop samples. The older compiler exa
 | 9 | [Patterns and principles](09-patterns-and-principles.md) | The thirteen patterns that showed up, and the code held against CUPID, SOLID, and DRY |
 | 10 | [Waiting without a thread](10-waiting-without-a-thread.md) | The worker loop with threads and with the machine, in a real program, down to the IL. The door into `training/` |
 | 11 | [When threads win](11-when-threads-win.md) | The jobs where async is the wrong tool: CPU work, and a device that owns a thread. Two runnable projects with numbers |
+| 12 | [Epilogue](12-epilogue.md) | Pie, the check, and Friday-night plans |
 
 Diagrams: Mermaid blocks render on GitHub. The tldraw canvas in `diagrams/` opens in tldraw desktop or at tldraw.com. Every diagram is followed by an **In words** walkthrough (the steps, in time order, saying who is working and who is waiting) and a **Why it matters** line. If a picture doesn't make sense, read the words under it first, then look at the picture again.
 
