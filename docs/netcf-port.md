@@ -78,10 +78,10 @@ The build:
 
 ```
 pwsh tools/netcf-build.ps1
-   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  20,992 bytes
-   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,240 bytes
-Passed!  - Failed: 0, Passed: 71, Skipped: 4, Total: 75   (against the CF binaries, on the net48 CLR)
-Passed!  - Failed: 0, Passed: 73, Skipped: 2, Total: 75   (control: the desktop net35 binary)
+   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  21,504 bytes
+   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,752 bytes
+Passed!  - Failed: 0, Passed: 112, Skipped: 7, Total: 119   (against the CF binaries, on the net48 CLR; 2026-11-03, 0.4.0)
+Passed!  - Failed: 0, Passed: 117, Skipped: 2, Total: 119   (control: the desktop net35 binary)
 ```
 
 The four skips on the CF run are the facts that need `ExecutionContext`, `SynchronizationContext` (two), and `Exception.Data`, each marked `[DesktopFact("<what it needs>")]`. The two skips on the control are the CF-only facts. `CompactFrameworkTests` is the anchor: it reads the loaded assembly's `mscorlib` reference and checks the public key token (`969db8053d3322ac` for CF, `b77a5c561934e089` for desktop) against `BuildInfo.Target`, so a mislabeled build fails there.

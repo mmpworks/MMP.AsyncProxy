@@ -8,7 +8,7 @@ Three things come out of it:
 
 1. **A readable copy of the mechanism.** Every type carries the name of the real one. `Promise<T>` is `TaskCompletionSource<T>`. `IFuture<T>` is `Task<T>`. `FutureAwaiter<T>` is `TaskAwaiter<T>`. `AsyncMethodBuilder<T>` is `AsyncTaskMethodBuilder<T>`. The sample project holds a hand-written state machine beside the `async` method it stands for.
 2. **Usable async on an old runtime.** A C# 2.0 iterator stands in for the compiler. `yield return future` is `await future`. `AsyncProxy.Run` drives it with the same builder the hand-written machine uses.
-3. **A Windows CE build.** The same source compiles against the .NET Compact Framework 3.5 reference assemblies and passes the same test suite, with the four desktop-only facts skipped. Measured on the desktop CLR, a worker that is waiting costs about a kilobyte and no thread; nothing has run on a board yet. The next section has the numbers.
+3. **A Windows CE build.** The same source compiles against the .NET Compact Framework 3.5 reference assemblies and passes the same test suite, with the seven desktop-only facts skipped. Measured on the desktop CLR, a worker that is waiting costs about a kilobyte and no thread; nothing has run on a board yet. The next section has the numbers.
 
 ## Why this exists: Windows CE and the Compact Framework
 
@@ -47,8 +47,8 @@ Measured 2026-11-02 with the allocation counter on the .NET Framework 4.8 CLR, 6
 
 | Measure | Bytes |
 |---|---|
-| The library on disk, CF 3.5 build (`MMP.AsyncProxy.dll`) | 20,992 |
-| Kevin's pump firmware sample on disk, CF 3.5 build | 10,240 |
+| The library on disk, CF 3.5 build (`MMP.AsyncProxy.dll`), 0.4.0 | 21,504 |
+| Kevin's pump firmware sample on disk, CF 3.5 build | 10,752 |
 | One parked worker: iterator machine, builder, promise, pending future, observe wrapper | 1,152 |
 | The same worker after one wake-up | 1,360 |
 | 1,000 parked workers | 1,168,200 |
@@ -74,13 +74,13 @@ Allocation per message after the 0.2.0 fast paths: a mailbox wake-up that finds 
 ### The CF 3.5 build
 
 ```
-pwsh tools/netcf-build.ps1
-   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  20,992 bytes
-   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,240 bytes
-Passed!  - Failed: 0, Passed: 71, Skipped: 4, Total: 75   (the CF binaries, run on the net48 CLR)
+pwsh tools/netcf-build.ps1                                       (2026-11-03, version 0.4.0)
+   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  21,504 bytes
+   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,752 bytes
+Passed!  - Failed: 0, Passed: 112, Skipped: 7, Total: 119   (the CF binaries, run on the net48 CLR)
 ```
 
-`src/MMP.AsyncProxy.NetCF` compiles the same source against the CF 3.5 reference assemblies with `NETCF` defined. `samples/MMP.AsyncProxy.Forecourt.NetCF` does the same for Kevin's pump code. The script builds both and runs the whole test suite against them on the desktop CLR, which can load them because CF assembly references are retargetable. The four skipped tests are the ones that need `ExecutionContext`, `SynchronizationContext`, or `Exception.Data`; each is marked `[DesktopFact("<what it needs>")]`. One test reads the loaded assembly's `mscorlib` public key token (`969db8053d3322ac` is CF) and checks it against `BuildInfo.Target`, so a mislabeled build fails. The reference assemblies are Microsoft binaries and stay outside the repo; `docs/netcf-port.md` says where to get them and how to unpack them without installing anything.
+`src/MMP.AsyncProxy.NetCF` compiles the same source against the CF 3.5 reference assemblies with `NETCF` defined. `samples/MMP.AsyncProxy.Forecourt.NetCF` does the same for Kevin's pump code. The script builds both and runs the whole test suite against them on the desktop CLR, which can load them because CF assembly references are retargetable. The seven skipped tests are the ones that need `ExecutionContext`, `SynchronizationContext`, or `Exception.Data`; each is marked `[DesktopFact("<what it needs>")]`. One test reads the loaded assembly's `mscorlib` public key token (`969db8053d3322ac` is CF) and checks it against `BuildInfo.Target`, so a mislabeled build fails. The reference assemblies are Microsoft binaries and stay outside the repo; `docs/netcf-port.md` says where to get them and how to unpack them without installing anything.
 
 ### What is still unverified
 
