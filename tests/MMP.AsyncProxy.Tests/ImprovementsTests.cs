@@ -165,13 +165,15 @@ namespace MMP.AsyncProxy.Tests
         [Fact]
         public void A_delay_added_earlier_than_the_one_the_wheel_was_armed_for_fires_first()
         {
+            // The later delay is long on purpose. If the wheel failed to re-arm, the sooner one would
+            // fire with it at 3 s; a busy pool can hold a 30 ms callback for a second, which must not
+            // read as that failure. The later delay is left pending; the wheel drops it on its own.
             var clock = Stopwatch.StartNew();
-            var later = Futures.Delay(300);
+            var later = Futures.Delay(3000);
             var sooner = Futures.Delay(30);                    // goes to the front; the wheel must re-arm
-            sooner.Wait();
-            Assert.True(clock.ElapsedMilliseconds < 250, $"the sooner delay waited for the later one: {clock.ElapsedMilliseconds} ms");
+            Assert.True(sooner.Wait(2500), "the sooner delay never fired");
+            Assert.True(clock.ElapsedMilliseconds < 2000, $"the sooner delay waited for the later one: {clock.ElapsedMilliseconds} ms");
             Assert.False(later.IsCompleted);
-            later.Wait();
         }
     }
 }

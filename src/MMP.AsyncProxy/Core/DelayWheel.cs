@@ -70,7 +70,7 @@ namespace MMP.AsyncProxy
         /// <summary>Under the lock: point the one timer at the earliest entry, or park it when there is none.</summary>
         private static void Arm()
         {
-            if (_timer == null) _timer = new Timer(Fire, null, Timeout.Infinite, Timeout.Infinite);
+            if (_timer == null) _timer = CreateTimer();
             if (Entries.Count == 0)
             {
                 _timer.Change(Timeout.Infinite, Timeout.Infinite);
@@ -78,6 +78,26 @@ namespace MMP.AsyncProxy
             }
             int wait = unchecked(Entries[0].Due - Environment.TickCount);
             _timer.Change(wait < 0 ? 0 : wait, Timeout.Infinite);
+        }
+
+        /// <summary>
+        /// The one timer is made by whichever thread first asks for a delay. A Timer captures that
+        /// thread's ExecutionContext and every callback would run under it, so a value one caller
+        /// set would leak into every other caller's continuation. Making it with flow suppressed
+        /// gives the callbacks no context of their own; the builder restores each method's own.
+        /// The Compact Framework has no ExecutionContext, so there is nothing to suppress there.
+        /// </summary>
+        private static Timer CreateTimer()
+        {
+#if NETCF
+            return new Timer(Fire, null, Timeout.Infinite, Timeout.Infinite);
+#else
+            if (ExecutionContext.IsFlowSuppressed()) return new Timer(Fire, null, Timeout.Infinite, Timeout.Infinite);
+            using (ExecutionContext.SuppressFlow())
+            {
+                return new Timer(Fire, null, Timeout.Infinite, Timeout.Infinite);
+            }
+#endif
         }
 
         private static void Fire(object state)
@@ -99,7 +119,17 @@ namespace MMP.AsyncProxy
             if (due == null) return;
             // Each completion is its own pool work item, so N delays due together run
             // their continuations in parallel and none of them runs under the gate.
-            for (int i = 0; i < due.Count; i++) ThreadPool.QueueUserWorkItem(CompleteOne, due[i]);
+            // Unsafe here means "do not flow the timer thread's context", which is what we want:
+            // the completion carries no caller's context, and each waiting method's builder
+            // restores its own. The Compact Framework has only the flowing overload.
+            for (int i = 0; i < due.Count; i++)
+            {
+#if NETCF
+                ThreadPool.QueueUserWorkItem(CompleteOne, due[i]);
+#else
+                ThreadPool.UnsafeQueueUserWorkItem(CompleteOne, due[i]);
+#endif
+            }
         }
 
         private static void Complete(object state)

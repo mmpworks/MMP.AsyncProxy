@@ -28,7 +28,7 @@ Kevin wrote them down on the napkin, small, under the circle: *done? buzz me. an
 
 "Create, start, hook, finish."
 
-"`Create`, `Start`, `AwaitOnCompleted`, `SetResult`. The real one in 4.5 is `AsyncTaskMethodBuilder` and it has the same four. Same order, too."
+"`Create`, `Start`, `AwaitOnCompleted`, `SetResult`. The real one in 4.5 is `AsyncTaskMethodBuilder` and it does the same four jobs, in the same order. For the hook, the compiler calls `AwaitUnsafeOnCompleted`, and the real builder adds a fifth member, `SetStateMachine`."
 
 "And `AwaitOnCompleted`," Kevin said slowly, "that's the line where the timer finds out about my box."
 
@@ -36,7 +36,7 @@ Kevin wrote them down on the napkin, small, under the circle: *done? buzz me. an
 
 Kevin sat back. For a second he didn't say anything. Then: "On CE. Is `System.Threading.Timer` even there?"
 
-"It's there. Compact Framework 2.0 and up. It fires on a pool thread." Steve could see the next question coming and answered it first. "That's one of the crew's worker threads. The thread pool is a small crew that the whole program shares, plus a job board. The timer pins a ticket to the board, a free worker picks it up and calls `MoveNext`, and that worker is busy for however long it takes to read a counter and compare it to your ceiling. Microseconds. Then it goes back to the break room."
+"It's there. It's present in CF 3.5; the audit checked. On the desktop it fires on a pool thread." Steve could see the next question coming and answered it first. "That's one of the crew's worker threads. The thread pool is a small crew that the whole program shares, plus a job board. The timer pins a ticket to the board, a free worker picks it up and calls `MoveNext`, and that worker is busy for however long it takes to read a counter and compare it to your ceiling. Then it goes back to the break room. Which thread runs the callback on your CE board, and how long that takes, nobody has measured yet. Your board will tell us."
 
 "So the pool thread is the only thread in the whole thing."
 
@@ -148,7 +148,7 @@ Before the full round trip, here is the same cast of characters as a map. Each a
 
 ```mermaid
 flowchart LR
-    CALLER["Caller thread"] -->|"1. AddAfterDelayAsync(3, 4)"| STUB["Stub: RunAsync"]
+    CALLER["Caller thread"] -->|"1. RunAsync(3, 4, 10)"| STUB["Stub: RunAsync"]
     STUB -->|"2. Create, Start"| BUILDER["Builder"]
     BUILDER -->|"3. MoveNext"| MACHINE["Machine<br/>(the heap box)"]
     MACHINE -->|"4. IsCompleted?"| AWAITER["Awaiter<br/>(in front of the delay)"]
@@ -161,7 +161,7 @@ flowchart LR
 
 **In words:**
 
-1. The caller calls `AddAfterDelayAsync(3, 4)`. That hits the stub.
+1. The caller calls `RunAsync(3, 4, 10)`. That hits the stub.
 2. The stub asks the builder to `Create` the result future, then `Start` the machine.
 3. The builder calls `MoveNext` on the machine, on the caller's own thread.
 4. The machine asks the delay's awaiter `IsCompleted`. The answer is no.
@@ -184,7 +184,7 @@ sequenceDiagram
     participant T as Timer (OS)
     participant P as Pool thread
 
-    C->>S: AddAfterDelayAsync(3, 4)
+    C->>S: RunAsync(3, 4, 10)
     S->>B: Create()
     S->>B: Start(ref machine)
     B->>M: MoveNext()

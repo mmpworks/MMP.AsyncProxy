@@ -148,7 +148,7 @@ private IEnumerable<IFuture> AuthorizeBody(string card, int timeoutMs, Return<st
 }
 ```
 
-"Body's six lines of real work. It's in the sample." Steve leaned back. "And if the controller never answers, the timer wins, nobody's stuck, and the watchdog never hears about it. That's the kind of thing that bit you in Tulsa. With a timer in the race, a controller that goes quiet can't leave a thread stuck, because there's no thread to get stuck."
+"Body's eight lines of real work. It's in the sample." Steve leaned back. "And if the controller never answers, the timer wins, nobody's stuck, and the watchdog never hears about it. That's the kind of thing that bit you in Tulsa. With a timer in the race, a controller that goes quiet can't leave a thread stuck, because there's no thread to get stuck."
 
 Kevin was quiet for a second, then he said it. "`yield return` is `await`."
 
@@ -171,7 +171,7 @@ IEnumerable<int> Count()
 
 **Read it like this.** `Count` is a method that hands out 1, then 2, then 3. It does not run all at once and return a list. It runs until the first `yield return`, stops, and waits. The next time somebody asks for an item, it picks up on the next line, with `x` still holding whatever it held.
 
-An **iterator** is exactly that: a method that can stop in the middle and be asked to continue. Remember the recipe with the bookmark and the sticky note from our earlier state-machine discussion? An iterator is that recipe, and the C# compiler writes the bookmark and the sticky note for you.
+An **iterator** is that: a method that can stop in the middle and be asked to continue. Remember the recipe with the bookmark and the sticky note from our earlier state-machine discussion? An iterator is that recipe, and the C# compiler writes the bookmark and the sticky note for you.
 
 What does the compiler do with it? It makes a class with a `<>1__state` field (the bookmark), turns `x` into a field (the sticky note), and writes a `MoveNext()` with a `switch` on the state that jumps back to where it left off. Sound familiar? It is the same transformation we performed in the earlier state-machine walkthrough. The compiler has been doing it since 2005.
 
@@ -188,9 +188,21 @@ public void MoveNext()
     {
         while (true)
         {
-            if (_pending != null) { var f = _pending; _pending = null; f.GetResult(); }  // check the saved step before advancing the body
+            // Check the saved step before advancing the body.
+            if (_pending != null)
+            {
+                IAwaiter finished = _pending;
+                _pending = null;
+                finished.GetResult();
+            }
 
-            if (!_steps.MoveNext()) { _steps.Dispose(); _builder.SetResult(_return.Value); return; }  // dispose runs iterator finally blocks before completing the result
+            // Dispose runs iterator finally blocks before completing the result.
+            if (!_steps.MoveNext())
+            {
+                _steps.Dispose();
+                _builder.SetResult(_return.Value);
+                return;
+            }
 
             IFuture step = _steps.Current;
             if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
@@ -199,16 +211,28 @@ public void MoveNext()
             if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;
 
             IAwaiter awaiter = step.GetAwaiter();
-            if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }                 // settled: observe any fault or cancellation before advancing
+            // Settled: observe any fault or cancellation before advancing.
+            if (awaiter.IsCompleted)
+            {
+                awaiter.GetResult();
+                continue;
+            }
 
             // Save before registration: completion can occur during OnCompleted.
             _pending = awaiter;
-            var self = this;
+            IteratorStateMachine<T> self = this;
             _builder.AwaitOnCompleted(ref awaiter, ref self);                           // register driver.MoveNext, then leave this call
             return;
         }
     }
-    catch (Exception ex) { _steps.Dispose(); _builder.SetException(ex); }
+    catch (Exception ex)
+    {
+        // The body's finally blocks run now. If one of them throws too, the first
+        // fault still wins, so the future settles and the caller sees the cause.
+        try { _steps.Dispose(); }
+        catch (Exception disposeFault) { Attach(ex, disposeFault); }
+        _builder.SetException(ex);
+    }
 }
 ```
 
@@ -219,9 +243,9 @@ public void MoveNext()
 3. `IFuture step = _steps.Current;` The step is a future. (A null here is a bug in the iterator, so it throws a clear message.)
 4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;` If the step is *already* done and went fine, cross it off and go to the next one. No waiting, and no awaiter needed. This fast path avoids creating an awaiter when the yielded future has already succeeded. (If the step is done but failed or was canceled, we fall through, ask for its awaiter, and `GetResult` throws so the failure is not lost.)
 5. Otherwise, get the step's awaiter. If it now reports complete, observe its outcome and continue. If it reports incomplete, register for completion. Remember the awaiter in `_pending`, call `AwaitOnCompleted` to register the continuation ("call `MoveNext` on me when this finishes"), and `return`. The clerk walks away. The driver holds the awaiter in a field, so the thread can return to other work.
-6. `catch (Exception ex) ...` If the step or body throws, the driver disposes the iterator and then passes the exception to the builder. An ordinary exception faults the result; a cancellation exception cancels it. This assumes disposal succeeds. If cleanup itself throws, this implementation can exit before completing the result promise.
+6. `catch (Exception ex) ...` If the step or body throws, the driver disposes the iterator and then passes the exception to the builder. An ordinary exception faults the result; a cancellation exception cancels it. If cleanup throws too, the driver catches that second fault and still completes the result promise.
 
-Disposing an iterator runs any active `finally` blocks, such as the serial callback's unsubscribe. Keep that cleanup reliable. The driver has no second guard around `_steps.Dispose()` to preserve the original error if cleanup throws.
+Disposing an iterator runs any active `finally` blocks, such as the serial callback's unsubscribe. The driver guards `_steps.Dispose()` with its own `try`. The future always settles, and the first fault wins. A cleanup fault rides on the first exception, stored in its `Data` under `AsyncProxy.DisposeFaultKey`, where a log can find it.
 
 Compare it to the hand-written machine from chapter 3. Same builder. Same `AwaitOnCompleted`. Same `IsCompleted` fast path. Same `GetResult` on resume. Same try/catch into `SetException`. The only difference is that instead of a `switch` on our own state, we call the iterator's `MoveNext()` and let the compiler's switch do the jumping.
 
@@ -367,7 +391,8 @@ Jeffrey Richter shipped `AsyncEnumerator` in 2008, in his Power Threading librar
 ```mermaid
 flowchart LR
     Y["yield return future"] --> D{driver:<br/>IsCompleted?}
-    D -->|yes| GR[GetResult] --> MN["iterator.MoveNext()"] --> Y
+    D -->|"yes, succeeded: next step"| MN["iterator.MoveNext()"] --> Y
+    D -->|"yes, failed"| GR["GetResult: throws on a fault"] --> MN
     D -->|no| P[park: AwaitOnCompleted] --> R[return, thread leaves]
     R -.->|future completes| CB[callback: driver.MoveNext] --> GR
     MN -->|false| SR[SetResult ret.Value]
@@ -377,7 +402,7 @@ flowchart LR
 
 1. Start at "yield return future." The iterator has just handed the driver a future and stopped.
 2. The driver asks the diamond: is that future already done?
-3. **Yes (top path):** call `GetResult` to look at the answer, ask the iterator for its next step with `MoveNext()`, and the iterator hands back another future. Round again. This loop spins without any waiting, as long as every step is already done.
+3. **Yes (top paths):** if the future succeeded, skip the awaiter and ask the iterator for its next step with `MoveNext()`. If it failed or was canceled, `GetResult` throws and the run faults. On success the iterator hands back another future. Round again. This loop spins without any waiting, as long as every step is already done.
 4. **No (bottom path):** the driver parks. It calls `AwaitOnCompleted` to register a continuation with the future, then returns, and the thread leaves. This is the moment nothing is running.
 5. The dotted arrow: later, when the future completes, the continuation calls the driver's `MoveNext`. The driver goes back to `GetResult`, then on around the loop.
 6. When the iterator has no more steps (`MoveNext` says false), the driver stores the final value in the result promise with `SetResult`. That is the exit on the right.

@@ -56,6 +56,7 @@ Kill condition: the items below are all true on one date, and that date is writt
 | 9 | Cancellation | `CancelSource` and `CancelToken`, cooperative. A `FutureCanceledException` escaping a body ends the future Canceled, not Faulted. | .NET 3.5 lacks `CancellationToken`. The builder maps `OperationCanceledException` to Canceled the way the real one does. Built in slice 2. |
 | 11 | Continuation thread option | `new Promise<T>(PromiseOptions.RunContinuationsAsynchronously)` queues continuations to the pool | The `RunContinuationsAsynchronously` stand-in. Default stays inline to match `TaskCompletionSource`. Built in slice 2. |
 | 10 | Licence and repo | MIT, `mmpworks/MMP.AsyncProxy`, created private, Steve flips to public | Public creation is gated. Private creation is free. |
+| 12 | A throwing `finally` in an iterator body | The future always settles. On the happy path the cleanup fault is the method's fault. When a step already ended the method, the step's outcome wins and the cleanup fault rides on it under `AsyncProxy.DisposeFaultKey` in `Exception.Data`. | Before 0.4.0 the throw escaped `MoveNext` and the future stayed Pending. The C# compiler lets a `finally`'s exception replace the in-flight one; this library keeps the cause a caller can act on and attaches the second. README known limit 5. Found by the 2026-11-03 course review, pinned by the fuzz suite. |
 
 ## Program design
 
@@ -83,6 +84,7 @@ Build order:
 3. Slice 3: README for public release, NETCF notes, Steve's publish decision.
    The CF 3.5 build itself landed 2026-11-02 (version 0.3.0): `src/MMP.AsyncProxy.NetCF`, `IPostTarget`/`PostTarget`, `BuildInfo`, `tools/netcf-build.ps1`.
 4. The training track (2026-11-02): its own plan in `docs/prd-training.md`. Course chapter 10, four threaded-to-AsyncProxy mini-projects with tests, IL comparisons, and a bench.
+5. Release 0.4.0 (2026-11-03): its own plan in `docs/prd-release-0.4.md`. `CourseFenceTests` proves every code block in the course, the SDK guide, and the training READMEs is repo code or a marked sketch; `samples/MMP.AsyncProxy.Sdk` holds the guide's code; `tests/MMP.AsyncProxy.Fuzz` is a seeded fuzz suite with a console runner; the comparison and compiler-reference samples get tests. Two runtime fixes: a throwing `finally` in an iterator body no longer leaves the future pending, and `WhenAll` lists failures in input order.
 
 ## Prior art
 

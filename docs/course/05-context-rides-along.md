@@ -36,7 +36,7 @@ Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pull
 
 "And the display thread? That's the one thread I'm keeping. It owns the LCD."
 
-"That one gets a different thing. `SynchronizationContext`. Picture a sign on the job that says 'Return to counter three.' Counter three is the one person allowed to touch the screen. WinForms sets that sign up on the UI thread on the desktop. In 4.5 the switch is `ConfigureAwait`. In this library it's `ContinueOnAnyThread`, and your pulser loop should use it. The pulser has no business hopping over to the display thread just to compare two numbers."
+"That one gets a different thing. `SynchronizationContext`. Picture a sign on the job that says 'Return to counter three.' Counter three is the one person allowed to touch the screen. WinForms sets that sign up on the UI thread on the desktop. In 4.5 the switch is `ConfigureAwait`. In this library it's `ContinueOnAnyThread`, but only the callback form can use it. The iterator form you'll see in chapter 7 always looks for the sign. So start the pulser loop on a thread with no sign on it. The pulser has no business hopping over to the display thread just to compare two numbers."
 
 "Does CE have that one?"
 
@@ -62,6 +62,7 @@ Then the request awaits something, and the continuation runs on pool thread 7. (
 
 This intentionally flawed sketch uses conceptual modern `async` syntax. It cannot compile with Kevin's C# 3 compiler. Its `IFuture<string>` return also needs custom async-return support beyond C# 5. The sketch shows the thread-static mistake:
 
+<!-- fence: sketch exercise: deliberately broken, modern C# for comparison -->
 ```csharp
 [ThreadStatic] static string CurrentTenant;       // a note taped to this thread's desk
 
@@ -108,7 +109,7 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
 3. If `Capture()` gives back `null`, the code that set things up turned flow off (`ExecutionContext.SuppressFlow()`), so there is no backpack to carry and the continuation is just `MoveNext`. (On the Compact Framework build this whole method is that one line, `awaiter.OnCompleted(machine.MoveNext)`, because that platform has no `ExecutionContext` at all.)
 4. Inside the other branch's code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. The resumed method can then read the captured values.
 
-Capture at the await. Restore right before `MoveNext`. Whatever thread runs the continuation, the method sees the same logical values it saw before it suspended. The test `ExecutionContext_flows_across_the_await` proves it: set a value, await a timer, read it back on the pool thread, same value.
+Capture at the await. Restore right before `MoveNext`. Whatever thread runs the continuation, the method sees the same logical values it saw before it suspended. The test `ExecutionContext_flows_across_the_await` shows it: set a value, await a timer, read it back on the pool thread, same value. The test passes through this builder, and the shared timer flows no context of its own (see `DelayWheel.CreateTimer`), so the builder is what carried the value.
 
 Toub covers context capture and restore from 13:44 to 20:27. In this library, the builder captures context when it registers the continuation. It restores that context when the continuation runs.
 
@@ -167,8 +168,13 @@ public void OnCompleted(Action continuation)
     // The Compact Framework has no SynchronizationContext. A thread that wants continuations
     // back registers an IPostTarget once; see PostTarget.
     IPostTarget target = _continueOnCapturedContext ? PostTarget.Current : null;
-    // Without a destination, the promise decides whether to call inline or queue.
-    if (target == null) { _promise.RegisterContinuation(continuation); return; }
+    // Without a destination, the promise decides whether to call inline or queue,
+    // or runs it now, on this thread, if it already finished.
+    if (target == null)
+    {
+        _promise.RegisterContinuation(continuation);
+        return;
+    }
     _promise.RegisterContinuation(delegate { target.Post(continuation); });
 }
 ```
@@ -177,9 +183,9 @@ public void OnCompleted(Action continuation)
 
 1. The first block (not compiled on the Compact Framework) looks at the current thread's synchronization context: "is there a sign saying return to counter three?" It only looks if `_continueOnCapturedContext` is true. If the flag is false, it uses `null`, which means "no sign".
 2. If there is a sign, register a continuation that, instead of running the code, calls `context.Post(...)`. That drops the code in counter three's in-tray. The one thread that owns the screen runs it when it gets to it. Then stop.
-3. If there is no `SynchronizationContext`, the awaiter asks for a **post target** (`IPostTarget`), which is the same idea without the .NET class. It is a registry the thread filled in earlier, and it is described just below. If there is none of those either, register the continuation as-is. The promise runs it on the finishing thread by default. A promise created with `RunContinuationsAsynchronously` queues it to the thread pool.
+3. If there is no `SynchronizationContext`, the awaiter asks for a **post target** (`IPostTarget`), which is the same idea without the .NET class. It is a registry the thread filled in earlier, and it is described just below. If there is none of those either, register the continuation as-is. The promise runs it on the finishing thread by default. A promise created with `RunContinuationsAsynchronously` queues it to the thread pool. If the promise already finished before the registration, the continuation runs now, on the registering thread, whatever the option says.
 
-A captured UI context posts the continuation back to the UI thread. Without a captured context or post target, the promise's completion option decides whether to run it inline or queue it.
+A captured UI context posts the continuation back to the UI thread. Without a captured context or post target, the promise's completion option decides whether to run it inline or queue it, or it runs now, on this thread, if the promise already finished.
 
 ### The same sign on the Compact Framework: `IPostTarget`
 
@@ -192,12 +198,12 @@ PostTarget.SetForCurrentThread(new DisplayQueue());   // DisplayQueue.Post puts 
 PostTarget.SetForCurrentThread(null);                 // take the sign down when the thread ends
 ```
 
-**Read it like this.** `SetForCurrentThread` writes "the target for *this* thread" into a small list. The awaiter's `PostTarget.Current` looks up the calling thread in that list at the `await`. There is no thread-local variable involved, because the Compact Framework has no `ThreadStatic` either. The list is kept as a tiny array that is copied when it changes, and looked up by the thread's managed id. On the desktop builds, `SynchronizationContext.Current` is checked first and the registry second, so an app can use either one, and the same tests prove both paths.
+**Read it like this.** `SetForCurrentThread` writes "the target for *this* thread" into a small list. The awaiter's `PostTarget.Current` looks up the calling thread in that list at the `await`. There is no thread-local variable involved, because the Compact Framework has no `ThreadStatic` either. The list is kept as a tiny array that is copied when it changes, and looked up by the thread's managed id. On the desktop builds, `SynchronizationContext.Current` is checked first and the registry second, so an app can use either one, and separate tests cover each path.
 
 ```mermaid
 flowchart TD
     DONE["The awaited thing finishes<br/>on some thread"] --> Q{"Did the awaiter find a context<br/>when OnCompleted was called?"}
-    Q -->|"no: Current is null,<br/>or ContinueOnAnyThread was used"| ANY["Run the continuation right here,<br/>on the thread that finished it"]
+    Q -->|"no: Current is null,<br/>or ContinueOnAnyThread was used"| ANY["Run the continuation right here,<br/>on the thread that finished it,<br/>or now, on this thread, if it already finished"]
     Q -->|"yes: for example the UI thread"| POST["context.Post(continuation)<br/>drop it in counter three's in-tray"]
     POST --> UI["The UI thread picks it up later<br/>and runs MoveNext there"]
 ```

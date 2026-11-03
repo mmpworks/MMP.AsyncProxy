@@ -259,7 +259,7 @@ Then we compare thread usage and timing in chapter 6 and use the iterator trick 
 
 ## Words you just met
 
-| Word | In plain words | Example or comparison |
+| Word | Meaning | Example or comparison |
 |---|---|---|
 | **Stack** | Memory used to track active method calls and their local data | Each thread reserves its own stack space |
 | **Address space** | The range of memory addresses a process can use | Stack reservations take up part of this range |

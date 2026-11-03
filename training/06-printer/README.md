@@ -14,7 +14,7 @@ A job prints some receipts in order and waits `feedMs` after each one for the pa
 |---|---|---|
 | `threaded` | `Threaded/OwnerThreadDesk.cs` | One `OwnerThread` opens the driver. Each job runs as one block on it, sleeping through every paper feed. A second job waits for the whole first one. |
 | `async-postback` | `Async/PostBackDesk.cs` | The job is a state machine started on the owner thread, so each wait captures the owner thread's `SynchronizationContext`. When the timer fires the rest of the machine is posted back to the owner thread. While the paper feeds, the owner thread serves other jobs. |
-| `async-naive` | `Async/NaiveDesk.cs` | The mistake, kept on purpose. The machine starts on the caller's thread and never goes back, so after the first wait every call is on a pool thread and the driver refuses it. |
+| `async-naive` | `Async/NaiveDesk.cs` | The mistake, kept on purpose. The machine starts on the caller's thread and never goes back, so every call is refused: the first from the caller's thread, and the rest from pool threads. |
 
 `Support/OwnerThread.cs` is the thread-with-a-line-of-jobs that is also a `SynchronizationContext`. It is the only new piece of machinery, and it is not specific to printers.
 
@@ -45,7 +45,7 @@ The thread did not go away in `async-postback`. The device insists on it. Async 
 - in the post-back desk it prints before it (the owner thread was free during the paper feeds), with no driver refusals;
 - the naive desk is refused by the driver, with the message that says which thread opened it.
 
-The callers are given threads of their own (`TaskCreationOptions.LongRunning`). Callers that block on the pool would park its workers, and the async desk needs the pool for its timers. The first draft of the bench made exactly that mistake and measured 4,558 ms for `async-postback` instead of 215.
+The callers are given threads of their own (`TaskCreationOptions.LongRunning`). Callers that block on the pool would park its workers, and the async desk needs the pool for its timers. The first draft of the bench made that mistake and measured 4,558 ms for `async-postback` instead of 215.
 
 ## Run it
 

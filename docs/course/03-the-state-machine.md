@@ -14,7 +14,7 @@ Kevin numbered a clean napkin four. Napkin one was the four threads. Number two 
 
 "The method returns. What happens to the locals on its stack?"
 
-"Right. You know what a stack is, in plain words?"
+"Right. You know what a stack is, the everyday version?"
 
 "It's where the locals live. While the method runs."
 
@@ -60,6 +60,7 @@ Open [AddAfterDelay.cs](../../samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs) b
 
 This is the method we want to express. It shows the idea using `async` and `await`, which Kevin's C# 3 compiler cannot compile. This is a conceptual comparison, not a runnable C# 5 method: that compiler cannot return our custom `IFuture<int>` from an `async` method. The hand-written class below performs these steps without those keywords.
 
+<!-- fence: sketch modern C# for comparison, C# 3 cannot compile async -->
 ```csharp
 async IFuture<int> AddAfterDelayAsync(int a, int b)
 {
@@ -126,7 +127,9 @@ internal sealed class AddAfterDelayMachine : IAsyncStateMachine
 {
     public int State;                       // -1 running, -2 done, 0 or 1 selects the resume point
     public AsyncMethodBuilder<int> Builder; // owns the promise for the final calculation
-    public int A, B, DelayMs;               // inputs survive the first MoveNext return
+    public int A;                           // inputs survive the first MoveNext return
+    public int B;
+    public int DelayMs;
     private int _sum;                       // calculation survives the second delay
     private IAwaiter _awaiter;              // observes the current delay, not the final result
 ```
@@ -138,7 +141,11 @@ Everything the method needs is a field. The public stub builds one box, fills in
 ```csharp
 public static IFuture<int> RunAsync(int a, int b, int delayMs)
 {
-    var machine = new AddAfterDelayMachine { A = a, B = b, DelayMs = delayMs, State = -1 };
+    AddAfterDelayMachine machine = new AddAfterDelayMachine();
+    machine.A = a;
+    machine.B = b;
+    machine.DelayMs = delayMs;
+    machine.State = -1;
     // This promise belongs to the whole calculation, not either individual delay.
     machine.Builder = AsyncMethodBuilder<int>.Create();
     machine.Builder.Start(ref machine);    // first MoveNext runs on the caller
@@ -189,8 +196,16 @@ public void MoveNext()
         switch (State)
         {
             // Restore the delay saved by the earlier call before jumping past its setup.
-            case 0: awaiter = _awaiter; _awaiter = null; State = -1; goto Resume0;
-            case 1: awaiter = _awaiter; _awaiter = null; State = -1; goto Resume1;
+            case 0:
+                awaiter = _awaiter;
+                _awaiter = null;
+                State = -1;
+                goto Resume0;
+            case 1:
+                awaiter = _awaiter;
+                _awaiter = null;
+                State = -1;
+                goto Resume1;
         }
 ```
 
@@ -202,7 +217,7 @@ public void MoveNext()
         {
             State = 0;                                   // next entry resumes at Resume0
             _awaiter = awaiter;                          // save before registration can call back
-            var self = this;
+            AddAfterDelayMachine self = this;
             Builder.AwaitOnCompleted(ref awaiter, ref self); // "call MoveNext when done"
             return;                                      // the thread leaves
         }
@@ -230,7 +245,7 @@ When the first delay completes, the callback calls `MoveNext()` again. `State` i
         {
             State = 1;
             _awaiter = awaiter;
-            var self = this;
+            AddAfterDelayMachine self = this;
             Builder.AwaitOnCompleted(ref awaiter, ref self);
             return;
         }
@@ -299,10 +314,10 @@ stateDiagram-v2
 The compiler uses the same save-and-resume approach, with these differences.
 
 1. It makes the machine a **`struct`** in Release, to avoid an allocation when the method completes synchronously. (A `struct` lives inside whatever holds it. A `class`, like ours, gets its own box on the heap.) On the first real suspend it boxes the struct, and `SetStateMachine` is how the builder learns which box to call back. Ours is a class, so `SetStateMachine` is empty. Toub discusses the trade at 63:11.
-2. It generates ugly names: `<>1__state`, `<>t__builder`, `<a>5__1`. Decompile any async method with ilspycmd and you will see the same fields with worse names. The number the compiler adds to a name just keeps names from colliding.
+2. It generates ugly names: `<>1__state` for the state, `<>t__builder` for the builder, `<sum>5__2` for a saved local, and `<>u__1` for the saved awaiter. Parameters such as `a` and `b` keep their plain names. You can see all of them in [AddAfterDelayReal.decompiled.cs](../compiler-output/AddAfterDelayReal.decompiled.cs), made with ilspycmd. The number the compiler adds to a name just keeps names from colliding.
 3. It handles `await` inside `try`/`finally`, inside loops, inside `using`. The transform is the same; the goto targets get more interesting.
 
-To compare the two, decompile a small `async` method and find its state field, saved locals, builder, and `MoveNext`. The exact fields and generated names depend on the compiler and the method.
+To compare the two, decompile a small `async` method and find its state field, saved locals, builder, and `MoveNext`. The fields and generated names depend on the compiler and the method.
 
 ## Words you just met
 

@@ -36,6 +36,16 @@
     <Reference Include="MMP.AsyncProxy.Forecourt">
       <HintPath>$(ForecourtDllDir)MMP.AsyncProxy.Forecourt.dll</HintPath>
     </Reference>
+    <!-- The SDK guide's code, net35 like the rest. -->
+    <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Sdk\MMP.AsyncProxy.Sdk.csproj" ReferenceOutputAssembly="false" />
+    <Reference Include="MMP.AsyncProxy.Sdk">
+      <HintPath>..\..\samples\MMP.AsyncProxy.Sdk\bin\$(Configuration)\net35\MMP.AsyncProxy.Sdk.dll</HintPath>
+    </Reference>
+    <!-- The comparison console is net48 and would bring the net48 library with it, so SampleProgramTests
+         runs its exe as a process. This reference only orders the build. -->
+    <ProjectReference Include="..\..\samples\MMP.AsyncProxy.Comparison\MMP.AsyncProxy.Comparison.csproj" ReferenceOutputAssembly="false" />
+    <!-- The real compiler's async method, net48, no library dependency, so a direct reference is safe. -->
+    <ProjectReference Include="..\..\samples\MMP.AsyncProxy.CompilerReference\MMP.AsyncProxy.CompilerReference.csproj" />
   </ItemGroup>
 
 </Project>

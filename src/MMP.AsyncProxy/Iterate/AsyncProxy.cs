@@ -10,6 +10,13 @@ namespace MMP.AsyncProxy
     /// </summary>
     public static class AsyncProxy
     {
+        /// <summary>
+        /// When a body's finally block throws while the method is already faulting, the
+        /// first fault wins and the second rides on it under this key in Exception.Data.
+        /// Desktop builds only; the Compact Framework has no Exception.Data.
+        /// </summary>
+        public const string DisposeFaultKey = "MMP.AsyncProxy.DisposeFault";
+
         /// <summary>For a method that finishes with "done" and no value.</summary>
         public static IFuture Run(IEnumerable<IFuture> steps)
         {

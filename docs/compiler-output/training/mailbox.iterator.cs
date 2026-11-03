@@ -10,6 +10,17 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
 	public sealed class IteratorClerk<T> : IClerk, IDisposable
 	{
 		[CompilerGenerated]
+		private sealed class <>c__DisplayClass17_0
+		{
+			public ManualResetEvent done;
+
+			internal void <Dispose>b__0()
+			{
+				done.Set();
+			}
+		}
+
+		[CompilerGenerated]
 		private sealed class <Loop>d__14 : IEnumerable<IFuture>, IEnumerable, IEnumerator<IFuture>, IDisposable, IEnumerator
 		{
 			private int <>1__state;
@@ -58,44 +69,40 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
 			{
 				int num = <>1__state;
 				IteratorClerk<T> iteratorClerk = <>4__this;
-				switch (num)
+				T slip;
+				if (num != 0)
 				{
-				default:
-					return false;
-				case 0:
-					<>1__state = -1;
-					break;
-				case 1:
+					if (num != 1)
+					{
+						return false;
+					}
 					<>1__state = -1;
 					if (<next>5__2.IsCanceled || <next>5__2.IsFaulted || iteratorClerk._stopping)
 					{
 						return false;
 					}
-					Interlocked.Exchange(ref iteratorClerk._busy, 1);
-					try
-					{
-						iteratorClerk._handle(<next>5__2.Result);
-					}
-					catch (Exception)
-					{
-					}
-					finally
-					{
-						Interlocked.Increment(ref iteratorClerk._handled);
-						iteratorClerk._tray.Handled();
-						Interlocked.Exchange(ref iteratorClerk._busy, 0);
-					}
+					slip = <next>5__2.Result;
 					<next>5__2 = null;
-					break;
+					goto IL_009d;
 				}
+				<>1__state = -1;
+				goto IL_00a4;
+				IL_00a4:
 				if (!iteratorClerk._stopping)
 				{
-					<next>5__2 = iteratorClerk._tray.TakeAsync();
-					<>2__current = Futures.Observe(<next>5__2);
-					<>1__state = 1;
-					return true;
+					if (!iteratorClerk._tray.TryTake(out slip))
+					{
+						<next>5__2 = iteratorClerk._tray.TakeAsync();
+						<>2__current = Futures.Observe(<next>5__2);
+						<>1__state = 1;
+						return true;
+					}
+					goto IL_009d;
 				}
 				return false;
+				IL_009d:
+				iteratorClerk.Handle(slip);
+				goto IL_00a4;
 			}
 
 			bool IEnumerator.MoveNext()
@@ -187,6 +194,24 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
 			return obj;
 		}
 
+		private void Handle(T slip)
+		{
+			Interlocked.Exchange(ref _busy, 1);
+			try
+			{
+				_handle(slip);
+			}
+			catch (Exception)
+			{
+			}
+			finally
+			{
+				Interlocked.Increment(ref _handled);
+				_tray.Handled();
+				Interlocked.Exchange(ref _busy, 0);
+			}
+		}
+
 		public bool WaitUntilIdle(int timeoutMs)
 		{
 			DateTime dateTime = DateTime.UtcNow.AddMilliseconds(timeoutMs);
@@ -205,10 +230,19 @@ namespace MMP.AsyncProxy.Training.Mailbox.Async
 		{
 			_stopping = true;
 			_tray.Close();
-			DateTime dateTime = DateTime.UtcNow.AddSeconds(2.0);
-			while (!_loop.IsCompleted && DateTime.UtcNow < dateTime)
+			<>c__DisplayClass17_0 <>c__DisplayClass17_1 = new <>c__DisplayClass17_0();
+			<>c__DisplayClass17_1.done = new ManualResetEvent(false);
+			try
 			{
-				Thread.Sleep(1);
+				_loop.ContinueOnAnyThread().OnCompleted(new Action(<>c__DisplayClass17_1.<Dispose>b__0));
+				<>c__DisplayClass17_1.done.WaitOne(2000);
+			}
+			finally
+			{
+				if (<>c__DisplayClass17_1.done != null)
+				{
+					((IDisposable)<>c__DisplayClass17_1.done).Dispose();
+				}
 			}
 		}
 	}

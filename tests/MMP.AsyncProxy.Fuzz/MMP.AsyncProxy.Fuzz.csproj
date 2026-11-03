@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Seeded random interleavings against the net35 library binary, the way the main suite
+         loads it. Two doors in: `dotnet test` runs a few hundred rounds per generator on fixed
+         seeds; `dotnet run [dash dash] 60` runs every generator for sixty seconds on fresh seeds
+         and prints the seed of any failure, which `dotnet run [dash dash] replay generator seed` reruns. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <RootNamespace>MMP.AsyncProxy.Fuzz</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.1" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MMP.AsyncProxy\MMP.AsyncProxy.csproj" ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net35" />
+    <Reference Include="MMP.AsyncProxy">
+      <HintPath>..\..\src\MMP.AsyncProxy\bin\$(Configuration)\net35\MMP.AsyncProxy.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

@@ -49,11 +49,11 @@ Ordering finished, Kevin and Steve caught up on each other's lives while they wa
 
 >Kevin writes **firmware** for a fuel dispenser - yep... a gas pump. Firmware is the program that lives inside a machine instead of on a computer you sit in front of. When you pull up to a gas pump, tap your card, and pick a grade, you are talking to Kevin's firmware.
 
->The head of the pump, the part with the card reader and the screen and the nozzle switches, has a small computer board inside it. It has an ARM chip (a small, low-power processor, the same family that is in your phone), 64 MB of memory, and an operating system called Windows CE 6. For scale, a cheap phone today has well over a hundred times that much memory.
+>The head of the pump, the part with the card reader and the screen and the nozzle switches, has a small computer board inside it. It has an ARM chip (a small, low-power processor, the same family that is in your phone), 64 MB of memory, and an operating system called Windows CE 6. For scale, a cheap phone today has thirty to sixty times that much memory.
 
 >The code is C# on the **.NET Compact Framework 3.5**. That is a trimmed-down version of .NET made for small devices. Somebody wrote it in 2009, and that person left in 2011. Kevin has been "the guy" since 2014.
 
->The compiler (the tool that turns the C# into a program) is Visual Studio 2008. It is going to stay Visual Studio 2008 until the hardware is retired. The reason is the **certification**. Before a pump is allowed to take credit cards, an outside lab tests it, and the test is done on one exact build. Change the compiler and you have to pay for the test again, and the test costs more than Kevin makes in a year. Dale, Kevin's boss, is the person who signs that check. Dale does not like to sign that check.
+>The compiler (the tool that turns the C# into a program) is Visual Studio 2008. It is going to stay Visual Studio 2008 until the hardware is retired. The reason is the **certification**. Before a pump is allowed to take credit cards, an outside lab tests it, and the test is done on one specific build. Change the compiler and you have to pay for the test again, and the test costs more than Kevin makes in a year. Dale, Kevin's boss, is the person who signs that check. Dale does not like to sign that check.
 
 ---
 
@@ -146,7 +146,7 @@ Kevin put the wing down.
 
 >(A state machine is a way of cutting a job into pieces so it can stop in the middle and pick up later. A callback is a piece of code you hand to someone and say "call this when you're done." You'll get both of them in chapters 2 and 3. For tonight, just know the words.)
 
-"I built the rest. It's about seven hundred lines and it runs on 3.5." Steve pulled his own laptop out and set it next to the wing basket. "We're going to go through it one topic at a time tonight. We'll replace the thread that waits for an authorization reply and the thread that sleeps between pulse checks. The display can keep responding during those waits. We'll also check which threads the serial link still needs."
+"I built the rest. It's about twelve hundred lines and it runs on 3.5." Steve pulled his own laptop out and set it next to the wing basket. "We're going to go through it one topic at a time tonight. We'll replace the thread that waits for an authorization reply and the thread that sleeps between pulse checks. The display can keep responding during those waits. We'll also check which threads the serial link still needs."
 
 
 "Dale is going to have a stroke," Kevin said. "I'm not putting a library into certified firmware."
@@ -223,7 +223,7 @@ Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of on
 
 ## Words you just met
 
-| Word | In plain words | Example or comparison |
+| Word | Meaning | Example or comparison |
 |---|---|---|
 | **Firmware** | The program that lives inside a machine | The brain inside the pump |
 | **Thread** | Runs one sequence of instructions | Several threads can work on different jobs |

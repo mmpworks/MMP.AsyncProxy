@@ -20,7 +20,7 @@ Kevin looked up from the napkin. "I *what*?"
 
 "Why would I break it on purpose?" Kevin said. "I've got a certification. I've got Dale. I've got a hundred ways it can break without any help from me."
 
-"Because in two years somebody is going to look at that lock and think, that's slow, and take it out. Probably a smart kid. Maybe a kid who read a blog post about lock-free code. And you're going to be the one guy in the building who knows exactly what happens next, because you did it once yourself with nobody watching." Steve slid the laptop over. "Ten of them. They're the ones I'd do if I were you. They are small. Each one is a tiny change to the repo, you build it, you run the tests, and you see what moved."
+"Because in two years somebody is going to look at that lock and think, that's slow, and take it out. Probably a smart kid. Maybe a kid who read a blog post about lock-free code. And you're going to be the one guy in the building who knows what happens next, because you did it once yourself with nobody watching." Steve slid the laptop over. "Ten of them. They're the ones I'd do if I were you. They are small. Each one is a tiny change to the repo, you build it, you run the tests, and you see what moved."
 
 Kevin scrolled. "Where are the answers?"
 
@@ -41,7 +41,7 @@ Each one is a small change to the repo. Build, run the tests, see what moved. An
 - **Make a branch first** (`git switch -c exercises`). Start with a clean working tree. After each exercise, review your diff and restore only the files you changed for that exercise. Keep any unrelated work.
 - **Run the tests** with `dotnet test tests/MMP.AsyncProxy.Tests`. That project runs on .NET Framework 4.8, so it runs directly on Windows. On Linux or macOS it needs Mono installed.
 - **Predict before you run.** Write down on a napkin what you think will happen. The learning is in the gap between your guess and the result.
-- Under each exercise you will find a **Hint** (a nudge in plain words, not the answer) and **What you should see** (the symptom, so you know you reproduced it).
+- Under each exercise you will find a **Hint** (a nudge, not the answer) and **What you should see** (the symptom, so you know you reproduced it).
 
 The hand-written machine is in `samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs`. The promise is in `src/MMP.AsyncProxy/Core/Promise{T}.cs`. The iterator driver is in `src/MMP.AsyncProxy/Iterate/IteratorStateMachine{T}.cs`. Tests mentioned below are under `tests/MMP.AsyncProxy.Tests`; search for the named test before editing so you can compare its original result.
 
@@ -134,7 +134,7 @@ In `ReadTenantAfterDelay`, replace `CallContext.LogicalSetData` with a `[ThreadS
 
 **Hint.** A `[ThreadStatic]` value is a note taped to one desk. Print `Thread.CurrentThread.ManagedThreadId` when you set it and again when you read it.
 
-**What you should see.** It will usually fail: the read happens on a pool worker, at a different desk, and finds an empty note (or someone else's). A run can pass by luck if the same thread happened to handle both. That luck is exactly why this bug survives testing.
+**What you should see.** It will usually fail: the read happens on a pool worker, at a different desk, and finds an empty note (or someone else's). A run can pass by luck if the same thread happened to handle both. That luck is why this bug survives testing.
 
 ## 7. Write WhenAny before you read ours
 
@@ -162,7 +162,7 @@ Cover `Futures.WhenAny` in `Futures.cs` with your hand. Write your own that comp
 
 ## 10. Make it a struct
 
-The real compiler emits a struct machine in Release. Turn `AddAfterDelayMachine` into a struct. `Builder.Start(ref machine)` still works. `Builder.AwaitOnCompleted(ref awaiter, ref self)` with `var self = this;` now copies the struct, and the copy gets the callback while the original holds the state. Record whether the test passes, faults, or hangs. Inspect which copy owns each state update. Then study the real builder's `SetStateMachine` path and design a builder that keeps one boxed machine. Compare the number of copies and boxes before and after that change.
+The real compiler emits a struct machine in Release. Turn `AddAfterDelayMachine` into a struct. `Builder.Start(ref machine)` still works. `Builder.AwaitOnCompleted(ref awaiter, ref self)` with `AddAfterDelayMachine self = this;` now copies the struct. The copy and the original start with the same state, and only the copy gets the callback. Record whether the test passes, faults, or hangs. Inspect which copy owns each state update. Then study the real builder's `SetStateMachine` path and design a builder that keeps one boxed machine. Compare the number of copies and boxes before and after that change.
 
 **Hint.** A class is one labelled box on the shelf; everybody holds the same box. A struct is a photocopy: copy it and you have two sheets, and writing on one does not change the other. Whose sheet got the bookmark?
 

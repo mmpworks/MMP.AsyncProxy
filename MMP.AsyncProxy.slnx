@@ -7,6 +7,7 @@
     <Project Path="samples/MMP.AsyncProxy.Comparison/MMP.AsyncProxy.Comparison.csproj" />
     <Project Path="samples/MMP.AsyncProxy.CompilerReference/MMP.AsyncProxy.CompilerReference.csproj" />
     <Project Path="samples/MMP.AsyncProxy.Forecourt/MMP.AsyncProxy.Forecourt.csproj" />
+    <Project Path="samples/MMP.AsyncProxy.Sdk/MMP.AsyncProxy.Sdk.csproj" />
   </Folder>
   <Folder Name="/training/">
     <Project Path="training/MMP.AsyncProxy.Training/MMP.AsyncProxy.Training.csproj" />
@@ -16,5 +17,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/MMP.AsyncProxy.Tests/MMP.AsyncProxy.Tests.csproj" />
+    <Project Path="tests/MMP.AsyncProxy.Fuzz/MMP.AsyncProxy.Fuzz.csproj" />
   </Folder>
 </Solution>

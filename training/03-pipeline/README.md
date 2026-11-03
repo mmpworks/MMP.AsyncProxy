@@ -73,36 +73,52 @@ public IFuture<bool> PutAsync(T item)
     Promise<T> wakeTaker = null;
     lock (_gate)
     {
-        if (_closed) return Done(false);
-        if (_waitingTaker != null) { wakeTaker = _waitingTaker; _waitingTaker = null; }   // consumer waiting: hand it over
-        else if (_items.Count < _capacity) { _items.Enqueue(item); return Done(true); }
+        if (_closed) return Futures.False;
+        if (_holding) throw new InvalidOperationException("one producer per tray: an item is already held at the door");
+        if (_waitingTaker != null)
+        {
+            wakeTaker = _waitingTaker;          // the consumer is waiting: hand it straight over
+            _waitingTaker = null;
+        }
+        else if (_items.Count < _capacity)
+        {
+            _items.Enqueue(item);
+            return Futures.True;                // shared, so the common case allocates nothing
+        }
         else
         {
-            _held = item; _holding = true;                   // full: hold the item at the door, hand out an IOU
+            _held = item;                       // full: hold the item at the door, hand out an IOU
+            _holding = true;
             _waitingPutter = new Promise<bool>(PromiseOptions.RunContinuationsAsynchronously);
             return _waitingPutter.Future;
         }
     }
-    wakeTaker.TrySetResult(item);                            // outside the lock
-    return Done(true);
+    wakeTaker.TrySetResult(item);               // outside the lock
+    return Futures.True;
 }
 ```
 
 `TakeAsync` is the mirror: an item if there is one, and when it takes one it lets the held item in and pays the producer's IOU; an IOU of its own if the tray is empty; a cancelled future once the tray is closed and drained.
 
-`IteratorLine` makes an iterator per stage. Each one yields a tray future in each direction.
+`IteratorLine` makes an iterator per stage. Each one yields a tray future in each direction. `TryTake` and `TryPut` move an item without a future when the tray has one ready or has room, so the stage parks only when it must.
 
 ```csharp
 private static IEnumerable<IFuture> EnrichStage(PromiseTray<int> behind, PromiseTray<int> ahead, List<int> dropped, InFlightMeter meter)
 {
     while (true)
     {
-        IFuture<int> next = behind.TakeAsync();
-        yield return Futures.Observe(next);                 // parks only when the tray behind is empty
-        if (next.IsCanceled) break;                         // closed and drained
+        int x;
+        if (!behind.TryTake(out x))
+        {
+            IFuture<int> next = behind.TakeAsync();
+            yield return Futures.Observe(next);                 // parks only when the tray behind is empty
+            if (next.IsCanceled) break;                         // closed and drained
+            x = next.Result;
+        }
         int enrichedItem;
-        try { enrichedItem = Stages.Enrich(next.Result); }
-        catch (InvalidOperationException) { dropped.Add(next.Result); meter.Left(); continue; }
+        try { enrichedItem = Stages.Enrich(x); }
+        catch (InvalidOperationException) { dropped.Add(x); meter.Left(); continue; }
+        if (ahead.TryPut(enrichedItem)) continue;
         yield return ahead.PutAsync(enrichedItem);          // parks only when the tray ahead is full
     }
     ahead.Close();
@@ -148,7 +164,7 @@ What did not change: the three stage functions, the tray capacity, the in-flight
 
 **What stayed.** The backpressure rule, by shape: `InFlightPeak` stays under 2C + 3 in every version, because a full tray refuses in every version. One producer and one consumer per tray, which both trays assume. The poison `catch` sits in the same place.
 
-**What the tests caught.** The pool grew by 14 threads for the AsyncProxy line in the thread test, on both runtimes, every run, against 3 for the threaded line. Those are the writer's timers again (`Futures.Delay(3)` per item), the same cause as the fan-out project's row 6, and they go back to the pool; the threaded line's three never do. In the bench with no write delay the AsyncProxy line sat at the idle count.
+**What the tests caught.** The pool grew by 14 threads for the AsyncProxy line in the thread test, on both runtimes, every run, against 3 for the threaded line. Those were the writer's timers again (`Futures.Delay(3)` per item), the same cause as the fan-out project's row 6, and they went back to the pool; the threaded line's three never do. Row 6 has since moved every delay onto one shared `DelayWheel` timer, and the 14-thread figure was taken before that. In the bench with no write delay the AsyncProxy line sat at the idle count.
 
 ## 5. The same machine in IL
 
@@ -156,6 +172,7 @@ Both enrich stages were compiled in Release and decompiled with ilspycmd 10.0.1,
 
 **The iterator machine, .NET 3.5**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private sealed class <EnrichStage>d__4 : IEnumerable<IFuture>, IEnumerator<IFuture>, IDisposable
 {
@@ -196,6 +213,7 @@ private sealed class <EnrichStage>d__4 : IEnumerable<IFuture>, IEnumerator<IFutu
 
 **The async machine, .NET 10**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private struct <EnrichStage>d__4 : IAsyncStateMachine
 {
@@ -263,17 +281,17 @@ IL_0019: ldc.i4.0                                  ... branch on num: 0, 1, 2
 IL_001a: ret                 // finished
 ```
 
-With three states the iterator's compiler emits a `switch` instruction where two states got a pair of branches. The async compiler does the same jump with compares. The one difference that is not cosmetic: the modern machine keeps three awaiters as fields (`<>u__1`, `<>u__2`), one per awaited type, because its awaiters are structs it must hold across the park. The iterator holds one `IFuture` in `<>2__current` and the library's driver holds the boxed awaiter. Row 3 of the improvements table is about that box.
+With three states the iterator's compiler emits a `switch` instruction where two states got a pair of branches. The async compiler does the same jump with compares. The one difference that is not cosmetic: the modern machine keeps two awaiter fields (`<>u__1`, `<>u__2`), one per awaited type, because its awaiters are structs it must hold across the park. The iterator holds one `IFuture` in `<>2__current` and the library's driver holds the boxed awaiter. Row 3 of the improvements table is about that box.
 
 ## 6. Memory and speed
 
-10,000 items through trays of 8 with no write delay, so the cost measured is the hand-off itself. Measured 2026-11-02 on a 24-core Windows 11 machine, Release build, from the same bench run as the other rows.
+10,000 items through trays of 8 with no write delay, so the cost measured is the hand-off itself. Measured on a 24-core Windows 11 machine, Release build. The net48 rows are from 2026-11-03, after the 0.2.0 fast paths. The net10.0 rows are from 2026-11-02, before them.
 
 ```
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 project      version      elapsed ms  peak threads  allocated bytes  peak WS bytes    ok
-pipeline     threaded             31            37          284,176    100,261,888   yes
-pipeline     asyncproxy           21            34       18,341,152    100,261,888   yes
+pipeline     threaded             37            34          284,176    106,258,432   yes
+pipeline     asyncproxy           15            34        3,339,792    106,258,432   yes
 
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 project      version      elapsed ms  peak threads  allocated bytes  peak WS bytes    ok
@@ -286,7 +304,7 @@ How to read it:
 
 - **Elapsed.** All three move 10,000 items through two hand-offs in tens of milliseconds. The AsyncProxy line beat the threaded one on both runtimes, because a promise completion is cheaper than a `Monitor` pulse and a context switch. The modern line beat both.
 - **Peak threads.** No row stands out, and that is the point for a three-stage line: three threads is nothing. The difference is per stage, and a line of thirty stages is thirty parked threads one way and thirty small objects the other.
-- **Allocated bytes.** This is the row that teaches. The AsyncProxy line allocated about 1.8 KB per item, against 12 bytes per item for the modern line and 28 for the threaded one. Every item crosses two trays, and every crossing on the fast path still builds a completed promise and its future for `PutAsync`, another pair for `TakeAsync`, an `Observe` wrapper, and a boxed awaiter in the driver. The modern channel's `TryWrite` and `TryRead` succeed with no allocation and `ValueTask` carries the synchronous result in a struct. Rows 2, 3, 4, and 7 of the improvements table in `docs/prd-training.md` are the fixes, and this project is the third use of the same fast path, which is the rule-of-three moment for row 4.
+- **Allocated bytes.** This is the row that teaches. Before the 0.2.0 fast path, the AsyncProxy line allocated about 1.7 KB per item (the net10.0 rows), against 12 bytes per item for the modern line and 28 for the threaded one. Every item crosses two trays, and every crossing on the fast path built a completed promise and its future for `PutAsync`, another pair for `TakeAsync`, an `Observe` wrapper, and a boxed awaiter in the driver. Now the stages call `TryTake` and `TryPut` first and allocate nothing on the fast path, and `PutAsync` returns the shared `Futures.True` and `Futures.False`. The net48 row fell to about 330 bytes per item, which is the cost of the parks that remain. The modern channel's `TryWrite` and `TryRead` succeed with no allocation and `ValueTask` carries the synchronous result in a struct. Rows 2, 3, 4, and 7 of the improvements table in `docs/prd-training.md` are the fixes, and this project is the third use of the same fast path, which is the rule-of-three moment for row 4.
 - **Peak working set** is the process's high-water mark across the whole bench run.
 
 ## 7. CUPID, DRY, SOLID
@@ -300,7 +318,7 @@ How to read it:
 ## 8. Run it
 
 ```
-dotnet test training/MMP.AsyncProxy.Training.Tests           # 35 on net48, 52 on net10.0, with the earlier projects
+dotnet test training/MMP.AsyncProxy.Training.Tests --filter "FullyQualifiedName~Pipeline"
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 pwsh tools/decompile.ps1                                       # regenerates docs/compiler-output/training/pipeline.*
