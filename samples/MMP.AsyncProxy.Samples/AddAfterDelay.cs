@@ -76,6 +76,9 @@ namespace MMP.AsyncProxy.Samples
                         goto Resume1;
                 }
 
+                // On the first call State is -1, so neither switch case matches.
+                // Continue here and schedule the first delay now. GetAwaiter only
+                // gets access to its completion members; it does not start the delay.
                 // await Futures.Delay(delayMs);
                 // Ask the awaiter if it is done. If yes, fall straight through to
                 // Resume0 on this same thread. If no, remember where we are, hand
@@ -95,10 +98,12 @@ namespace MMP.AsyncProxy.Samples
                 awaiter.GetResult();
 
                 if (A < 0) throw new ArgumentOutOfRangeException("a");
+                // Toy calculation: 3 + 4 gives 7. Save it in a field so it
+                // remains available when MoveNext resumes after the second delay.
                 _sum = A + B;
 
                 // await Futures.Delay(delayMs);
-                // Same dance, second verse.
+                // Schedule a separate second delay now, after computing the sum.
                 awaiter = Futures.Delay(DelayMs).GetAwaiter();
                 if (!awaiter.IsCompleted)
                 {
@@ -112,6 +117,9 @@ namespace MMP.AsyncProxy.Samples
                 awaiter.GetResult();
 
                 // return sum * 2;
+                // Finish the toy calculation: double the saved sum (7 becomes 14).
+                // This is sample arithmetic, not a fuel-sale rule. It demonstrates
+                // using a value computed before suspension after the method resumes.
                 result = _sum * 2;
             }
             catch (Exception ex)

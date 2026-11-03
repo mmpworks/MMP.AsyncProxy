@@ -10,12 +10,16 @@ namespace MMP.AsyncProxy
     {
         private readonly Promise<VoidResult> _inner;
 
-        public Promise() : this(false) { }
+        public Promise() : this(PromiseOptions.None) { }
 
-        public Promise(bool runContinuationsAsync)
+        public Promise(PromiseOptions options)
         {
-            _inner = new Promise<VoidResult>(runContinuationsAsync);
+            _inner = new Promise<VoidResult>(options);
         }
+
+        /// <summary>The original spelling, kept so existing callers still build. Prefer the options overload.</summary>
+        public Promise(bool runContinuationsAsync)
+            : this(runContinuationsAsync ? PromiseOptions.RunContinuationsAsynchronously : PromiseOptions.None) { }
 
         public IFuture Future { get { return _inner.Future; } }
 

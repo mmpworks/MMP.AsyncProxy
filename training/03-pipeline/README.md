@@ -79,7 +79,7 @@ public IFuture<bool> PutAsync(T item)
         else
         {
             _held = item; _holding = true;                   // full: hold the item at the door, hand out an IOU
-            _waitingPutter = new Promise<bool>(true);
+            _waitingPutter = new Promise<bool>(PromiseOptions.RunContinuationsAsynchronously);
             return _waitingPutter.Future;
         }
     }

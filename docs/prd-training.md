@@ -1,6 +1,6 @@
 # PRD: the training track
 
-Status: written 2026-11-02 and completed the same day, slices 0 to 5. Decisions below stand until Steve changes one.
+Status: written 2026-11-02 and completed the same day, slices 0 to 5. Slice 6 (projects 5 and 6, and course chapter 11) added the same day, see decision 13. Decisions below stand until Steve changes one.
 
 ## What
 
@@ -62,9 +62,10 @@ Kill condition: every row below is true on one date, and that date is written he
 | 7 | Tests | `MMP.AsyncProxy.Training.Tests`, xunit, multi-target `net48;net10.0`. On net48 it references the net35 binaries by path, like the main tests. On net10.0 it references the netstandard2.0 build and the modern assembly. | Proves the 3.5 binaries, and proves the same contract holds on the modern runtime. |
 | 8 | Bench | `MMP.AsyncProxy.Training.Bench`, console, multi-target `net48;net10.0`. Columns: elapsed ms, peak threads, allocated bytes, peak working set. Modern rows only on net10.0. | Memory and speed were asked for. Peak threads is the number that teaches. Allocated bytes uses `AppDomain.MonitoringTotalAllocatedMemorySize` on net48 and `GC.GetTotalAllocatedBytes` on net10. |
 | 9 | Decompile | `tools/decompile.ps1` grows a second half: Release build of Training (net35) and Modern (net10.0), `ilspycmd -lv CSharp1` for the iterator machines, `-lv CSharp4` for the modern ones, `-il` for both, into `docs/compiler-output/training/` | Same tool and flags the article used, so the output matches what the reader saw there. |
-| 10 | README voice | Tenth grade reading level, the two-developers register of the course, STE sentence mechanics, no tics. Every claim about memory or speed quotes the bench table it came from. | House writing standard. Demonstration over explanation. |
+| 10 | README voice | Plain words, a metaphor before the code, a plain-words walkthrough under every diagram, the two-developers register of the course, STE sentence mechanics, no tics. Every claim about memory or speed quotes the bench table it came from. | House writing standard. Demonstration over explanation. |
 | 11 | What "humanized code" means here | Names say what the thing is in the domain (in-tray, slip, clerk), one idea per method, comments say why and name the modern equivalent. Same voice as `src/`. | Matches the library. A reader moving between them should feel no seam. |
 | 12 | Improvements flow | Found during slices 1 to 4, written into the table below at once, implemented in slice 5 as their own PR, then applied to the gas pump as a PR there | Keeps each mini-project PR about the mini-project. The audit trail is the table. |
+| 13 | Projects where the thread wins (Steve, 2026-11-02: "no discussion of Async/Await is complete without a relatively complex example where Threads are better") | Two more projects, `training/05-crunch` (CPU-bound sealing of a day's sales, with a heartbeat that has to stay on time: threads of its own against the loop and the pool fan-out) and `training/06-printer` (a driver only its opening thread may call: one owner thread against a naive async mistake and an async version that posts back). Threaded and AsyncProxy versions only, no modern copy; tests in the same suite; `Bench -- crunch` and `Bench -- printer` print their tables. Course chapter 11 tells the story. | The first four projects all show async winning. A course that only shows async winning teaches the wrong rule. These two show what it cannot do: make CPU work faster, or remove a thread a device needs. |
 
 ## README shape (each project)
 

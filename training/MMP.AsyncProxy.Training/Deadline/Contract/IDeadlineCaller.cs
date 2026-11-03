@@ -120,7 +120,7 @@ namespace MMP.AsyncProxy.Training.Deadline
         public IFuture<string> AskAsync(int attempt)
         {
             int delay = DelayFor(attempt);
-            if (delay < 0) return new Promise<string>(true).Future;
+            if (delay < 0) return new Promise<string>(PromiseOptions.RunContinuationsAsynchronously).Future;
             return AsyncProxy.Run<string>(delegate(Return<string> ret) { return AskBody(attempt, delay, ret); });
         }
 

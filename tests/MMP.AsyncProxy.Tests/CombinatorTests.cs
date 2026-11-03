@@ -72,7 +72,7 @@ namespace MMP.AsyncProxy.Tests
         [Fact]
         public void RunContinuationsAsync_moves_the_callback_off_the_completing_thread() => NoContext.Run(() =>
         {
-            var promise = new Promise<int>(true);
+            var promise = new Promise<int>(PromiseOptions.RunContinuationsAsynchronously);
             var done = new ManualResetEvent(false);
             var ranOn = 0;
             promise.GetAwaiter().OnCompleted(() => { ranOn = Thread.CurrentThread.ManagedThreadId; done.Set(); });
@@ -89,6 +89,30 @@ namespace MMP.AsyncProxy.Tests
             promise.GetAwaiter().OnCompleted(() => ranOn = Thread.CurrentThread.ManagedThreadId);
             promise.SetResult(1);
             Assert.Equal(Thread.CurrentThread.ManagedThreadId, ranOn);
+        });
+
+        [Fact]
+        public void The_old_bool_overload_still_means_run_on_the_pool() => NoContext.Run(() =>
+        {
+            var promise = new Promise<int>(true);
+            var done = new ManualResetEvent(false);
+            var ranOn = 0;
+            promise.GetAwaiter().OnCompleted(() => { ranOn = Thread.CurrentThread.ManagedThreadId; done.Set(); });
+            promise.SetResult(1);
+            Assert.True(done.WaitOne(5000));
+            Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, ranOn);
+        });
+
+        [Fact]
+        public void The_value_less_promise_takes_the_same_option() => NoContext.Run(() =>
+        {
+            var promise = new Promise(PromiseOptions.RunContinuationsAsynchronously);
+            var done = new ManualResetEvent(false);
+            var ranOn = 0;
+            promise.Future.GetAwaiter().OnCompleted(() => { ranOn = Thread.CurrentThread.ManagedThreadId; done.Set(); });
+            promise.SetResult();
+            Assert.True(done.WaitOne(5000));
+            Assert.NotEqual(Thread.CurrentThread.ManagedThreadId, ranOn);
         });
     }
 }

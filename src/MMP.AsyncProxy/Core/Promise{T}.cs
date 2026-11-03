@@ -5,17 +5,19 @@ using System.Threading;
 namespace MMP.AsyncProxy
 {
     /// <summary>
-    /// The counter where answers get filled in. You keep the Promise. You hand
-    /// out its Future. Whoever holds the Future can wait or subscribe, and that
-    /// is all they can do. This is TaskCompletionSource, and the split exists
-    /// so a caller can never complete work it did not do. The Future is a
-    /// separate sealed object, not this one wearing an interface, so a cast
-    /// cannot undo the split.
+    /// The writable result holder. In the restaurant table example, the host
+    /// keeps the request record (Promise) and gives the customer a claim ticket
+    /// (Future). The record holds the outcome; a pager only signals readiness.
+    /// A continuation is what the customer does after being notified.
     ///
-    /// When you call SetResult, the callbacks run right there, on your thread,
-    /// before SetResult returns. TaskCompletionSource does the same by default.
-    /// Build it with runContinuationsAsync = true and they go to the pool instead,
-    /// which is TaskCreationOptions.RunContinuationsAsynchronously in .NET 4.6.
+    /// The caller can read the Future or register a continuation, but cannot
+    /// complete the Promise through it. Future is a separate sealed object,
+    /// so a cast cannot expose the Promise's setters.
+    ///
+    /// By default, completion calls continuations saved while pending on the
+    /// completing thread. PromiseOptions.RunContinuationsAsynchronously queues
+    /// those continuations to the pool instead. Registration after completion
+    /// calls the continuation immediately on the registering thread.
     /// </summary>
     public sealed class Promise<T>
     {
@@ -34,17 +36,26 @@ namespace MMP.AsyncProxy
         private ManualResetEvent _done;
         private readonly Future<T> _future;
 
-        public Promise() : this(false) { }
+        public Promise() : this(PromiseOptions.None) { }
 
         /// <summary>
-        /// Pass true when the completer must never run someone else's code on its
-        /// own stack. A lock holder, a deep chain, or a thread with a deadline.
+        /// Pass PromiseOptions.RunContinuationsAsynchronously when the completer must
+        /// never run someone else's code on its own stack. A lock holder, a deep chain,
+        /// or a thread with a deadline.
         /// </summary>
-        public Promise(bool runContinuationsAsync)
+        public Promise(PromiseOptions options)
         {
-            _runContinuationsAsync = runContinuationsAsync;
+            _runContinuationsAsync = (options & PromiseOptions.RunContinuationsAsynchronously) != 0;
             _future = new Future<T>(this);
         }
+
+        /// <summary>
+        /// The original spelling, kept so existing callers still build. true means
+        /// PromiseOptions.RunContinuationsAsynchronously. Prefer the options overload:
+        /// <c>new Promise&lt;T&gt;(true)</c> does not say what the true is for.
+        /// </summary>
+        public Promise(bool runContinuationsAsync)
+            : this(runContinuationsAsync ? PromiseOptions.RunContinuationsAsynchronously : PromiseOptions.None) { }
 
         /// <summary>The view to give away. Same one every time, so reference equality works on it.</summary>
         public IFuture<T> Future { get { return _future; } }
