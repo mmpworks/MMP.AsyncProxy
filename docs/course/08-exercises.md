@@ -8,7 +8,7 @@ Dee brought a fresh stack of napkins without being asked, set them down next to 
 
 "I'm forty-one."
 
-"Homework." Steve did not blink. "You've got the pulser loop and the host call. That's tonight. Tomorrow you do the card reader thread the same way. The reader raises an event when somebody taps a card, so that's a promise, same as the serial reply. You hand out the future, the event fills the window, and the sale machine waits on it. Easy. It's the same move you just learned, and the fastest way to own a move is to do it on something you know."
+"Homework." Steve did not blink. "You've got the pulser loop and the host call. That's tonight. Tomorrow you do the card reader thread the same way. The reader raises an event when somebody taps a card, so that's a promise, same as the serial reply. You hand out the future, the event handler stores the result in the promise, and the sale machine waits on it. Easy. It's the same move you just learned, and the fastest way to own a move is to do it on something you know."
 
 "Okay. That's fair. Tonight and tomorrow."
 
@@ -24,9 +24,9 @@ Kevin looked up from the napkin. "I *what*?"
 
 Kevin scrolled. "Where are the answers?"
 
-"There aren't any, buddy. On purpose. The tests are the answers. If you change a line and a test goes red, that's the repo telling you what the line was for. That's better than me telling you. You'd forget what I said by Friday. You won't forget a red test you caused."
+"There aren't any, bud. On purpose. The tests are the answers. If you change a line and a test goes red, that's the repo telling you what the line was for. That's better than me telling you. You'd forget what I said by Friday. You won't forget a red test you caused."
 
-"Hm." Kevin picked up a fresh napkin, wrote *1 to 10* across the top, and underlined it twice. "Do I do them in order?"
+"Hm." Kevin picked up a fresh napkin, numbered it eight, wrote *1 to 10* across the top, and underlined it twice. "Do I do them in order?"
 
 "Do the first three in order. After that, pick whichever one scares you most."
 
@@ -42,6 +42,8 @@ Each one is a small change to the repo. Build, run the tests, see what moved. An
 - **Run the tests** with `dotnet test tests/MMP.AsyncProxy.Tests`. That project runs on .NET Framework 4.8, so it runs directly on Windows. On Linux or macOS it needs Mono installed.
 - **Predict before you run.** Write down on a napkin what you think will happen. The learning is in the gap between your guess and the result.
 - Under each exercise you will find a **Hint** (a nudge in plain words, not the answer) and **What you should see** (the symptom, so you know you reproduced it).
+
+The hand-written machine is in `samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs`. The promise is in `src/MMP.AsyncProxy/Core/Promise{T}.cs`. The iterator driver is in `src/MMP.AsyncProxy/Iterate/IteratorStateMachine{T}.cs`. Tests mentioned below are under `tests/MMP.AsyncProxy.Tests`; search for the named test before editing so you can compare its original result.
 
 ## Which chapter each exercise pokes at
 
@@ -76,9 +78,9 @@ flowchart LR
 1. Each box is one exercise. Each framed group is labelled with the chapter whose idea the exercise pokes at.
 2. Exercises 1 and 2 work on the hand-written machine from chapter 3: add one more wait, then remove the fast path.
 3. Exercises 3 and 4 work on the promise from chapter 2: take the lock out, then run callbacks while holding it.
-4. Exercise 5 goes back to chapter 6: rebuild the parked-car problem on purpose.
-5. Exercise 6 is chapter 5: replace the traveling backpack with a note taped to one desk.
-6. Exercises 7 and 8 are chapter 7: write `WhenAny` yourself, then remove the `Observe` wrapper.
+4. Exercise 5 revisits pool starvation from the thread comparison in chapter 6: rebuild the parked-car problem on purpose.
+5. Exercise 6 revisits context from chapter 5: replace the traveling backpack with a note taped to one desk.
+6. Exercises 7 and 8 revisit the iterator discussion in chapter 7: write `WhenAny` yourself, then remove the `Observe` wrapper.
 7. Exercises 9 and 10 compare your machine with the one the real compiler writes.
 
 
@@ -89,6 +91,8 @@ Take `AddAfterDelayMachine` and add a third `Futures.Delay` before the return. Y
 **Hint.** Copy the block for the second wait and change the numbers. Each wait has the same three parts: park (save the bookmark), come back (jump to the label), carry on.
 
 **What you should see.** The tests still pass when you get it right, and you edited at least three separate spots in one method. Now picture doing that for a method with ten waits.
+
+If the added delay changes no calculation, the numeric result should stay the same. Add a test that checks the extra step ran; the existing result assertion alone cannot distinguish two delays from three.
 
 ## 2. Break the fast path
 
@@ -102,13 +106,15 @@ In `AddAfterDelayMachine.MoveNext`, delete the `if (!awaiter.IsCompleted)` check
 
 In `Promise<T>.RegisterContinuation`, remove the `lock`. Write a test that completes the promise from one thread while another registers a continuation, in a tight loop, a thousand times. Count how many continuations never ran. Put the lock back.
 
-**Hint.** Remember the two cases in chapter 2: "is it pending?" and "add to the list." The lock is what keeps a finish from sneaking in between those two steps.
+**Hint.** Remember promise registration from chapter 2: check "is it pending?" then add to the list. The lock is what keeps a finish from sneaking in between those two steps.
+
+Finish both test threads before counting callbacks. Give the experiment a timeout so a lost callback cannot hang the test runner. Restore the lock even if the race fails to appear; a successful run cannot prove this unsynchronized version safe.
 
 **What you should see.** Some runs lose a continuation: the count of callbacks that never ran is more than zero. It may be zero on a lucky run. That is the lesson. This kind of bug hides for days and then shows up in production.
 
 ## 4. Run continuations inside the lock
 
-In `Promise<T>.Complete`, move the loop that invokes `toRun` callbacks inside the `lock`. Write a continuation that completes a second promise whose continuation completes the first promise's sibling. Use a short test timeout so a deadlock becomes a failed test. Restore the callback loop after the experiment.
+In `Promise<T>.Complete`, move the loop that invokes `toRun` callbacks inside the `lock`. Create promises A and B. Give A a continuation that reads B's status, and give B a continuation that reads A's status. Complete A and B on separate threads. Before either callback reads the other status, make both announce that they arrived and wait until both have arrived. This test coordination is a barrier: each thread holds one promise lock before requesting the other. Use a short test timeout so a deadlock becomes a failed test. Restore the callback loop after the experiment.
 
 **Hint.** A deadlock needs two parties, each holding one thing and waiting for the thing the other holds. Here the "things" are the two promises' locks. Set up two threads that finish the two promises at the same time, each one's callback touching the other promise.
 
@@ -168,5 +174,5 @@ The real compiler emits a struct machine in Release. Turn `AddAfterDelayMachine`
 |---|---|---|
 | **Regression test** | A test that fails if somebody breaks a behavior that used to work | A smoke alarm: silent until the day it matters |
 | **Deadlock** | Two threads, each holding something the other needs, both stuck forever | Each person holds a key the other needs, and both wait for the other to hand it over |
-| **Fast path** | The quick route taken when the wait is already over | Skipping the pickup line because your order is on the counter |
+| **Fast path** | The quick route taken when the wait is already over | The host already has your table assignment, so you can read it immediately |
 | **Struct vs class** | A struct is copied when you pass it; a class is shared | A photocopy versus the one labelled box |

@@ -2,9 +2,9 @@
 
 ## At the table
 
-The wings were gone. Not "mostly gone." Gone. Kevin had even gnawed the celery, which Steve decided not to mention. The bass-fishing channel was still on all four TVs. Nobody had watched a minute of it all night, and somebody in a camouflage cap was still losing a fight with a fish.
+The wings were gone. Not "mostly gone." Gone. Kevin had even gnawed the celery, which Steve decided not to mention. The Rangers game had ended, and the sports channel was replaying the home run that had brought the man at the bar to his feet. Neither Kevin nor Steve had watched enough to know who won.
 
-Dee came by with a coffee pot in one hand and a dessert menu she did not bother to open.
+Dee came by with a coffee pot in one hand and a dessert menu she did not bother to open. She refilled Steve's cup. Kevin still had the warm sweet tea he had been ignoring.
 
 "Pie," she said. "You two get the pie. It's the same pie you get every time."
 
@@ -16,7 +16,7 @@ Kevin watched her go. Then he checked his phone, because it had buzzed twice dur
 
 "Dale?" Steve said.
 
-"Dale." Kevin turned the phone face down on the napkin pile. It was napkin number nine. "He wants to know if it's going to cost him a recertification. I told him I'd know tonight. Don't make me a liar."
+"Dale." Kevin numbered a fresh napkin nine and set his phone face down on it. "He wants to know if it's going to cost him a recertification. I told him I'd know tonight. Don't make me a liar."
 
 "I won't. Hang on." Steve pushed his plate aside and turned the laptop around. "This is a pump."
 
@@ -26,11 +26,11 @@ It was two of them, side by side on the screen. One was green and amber and said
 
 "You built a whole pump."
 
-"I built a whole pump, buddy. The card flow. The hold. The taper at the end of the fill. The hard limits. A hash-chained ledger, where every sale is stitched to the one before it, so nobody can quietly edit last Tuesday. The whole thing. It's what I needed to prove the library on, because a timer and two integers don't convince anybody." He pointed at a little chip in the corner of Howard's screen. `dispatch: threaded`. "See that? Three workers in there. One for the sale, one for the pump, one for the payment. Each one is the same thing you drew on your first napkin: wait for a message, handle it, wait again. And the program can run those three workers three different ways. I pick one at startup."
+"I built a whole pump, bud. The card flow. The hold. The taper at the end of the fill. The hard limits. A hash-chained ledger, where every sale is stitched to the one before it, so nobody can quietly edit last Tuesday. The whole thing. It's what I needed to prove the library on, because a timer and two integers don't convince anybody." He pointed at a little chip in the corner of Howard's screen. `dispatch: threaded`. "See that? Three workers in there. One for the sale, one for the pump, one for the payment. Each one is the same thing you drew on your first napkin: wait for a message, handle it, wait again. And the program can run those three workers three different ways. I pick one at startup."
 
 "Three ways."
 
-"A thread each, like yours. That's the 2008 way. Then the way the modern C# compiler does it, with `async` and something called a `Channel`. And then this library, with an iterator, the trick from chapter 7."
+"A thread each, like yours. That's the 2008 way. Then the way the modern C# compiler does it, with `async` and something called a `Channel`. And then this library, using the iterator trick we worked through earlier."
 
 Kevin leaned in. "And they all pass the same tests?"
 
@@ -38,7 +38,7 @@ Kevin leaned in. "And they all pass the same tests?"
 
 "A flag for it," Kevin said, writing it on the napkin.
 
-"This chapter is that pump." Steve scrolled. "What a thread costs. How an in-tray wakes a sleeping worker without a thread standing there. Where the savings are. And then the really fun part: the IL, which is the language the compiler writes its output in, of the compiler's machine next to ours, from the same build, so you can see they're the same shape."
+"Let's follow the pump's workers." Steve scrolled. "What a thread costs. How an in-tray wakes a sleeping worker without a thread standing there. Where the savings are. And then the really fun part: the IL, which is the language the compiler writes its output in, of the compiler's machine next to ours, from the same build, so you can see they're the same shape."
 
 Kevin pulled the laptop toward himself like a man pulling a plate toward himself. "Can I run it?"
 
@@ -165,13 +165,16 @@ The compiler has been doing this since 2005. It is a **state machine**: a thing 
 
 What you write:
 
+This shortened iterator comes from `src/GasPump.Dispatch/AsyncProxyDispatch.cs` in MMP.GasPumpSimulator. It assumes the surrounding worker owns `_stopping` and calls it through `AsyncProxy.Run`. The simulator snippets use modern C# syntax even though the iterator technique works with C# 2. These excerpts describe the November 2 version named at the end of the chapter; newer checkouts may also dequeue ready messages without allocating a promise.
+
 ```csharp
 IEnumerable<IFuture> Loop(Mailbox<T> box, Action<T> handle)
 {
     while (!_stopping)
     {
         var next = box.DequeueAsync();
-        yield return Futures.Observe(next);   // the bookmark
+        // Observe lets this body inspect cancellation after the driver resumes it.
+        yield return Futures.Observe(next);
         if (next.IsCanceled) yield break;
         handle(next.Result);
     }
@@ -187,6 +190,8 @@ IEnumerable<IFuture> Loop(Mailbox<T> box, Action<T> handle)
 5. `handle(next.Result)`: the message is available in `next.Result`. Pass it to `handle`. In this short example, cancellation is checked; the fuller loop in section 6 also checks faults.
 
 What the compiler builds from that, from the Release build of the simulator:
+
+The next block is a shortened decompiler sketch. Names such as `<>1__state` and literal `...` show generated structure; this block cannot be pasted into a C# source file.
 
 ```csharp
 class <Loop>d__5 : IEnumerator<IFuture>
@@ -209,17 +214,19 @@ class <Loop>d__5 : IEnumerator<IFuture>
 Both `yield` and `await` save values and record where the method paused. Their drivers differ: With `yield`, the caller pulls the next item whenever it likes. With `await`, the thing you were waiting for calls `MoveNext` when it finishes. So the library's job is small: take an iterator that yields *futures* (promises of a value), and arrange for each future to call `MoveNext` when it completes.
 
 ```csharp
-// src/MMP.AsyncProxy/Iterate/IteratorStateMachine{T}.cs: the last tenth that turns an iterator into async.
+// Condensed from src/MMP.AsyncProxy/Iterate/IteratorStateMachine{T}.cs.
 public void MoveNext()
 {
     try
     {
         while (true)
         {
-            // Coming back from a suspend? Observe the step we parked on.
+            // Check the completed step before asking the iterator to continue.
+            // GetResult throws on failure/cancellation; catch forwards it if iterator cleanup succeeds.
             if (_pending != null) { IAwaiter finished = _pending; _pending = null; finished.GetResult(); }
 
-            // Ask the iterator for its next future. No more? The method is done.
+            // The iterator owns its saved locals. Its next call resumes after the yield.
+            // At its end, publish the separate result for the entire operation.
             if (!_steps.MoveNext()) { _steps.Dispose(); _builder.SetResult(_return.Value); return; }
 
             IFuture step = _steps.Current;
@@ -232,7 +239,8 @@ public void MoveNext()
             IAwaiter awaiter = step.GetAwaiter();
             if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }
 
-            // Slow path: park here. The builder will call MoveNext again when the future completes.
+            // Save the awaiter before registration: completion could race with registration.
+            // The builder arranges another MoveNext call; returning releases this thread.
             _pending = awaiter;
             IteratorStateMachine<T> self = this;
             _builder.AwaitOnCompleted(ref awaiter, ref self);
@@ -252,7 +260,9 @@ Read it as a clerk working a to-do list. Pull the next item. If it is already do
 3. `IFuture step = _steps.Current;`: the future the iterator just handed out. (A null is a bug in the iterator, so it throws a clear message.)
 4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;`: the **fast path**. The thing we asked for is already done and went fine, so there is nothing to wait for. Go around the loop again. No thread leaves, no callback is needed, and no awaiter is even made. If the step is done but failed or was canceled, we fall through: `GetAwaiter()` and `GetResult()` throw so the failure reaches the caller.
 5. `_pending = awaiter;` and `AwaitOnCompleted(...)`: the **slow path**, for a step that is still running. Remember what we are parked on, tell the builder "when this finishes, call `MoveNext` on me again," and `return`. That `return` is the thread walking away.
-6. `catch (Exception ex)`: if anything went wrong at any point, the failure is put into the result future, so the caller sees it when they ask for the result.
+6. `catch (Exception ex)`: dispose the iterator, then pass the exception to the builder. The builder records failure or cancellation in the overall result. This requires cleanup to succeed: a throwing `_steps.Dispose()` can prevent that final completion in this implementation.
+
+Iterator disposal runs its active `finally` blocks. Those blocks might unsubscribe a device callback or release a resource. This driver's catch does not guard against cleanup throwing, so its examples assume reliable cleanup.
 
 Here is the same loop as a picture.
 
@@ -284,7 +294,9 @@ The compiler builds the iterator's switch. The library driver registers the call
 
 > **Short version.** An empty in-tray hands the worker an IOU instead of a slip. When a slip finally arrives, the person dropping it off cashes the IOU, and that is what wakes the worker up, on whatever thread happens to be free.
 
-In the threaded design the mailbox is a `BlockingCollection` and the worker's thread sleeps inside it. In the AsyncProxy design the mailbox is a plain queue plus one **promise**. A promise is a box that will hold a value later. Think of a pickup window at a restaurant: the kitchen holds the promise and is the only one who can put food in the window. The matching **future** is the customer's side of the window. It is the read-only view you hand to whoever is waiting. They can look, and they can ask to be buzzed, but they cannot put anything in.
+In the threaded design the mailbox is a `BlockingCollection` and the worker's thread sleeps inside it. In the AsyncProxy design the mailbox is a plain queue plus one **promise**. A promise stores a value and completion state. At the restaurant, the host keeps a record of your table request and eventually writes its outcome, such as table 12. Your claim ticket gives you read-only access to that outcome; it corresponds to the **future**. You can register a continuation, like arranging to return to the host when your pager buzzes. The pager signals readiness. The result stays in the record. Here, the result is the next mailbox message.
+
+This excerpt shows the mailbox's two handoff methods, inside its surrounding class. Fields and `Canceled()` are omitted. There is one reader, so `_waiting` holds at most one pending dequeue; several senders can call `TryPost`.
 
 ```csharp
 // GasPump.Dispatch/AsyncProxyDispatch.cs, the mailbox
@@ -299,7 +311,8 @@ public IFuture<T> DequeueAsync()
             ready.SetResult(_items.Dequeue());   // already done: the fast path, no suspend
             return ready.Future;
         }
-        _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);          // empty: hand out an IOU
+        // Keep the completion side; return its read-only future to the single reader.
+        _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
         return _waiting.Future;
     }
 }
@@ -310,12 +323,14 @@ public bool TryPost(T item)
     lock (_lock)
     {
         if (_closed) return false;
-        if (_waiting is { } w) { _waiting = null; wake = w; }     // someone is waiting: pay the IOU
-        else if (_items.Count >= capacity) return false;         // full: the sender waits
+        // Transfer the waiting promise to this sender, so only this post can complete it.
+        if (_waiting is { } w) { _waiting = null; wake = w; }
+        else if (_items.Count >= capacity) return false;         // refuse immediately; caller chooses what to do
         else _items.Enqueue(item);
+        // Count accepted messages, including the message currently being handled.
         Interlocked.Increment(ref _pending);
     }
-    // Outside the lock. The promise runs continuations on the pool, so this returns right away.
+    // Complete outside the mailbox lock. Saved continuations are queued to the pool.
     wake?.TrySetResult(item);
     return true;
 }
@@ -367,6 +382,8 @@ flowchart LR
 
 The mailbox keeps one pending promise for its single reader. Completing that promise makes the reader's next step ready to run.
 
+During normal processing, `_pending` counts accepted messages until their handlers finish. The full worker calls `box.Handled()` in a `finally` block to decrement it, even if a handler throws. It includes queued messages and a message being handled; `_items.Count` measures only the queue. Shutdown can discard messages before handling them, and this implementation does not subtract those discarded messages. Treat this counter as a processing measure, rather than a final count after disposal.
+
 Now the whole round trip, over time:
 
 ```mermaid
@@ -400,7 +417,7 @@ The sender returns after posting and queuing the callback. A pool worker later h
 
 Two details carry the weight here.
 
-- **The promise is built with `PromiseOptions.RunContinuationsAsynchronously`.** A **continuation** is the code that is waiting on a promise: "when this finishes, run this next." Normally, whoever fills the promise runs that code right there on their own thread. This option changes that. When the sender pays the IOU, the worker's code does not run on the sender's thread. The promise pins a ticket for it to the thread pool's job board and returns right away. The callback can begin on another thread before the sender returns, so this option alone cannot promise that the sender has released every lock. The modern name for this option is `TaskCreationOptions.RunContinuationsAsynchronously`. (Older code spells it as a bare `true`: `new Promise<T>(true)`. That still compiles, but a lone `true` does not say what it is for, so we write the option by name.)
+- **The promise is built with `PromiseOptions.RunContinuationsAsynchronously`.** A **continuation** is code registered to run after completion. This option queues callbacks saved while the promise was pending. A pool worker runs them, keeping that work off the completing sender's thread. A callback registered after completion can instead run inline on the registering thread, or post through a captured context. The option also lets a queued callback start before the sender returns, so other locks still need care. The modern name is `TaskCreationOptions.RunContinuationsAsynchronously`. Older code used `new Promise<T>(true)`; the named option explains that Boolean's purpose.
 - **The handoff happens outside the lock.** `TryPost` takes the waiting promise out from under the lock and fills it after letting go. This keeps the callback from running inline while `TryPost` holds the mailbox lock. Other lock orders still need care. (A **deadlock** is two things each waiting for the other, forever.)
 
 ## 5. The parts, and their modern names
@@ -409,8 +426,8 @@ The library models selected parts of modern async in C# 3 for .NET 3.5. The tabl
 
 | In MMP.AsyncProxy | In .NET today | What it is |
 |---|---|---|
-| `Promise<T>` | `TaskCompletionSource<T>` | The box the answer gets put in. You keep it; you hand out its future. (The kitchen side of the pickup window.) |
-| `IFuture<T>` | `Task<T>` | The read-only view of the box. Wait on it, or ask to be called when it fills. (The customer side of the window.) |
+| `Promise<T>` | `TaskCompletionSource<T>` | The writable record of the outcome. You keep it and hand out its future. (The host's table-request record.) |
+| `IFuture<T>` | `Task<T>` | Read-only access to the outcome. Check it or register a continuation. (The customer's claim ticket.) |
 | `FutureAwaiter<T>` | `TaskAwaiter<T>` | What an await talks to: is it done, call me when it is, give me the result. |
 | `AsyncMethodBuilder<T>` | `AsyncTaskMethodBuilder<T>` | Starts the machine, parks it on an awaiter, completes the future at the end. |
 | `IteratorStateMachine<T>` | the class the C# compiler emits for an `async` method | The `MoveNext` loop above. Ours drives a C# 2 iterator; the compiler's is the method itself, rewritten. |
@@ -422,6 +439,8 @@ The library models selected parts of modern async in C# 3 for .NET 3.5. The tabl
 
 Here is the same worker loop under the two designs, and what changes at each line.
 
+These are shortened excerpts from `src/GasPump.Dispatch/ThreadedDispatch.cs` and `src/GasPump.Dispatch/AsyncProxyDispatch.cs` in MMP.GasPumpSimulator. They omit shutdown, handler-error handling, and accounting. `Loop(...)` abbreviates a method signature; it is a reading sketch, rather than a complete method to paste.
+
 **Thread per worker**
 
 ```csharp
@@ -430,7 +449,7 @@ _thread = new Thread(() =>
 {
     foreach (var item in box.Queue.GetConsumingEnumerable(_stop.Token))
     {
-        // the thread sleeps inside Take() between items
+        // The enumerator blocks this dedicated thread while the mailbox is empty.
         handle(item);
     }
 });
@@ -453,7 +472,8 @@ IEnumerable<IFuture> Loop(...)
     while (!_stopping)
     {
         var next = box.DequeueAsync();
-        yield return Futures.Observe(next);   // park
+        // Resume even after cancellation/failure so the following test can end the loop.
+        yield return Futures.Observe(next);
         if (next.IsCanceled || next.IsFaulted || _stopping) yield break;
         handle(next.Result);
     }
@@ -545,6 +565,8 @@ Is the code the compiler emits for `async` really the same shape as what the C# 
 First, a few words you will need. **IL** (intermediate language) is the plain, low-level language a .NET compiler writes its output in before the machine runs it. A **decompiler** is a tool that reads that output and shows it back to you as C# or as IL text. `GasPump.Dispatch.dll` was compiled in Release and decompiled with ILSpy 10.0.1. The Channel worker is a real `async` lambda, so the modern compiler built its machine. The AsyncProxy worker is an iterator, so the C# 2 machinery built its machine. Both are shown with the sugar turned off (`-lv CSharp1` for the iterator so `yield` is not re-sugared, `-lv CSharp4` for the async one so `await` is not). "Sugar" is the friendly keyword, like `yield` or `await`, that the compiler turns into the plain machine.
 
 **Iterator machine (AsyncProxy worker)**
+
+Both following C# blocks are shortened decompiler output from the simulator, rather than compilable source. They omit declarations and branches. The first is an iterator class; the second is a modern `async` method's generated struct. Literal `...` marks omitted material.
 
 ```csharp
 // decompiled, CSharp1, Release build
@@ -795,8 +817,8 @@ The training track does the same thing in miniature: one contract, one test suit
 | **Context switch** | Saving one thread's place and loading another's. | The manager pulling one worker off the job and putting another on. |
 | **Thread pool / pool thread / work item** | A small shared crew of worker threads, one of those workers, and one small job. | A crew sharing a job board; a crew worker; a ticket on the board. |
 | **State machine** | A box that holds a method's variables and a number for where it stopped. | A recipe with a bookmark and a sticky note. |
-| **Promise / future** | The writable box for a value that arrives later; its read-only view. | The two sides of a pickup window. |
-| **Continuation** | The code waiting on a promise: "run this when it finishes." | The pager that buzzes when the order is ready. |
+| **Promise / future** | The writable box for a value that arrives later; its read-only view. | The host's writable request record and the customer's claim ticket. |
+| **Continuation** | The code waiting on a promise: "run this when it finishes." | Returning to the host to read the table assignment after the pager buzzes. |
 | **IL** | The low-level language a .NET compiler writes its output in. | The compiler's shorthand notes. |
 
 Source: MMP.GasPumpSimulator at `main` 95b8191 and MMP.AsyncProxy v0.1.0 on 2026-11-02; 322 dotnet tests and 10 Playwright specs passed that day.

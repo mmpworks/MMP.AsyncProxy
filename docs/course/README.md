@@ -57,10 +57,10 @@ The same few pictures carry the whole course. They are introduced where the chap
 | Idea | The picture | Chapter |
 |---|---|---|
 | **Thread** | Runs instructions using its own stack. The operating system keeps its ID, priority, and state in a control record | 0, 1 |
-| **Waiting on a thread** | Standing at the counter, staring at the cook | 1 |
-| **Callback** | The restaurant pager: leave it, go sit, it buzzes | 1 |
+| **Waiting on a thread** | Staying in the entrance line to keep a place for a table | 1 |
+| **Callback** | The action after the pager buzzes: return to the host and get the table assignment | 1 |
 | **Thread pool** | A shared crew takes queued jobs (**work items**), then becomes available for another job | 1 |
-| **Promise and future** | A pickup window. The kitchen can put food in it, once. The customer can only look and ask to be buzzed | 2 |
+| **Promise and future** | The host's writable request record and the customer's claim ticket for reading its outcome | 2 |
 | **State machine** | A recipe with a bookmark and a sticky note of everything you were holding | 3 |
 | **Context** | A backpack that travels with the job, and a sign that says "back to counter 3" | 5 |
 | **Pool starvation** | Every pool worker is occupied, so queued jobs must wait for a free worker | 6 |

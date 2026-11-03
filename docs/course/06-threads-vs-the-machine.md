@@ -2,7 +2,7 @@
 
 ## At the table
 
-The second round of tea showed up and Kevin did not touch it.
+Dee poured Kevin another glass from the pitcher she had brought with the fries, then refilled Steve's coffee. Kevin left his tea untouched and numbered a clean napkin seven.
 
 "Numbers," he said. "Before I believe any of this, I want numbers. I've sat through demos before. Everything works in a demo."
 
@@ -20,7 +20,7 @@ A small battery icon in the corner of the laptop turned red. Steve sighed, dug a
 
 "Thirty-three is a lot."
 
-"Thirty-three is what this process has sitting around before the test even starts. It added *zero*, buddy. Zero threads for two thousand requests."
+"Thirty-three is what this process has sitting around before the test even starts. It added *zero*, bud. Zero threads for two thousand requests."
 
 Kevin leaned back. "That's a 24-core desktop."
 
@@ -32,15 +32,15 @@ Kevin put his finger on the middle row. "What's row two? The thread pool one. It
 
 "Four workers?"
 
-"Dee. Can we get a second basket of the not-hot ones?"
+"Dee. Can we get a third basket? All not-hot ones this time."
 
-"You can get whatever you want, honey," Dee said, already walking.
+"You can get whatever you want, honey," Dee said, already walking. She brought the basket while Steve was setting up the pool example.
 
 Kevin pointed at the napkin. "My pulser thread is row one."
 
 "Your pulser thread is row one *with one row*. Your serial thread is row one with one row. You're fine at one." Steve tapped the table. "You told me you're about to have ten."
 
-Kevin did not say anything. Out on the frontage road a truck went by with its headlights on and the TV over the bar showed a man in a bass boat holding up a fish that was clearly too small.
+Kevin did not say anything. Out on the frontage road a truck went by with its headlights on. On the TV over the bar, a Rangers runner took a long lead off first until the pitcher turned and sent him scrambling back.
 
 "Okay," Kevin said. "Run it."
 
@@ -66,10 +66,10 @@ Measured on 2026-10-31 on a 24-core Windows 11 desktop, .NET Framework 4.8:
 Requests: 2000, each waits 200 ms then adds two numbers.
 Cores: 24
 
-approach                           elapsed ms   peak threads           ok
-thread per request (Sleep)                528           1357          yes
-thread pool + Sleep (starves)             624             33          yes  (capped at 64 requests)
-state machine + Delay (no wait)           212             33          yes
+row  approach                           elapsed ms   peak threads           ok
+ 1   thread per request (Sleep)                528           1357          yes
+ 2   thread pool + Sleep (starves)             624             33          yes  (capped at 64 requests)
+ 3   state machine + Delay (no wait)           212             33          yes
 ```
 
 Read the columns like this:
@@ -82,10 +82,14 @@ Your results depend on hardware, runtime, and other work in the process. Compare
 
 ## Row 1: a thread per request
 
+The following blocks are excerpts, not complete programs. [Program.cs](../../samples/MMP.AsyncProxy.Comparison/Program.cs) contains setup and completion checks. Here `a` is one request's input, `DelayMs` is 200, and `sum[0]` is the shared total. The surrounding loop gives each request its own input.
+
 ```csharp
 Thread t = new Thread((ThreadStart)delegate
 {
+    // This dedicated thread stays occupied for the entire delay.
     Thread.Sleep(DelayMs);
+    // Other requests update the same total, so the addition must be atomic.
     Interlocked.Add(ref sum[0], a + 1);
 });
 t.Start();
@@ -97,9 +101,9 @@ The program created 2,000 threads over the batch. At the busiest moment, 1,357 w
 
 It works. The batch took 528 ms, while each request waited 200 ms. Starting, scheduling, and destroying threads adds overhead. The timing table does not measure each cost separately. A sleeping thread keeps its memory, but the scheduler chooses among ready threads. With much larger batches, thread creation can fail when the process runs out of resources.
 
-## The parked-car problem (thread pool starvation)
+## Row 2: The parked-car problem (thread pool starvation)
 
-This is row two, and it is the most useful thing in this chapter. It is also the easiest mistake to make, because it looks like the *correct* answer.
+This is row two, and it is extremely informative. It looks useful, but it is also the easiest mistake to make, because it looks like the *correct* answer.
 
 ### First, what the pool is for
 
@@ -117,14 +121,14 @@ The pool may add workers when jobs stay queued, within its limits. That takes ti
 
 ### The queued waits in code
 
-It looks perfectly normal. That is why it is so easy to write:
+This illustrative fragment assumes a shared integer `delivered`, initially zero. The surrounding program must wait for jobs to finish before reading the final count:
 
 ```csharp
 for (int i = 0; i < 64; i++)
 {
     ThreadPool.QueueUserWorkItem(delegate
     {
-        Thread.Sleep(200);        // the driver parks at the curb. This one line is the mistake.
+        Thread.Sleep(200);        // this work item holds its worker through the delay
         Interlocked.Increment(ref delivered);
     });
 }
@@ -199,17 +203,20 @@ You can tell the pool to start with more workers (`ThreadPool.SetMinThreads`). I
 ```csharp
 private static IEnumerable<IFuture> OneRequest(int a, int[] sum)
 {
+    // The driver saves this future and returns while the timer tracks the delay.
     yield return Futures.Delay(DelayMs);
+    // Several resumed requests may update the shared total at the same time.
     Interlocked.Add(ref sum[0], a + 1);
 }
 // ...
 futures[i] = AsyncProxy.Run(OneRequest(i, sum));
+// The console main thread waits for the batch; individual waits hold no workers.
 Futures.WhenAll(futures).Wait();
 ```
 
 **Read it like this.**
 
-- `yield return Futures.Delay(DelayMs);` means "set a kitchen timer for 200 ms and put the recipe card on the shelf." This is the bookmark from chapter 3. No thread waits here.
+- `yield return Futures.Delay(DelayMs);` means "set a kitchen timer for 200 ms and put the recipe card on the shelf." This uses the saved-step idea from the earlier state-machine walkthrough in chapter 3. No thread waits here.
 - When the timer dings, a crew worker picks the card up at the bookmark, runs the next line (add to the total), and goes straight back to the board. The time depends on the callback and the machine running it.
 - `AsyncProxy.Run(...)` builds the card (the state machine) and starts it. You get back a future for it.
 - `Futures.WhenAll(futures).Wait()` is the "wait until every order is done" line. It sits at the very top of a console program, which blocks the console's main thread until the batch finishes. Each request still waits without holding a worker.
@@ -236,34 +243,40 @@ gantt
 **In words:**
 
 1. Three bars start at time zero, one for each way of doing the work. Longer means slower.
-2. The top bar, a thread per request, runs for 528 ms. It did all 2,000 requests, but it used up to 1,357 threads to do it.
-3. The middle bar, the pool with a sleep inside, runs for 624 ms. Look closely at the label: it handled only 64 requests, not 2,000. It was *already* slower than the top bar with thirty times less work.
-4. The bottom bar, state machines, runs for 212 ms and handled all 2,000 with the thread count of an idle process.
+2. The top bar (Row 1), a thread per request, runs for 528 ms. It did all 2,000 requests, but it used up to 1,357 threads to do it.
+3. The middle bar (Row 2), the pool with a sleep inside, runs for 624 ms. Look closely at the label: it handled only 64 requests, not 2,000. It was *already* slower than the top bar with thirty times less work.
+4. The bottom bar (Row 3), state machines, runs for 212 ms and handled all 2,000 with the thread count of an idle process.
 
 
 ## The real thing: a file read with no thread
 
-The timer is a stand-in. Here is the case that matters in real life, from `tests/MMP.AsyncProxy.Tests/FromAsyncTests.cs`:
+The timer is a stand-in. This is an iterator-body excerpt from [FromAsyncTests.cs](../../tests/MMP.AsyncProxy.Tests/FromAsyncTests.cs). Its enclosing method supplies `path` and the shared `Return<string> ret` result box:
 
 ```csharp
 using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous))
 {
     var buffer = new byte[(int)stream.Length];
+    // The adapter calls BeginRead now and EndRead when its callback arrives.
     var read = Futures.FromAsync<int>(
         (cb, state) => stream.BeginRead(buffer, 0, buffer.Length, cb, state),
         stream.EndRead);
-    yield return read;                 // await
+    yield return read;                 // stream and buffer stay alive while the read is pending
+    // Result is the number of bytes actually read, which can be less than requested.
     ret.Value = Encoding.UTF8.GetString(buffer, 0, read.Result);
 }
 ```
 
+This small-file test performs one read. A production whole-file reader must repeat reads until it reaches the end, and preserve decoder state across chunks. The `using` scope spans the yield; the stream is disposed when the iterator finishes or is disposed.
+
 **Read it like this.**
 
-- `FileOptions.Asynchronous` opens the file in a mode where the operating system does the reading on its own. Without it, a pool worker would sit and wait for the disk, and you would be back to parked cars.
-- `BeginRead` tells the operating system "start reading into this buffer and buzz me when you are done." Then it returns right away. This is the pager from chapter 1.
+- On Windows, `FileOptions.Asynchronous` requests an asynchronous file handle. A pending read can then use operating-system completion instead of keeping a pool worker blocked on the disk. Other runtimes and stream implementations can use different paths.
+- `BeginRead` starts the read and supplies a callback. The read can complete before that call returns. Like the restaurant pager, the notification says the result is ready; the bytes remain in the buffer.
 - `Futures.FromAsync` wraps that Begin/End pair in a future, so you can `yield return` it like any other wait.
-- `yield return read;` puts the card on the shelf. No worker is waiting on the disk. The disk is doing the work.
+- If `read` is pending, `yield return read;` lets the driver save its awaiter and return. If it already succeeded, the driver continues on the current thread.
 - When the bytes land, the operating system drops a note in a mailbox called an **I/O completion port**. A pool worker checks that mailbox, runs our callback, the callback fills the promise, and the promise calls `MoveNext`. The method picks up at the next line and turns the bytes into a string.
+
+The following diagram traces a pending Windows asynchronous read. It assumes the read finishes after the driver registers its continuation. It shows one possible order, rather than a guaranteed thread change.
 
 ```mermaid
 sequenceDiagram
@@ -271,31 +284,31 @@ sequenceDiagram
     participant F as FromAsync future
     participant OS as OS and disk
     participant P as Pool worker
-    M->>F: BeginRead (start the read, leave a pager)
+    M->>F: BeginRead (start the read, register a callback)
     F->>OS: read these bytes into the buffer
     Note over M: yield return read. Card goes on the shelf. No thread is waiting.
     OS-->>OS: the disk does the work
     OS->>P: bytes landed (I/O completion port)
-    P->>F: EndRead, fill the future
+    P->>F: EndRead, complete the promise
     F->>M: MoveNext on the pool worker
     Note over M: next line runs: GetString(buffer)
 ```
 
 **In words:**
 
-1. The machine asks `FromAsync` to start a read. `FromAsync` calls `BeginRead`, which hands the job to the operating system and returns at once.
+1. The machine asks `FromAsync` to start a read. In this pending-read trace, `BeginRead` submits the request and returns before the read completes.
 2. The machine hits `yield return read`. It writes its bookmark, goes on the shelf, and the thread that was running it leaves. Nobody is waiting on the disk.
 3. The operating system and the disk do the reading. This is hardware work. It does not need one of our threads.
 4. When the bytes land, the operating system posts a "done" note to an I/O completion port, and a pool worker picks it up.
-5. That worker calls `EndRead` to collect the result and fills the future.
-6. Filling the future calls the machine's `MoveNext`. The method continues at the next line on that pool worker.
+5. That worker calls `EndRead` to collect the result and stores it in the promise.
+6. Completing the promise runs the continuation that calls the machine's `MoveNext`. The method continues at the next line on that pool worker.
 
 
 Modern `ReadAsync` also returns an awaitable result. The underlying I/O path depends on the runtime, operating system, and how the stream was opened. The diagram shows the Windows asynchronous-file path used by this example. .NET 3.5 called it the Asynchronous Programming Model, the Begin/End pair, and `Futures.FromAsync` is the adapter. `Task.Factory.FromAsync` is the same adapter in .NET 4.
 
 ## What to take from it
 
-1. Threads are for doing work. Waiting on a thread is paying rent on an empty room.
+1. Threads are for doing work. Waiting on a thread is paying rent (stack, context, and memory, etc.) on an empty room. We need to give that back to the application.
 2. The pool is for *short* work. Anything that waits inside a work item steals a worker from every other job in the program.
 3. A state machine plus a callback turns a wait into a timer and a tiny piece of pool work. The waiting requests need stored state rather than one sleeping thread each. Callback load can still cause the pool to add workers.
 
@@ -317,4 +330,4 @@ Row 3 shows waiting through a callback while the thread does other work. Modern 
 | **Pool starvation** | The crew is all stuck waiting inside jobs, so new jobs can't start | Every driver parked at a curb, with 60 tickets still on the rail |
 | **Wave** | A group of jobs that start at the same moment, because that many workers were free | The first four jobs starting together |
 | **Parked-car problem** | The mistake of making a pool worker wait inside a job | Sleeping work items occupy workers while other jobs remain queued |
-| **I/O completion port** | The mailbox where the operating system drops "your read is done" notes for a pool worker to pick up | The pickup window for finished orders |
+| **I/O completion port** | The mailbox where the operating system drops "your read is done" notes for a pool worker to pick up | A queue of completed I/O notifications |

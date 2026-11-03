@@ -1,12 +1,16 @@
 # Course comprehension pass
 
+Latest follow-up: [November 3 source-example review, chapters 3 through 11](_runs/2026-11-03-course-examples.md). This follow-up changes teaching comments and explanations, with separate junior-reader and senior-correctness passes. Earlier preservation statements below describe their own dated passes.
+
+Topic-reference follow-up, November 3: reviewed the 12 story chapters and course README; edited the 12 story chapters. Steve and Kevin now refer to earlier or later topics instead of chapter numbers. Narrative navigation keeps chapter numbers where useful and names the relevant topic. Independent editorial acceptance passed. All 106 fenced blocks, 31 existing Markdown link targets, and headings match the snapshot taken before this follow-up. Whitespace checks passed.
+
 Date: November 2, 2026.
 
 ## Scope
 
 Revise the opening story, chapters 1 through 11, and the course README for an eighth-grade reading target. Keep the story, technical terms, and supported qualifications. Explain each code walkthrough through its inputs, actions, saved state, and result.
 
-Use the shared humanization runbook, followed by a shorter-language pass. Use "buddy" where the dialogue previously used "bro". Keep natural dialogue without adding slang.
+Use the shared humanization runbook, followed by a shorter-language pass. Use "bud" where the dialogue previously used "bro". Keep natural dialogue without adding slang.
 
 ## Acceptance
 
@@ -28,7 +32,7 @@ Authorized work covers prose edits and local checks. Source code, generated diag
 1. Edited 12 numbered story files and the course README. The pass explains callbacks, saved fields, context flow, iterator results, and failure handling through concrete steps.
 2. The arithmetic walkthrough now follows inputs `3` and `4` through saved sum `7` to result `14`.
 3. Corrected unsupported claims about scheduler scans, fixed pool sizes, thread changes, timing guarantees, and exercise failures. Benchmark comparisons now distinguish the 64-request batch from the 2,000-request batches.
-4. Replaced dialogue "bro" with "buddy". Removed repeated lesson closers and reduced explanations that repeated the preceding example.
+4. Replaced dialogue "bro" with "bud". Removed repeated lesson closers and reduced explanations that repeated the preceding example.
 5. Checked 102 fenced blocks and 15 link destinations against the original Git revision. Their contents and destinations remain unchanged. Local link targets exist. `git diff --check` passes.
 6. A separate editorial reader read the 13 files and returned PASS after 11 corrections. The corrections clarify batch sizes, object size, UART callbacks, scheduling claims, and the README's shorter arithmetic example. This acceptance uses the same model vendor. It supports the comprehension target without certifying a measured reading level.
 
@@ -96,3 +100,33 @@ The repaired method registers cleanup before sending, lets reply and timeout com
 Verification: extracted the method directly from Markdown and compiled it with C# 3 syntax in a temporary .NET 10 console harness against this library's netstandard2.0 target. Five of five cases passed: return before reply, timeout with a captured late callback, send failure, synchronous reply during send, and timer-setup failure. This is a desktop proof, not a Windows CE run. Temporary proof files are under `C:/Users/smuch/AppData/Local/Temp/asyncproxy-ch2-proof`.
 
 A C# reviewer passed the example. Its setup-order correction was applied to the sequence diagram. Mermaid CLI rendered six of six chapter diagrams. `git diff --check` passes. Runtime source files remain unchanged.
+
+## Restaurant waiting-list refactor, November 3, 2026
+
+Scope: review the 13 course Markdown files and the repository's live source comments and documentation for the old bakery and food-pickup analogy. Replace it with a customer waiting for a restaurant table. Historical run notes retain their descriptions of earlier work.
+
+The host's writable request record represents the promise. The customer's claim ticket represents the future's read-only access to the result. A pager signals that the outcome is available; it does not store the table assignment. The continuation is what happens after notification, such as returning to the host and reading the assignment. Waiting with a pager preserves the request while freeing the customer to do other things. It does not skip other customers or make a table ready sooner.
+
+Acceptance: inspect the 13 course files, close the repository-wide reference inventory, preserve executable C# tokens and recorded outputs, render the course's Mermaid diagrams, and complete independent prose and comment reviews. The pass ends when those checks pass, targeted for November 3, 2026. Existing recipe/bookmark and mailbox/in-tray examples remain where they explain different mechanisms.
+
+Boundary: edit prose, diagram labels, and comments only. Keep behavior, identifiers, source examples, benchmark data, and historical evidence unchanged. If an analogy would imply incorrect behavior, use a direct explanation instead.
+
+Results: reviewed and edited all 13 course files plus the `Promise<T>` source summary. The repository-wide inventory found no remaining live bakery or food-pickup result-holder explanations. Historical notes retain their old wording. The proper name Baker in the futures-history reference is unrelated and remains unchanged. The static PNG and tldraw diagram contain no bakery references and remain unchanged.
+
+Verified unchanged executable tokens in the one edited C# source file and 58 C# fenced examples. Ten recorded-output or other fenced blocks and existing link destinations remain unchanged. Five Mermaid blocks changed labels; all 37 course diagrams rendered successfully. The netstandard2.0 Release build passed with zero warnings and errors. Independent prose and C# comment reviews passed. `git diff --check` passes.
+
+Disposition: restaurant waiting-list refactor complete on November 3, 2026.
+
+### Separate the forced line from the actual restaurant
+
+Corrected chapter 2's blocking example: the hypothetical hostess takes the next party directly from the physical line, without a name sheet. Original-method comments and the line-by-line explanation now preserve that constraint. After the blocking diagram, Steve asks Kevin what their actual hostess does. Kevin identifies the names sheet, pagers, and customers moving around while their requests remain queued. The promise explanation follows that observation. Independent clarity review passed; executable snippets and diagrams remain unchanged. Whitespace checks pass.
+
+### Introduce states before continuations
+
+Chapter 2's repair conversation now introduces `Pending`, `Succeeded`, `Faulted`, and `Canceled` before explaining registered continuations. It separates completion from sale approval and explains the method's actual timeout behavior: `TIMEOUT` is a successful string result, not cancellation. The future exposes the promise's outcome rather than receiving a separate copy. Independent acceptance and whitespace checks passed. Code and diagrams remain unchanged.
+
+Expanded the corrected method's comments to define `_link` as the existing constructor-supplied `SerialLink` field and explain subscription, receiving callback, cleanup registration, timeout callback, first completion, faults, and future return. Clarified that the original result string and event were local variables and that a promise is a completion object, rather than an immutable value object. Executable-token comparison and whitespace checks passed. C# comment review passed.
+
+Reworked "Two halves of one object" as Kevin explaining his understanding while drawing the existing diagram on a fresh napkin. Included Dee's eye roll and chuckle, and Steve's raised hands and answering smile. The dialogue covers completion ownership, future access, repeated future references, blocking reads, continuations, casts, and the .NET 4 counterparts. Diagram and executable examples remain unchanged; whitespace checks pass.
+
+Filled the `GetAwaiter` dialogue gap. Steve distinguishes obtaining an awaiter from registering a continuation through `OnCompleted`, names the helper's three members, and connects the earlier `ContinueOnAnyThread` example to that same helper. The full awaiter and context explanations remain in chapters 4 and 5. Checked against the local awaiter implementation; independent clarity review and whitespace checks passed. Fenced blocks remain unchanged.

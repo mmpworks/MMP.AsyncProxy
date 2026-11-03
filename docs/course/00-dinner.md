@@ -2,11 +2,11 @@
 
 ## At the table
 
-Tuesday night, the wing place on the frontage road at 183A and Whitesone Blvd. Good blue cheese, and four TVs nobody watches. They were all showing bass fishing with the sound off, and a man in a boat held up a fish like it owed him money.
+Tuesday night in late September, the wing place on the frontage road at 183A and Whitesone Blvd. Good blue cheese, and four TVs above the bar. They were all showing bass fishing with the sound off, and a man in a boat held up a fish like it owed him money.
 
 Steve got there first and took the booth in the back, the one where he could see the door. He ordered a coffee. Dee brought it without being asked.
 
-"Your buddy coming?" she said.
+"Just you, or is Kevin coming?" she said.
 
 "He's coming. He's just late. He's always late when he's worried."
 
@@ -20,7 +20,7 @@ Kevin came in ten minutes later with a laptop bag he did not open. He slid into 
 
 "You said bring the pump problem," Kevin said. "I brought the pump problem."
 
-"Sit down first. Order first. Then we fix the pump."
+"Sit down first. Let's get our orders in before we go to far. Then we fix the pump."
 
 Dee was already there. "Sweet tea, and the Cluckin' Hot ones," she said to Kevin. "And you want the ones that say hot and aren't," she said to Steve.
 
@@ -28,11 +28,14 @@ Dee was already there. "Sweet tea, and the Cluckin' Hot ones," she said to Kevin
 
 "Dee has to. You tip better when you're stressed."
 
-Dee wrote nothing down, she never did, and left.
+Dee wrote nothing down, she never did with these two, and left.
+
+Ordering finished, Kevin and Steve caught up on each other's lives while they waited for their food.
 
 ---
 
->Hey... Narrator here. Welcome to this story about this repo. I figure a story helps to ground one in the use cases to be covered far better than some dry text. I have intentionally written this for an average reader and NOT a computer scientist, so bear with some explanations that seem a bit basic. If you hate it, too bad. Here is the problem Kevin brought.
+>Hey... Narrator here. Welcome to this story about this repo. I figure a story helps to ground one in the use cases to be covered far better than some dry text. I have intentionally written this for an average reader and NOT a computer scientist, so bear with some explanations that seem a bit basic. If you hate it, too bad.
+> Here is the problem Kevin brought.
 
 >Kevin writes **firmware** for a fuel dispenser - yep... a gas pump. Firmware is the program that lives inside a machine instead of on a computer you sit in front of. When you pull up to a gas pump, tap your card, and pick a grade, you are talking to Kevin's firmware.
 
@@ -56,7 +59,7 @@ Dee wrote nothing down, she never did, and left.
 
 This is what Kevin drew, redrawn so you can read the handwriting.
 
-One word you will see in the picture is **blocked**. A thread is blocked when it has asked for something that is not ready yet, and the operating system has put it to sleep until it is. A blocked thread runs none of your code while it waits. Its stack and operating-system record remain in memory. The operating system can run other threads during that time. In the restaurant picture, one worker stays at the counter until the meal arrives.
+One word you will see in the picture is **blocked**. A thread is blocked when it has asked for something that is not ready yet, and the operating system has put it to sleep until it is. A blocked thread runs none of your code while it waits. Its stack and operating-system record remain in memory. The operating system can run other threads during that time. Picture a customer waiting for a restaurant table in a line at the entrance. The customer must stay there to keep a place.
 
 On Kevin's board, the card thread asks the reader for the next card. That call waits until the hardware reports a tap or an inserted card. The operating system then wakes the thread.
 
@@ -99,7 +102,7 @@ flowchart LR
 
 "The Tulsa pump."
 
-The wings came. Kevin's were the color of a stop sign. Steve's were the color of a sunset that does not scare anyone. Dee set down a stack of napkins without comment, which was a joke between her and Steve that had been running for two years.
+The wings came, sixteen in one divided basket. Kevin's were the color of a stop sign. Steve's were the color of a sunset that does not scare anyone. Dee set down a stack of napkins without comment, which was a joke between her and Steve that had been running for two years.
 
 Steve looked at the napkin for a while. Kevin went after a wing.
 
@@ -119,7 +122,7 @@ Steve looked at the napkin for a while. Kevin went after a wing.
 
 Kevin chewed. He did not love hearing that. "So what, I put everything on one thread? I tried that once. The display froze every time the bank was slow."
 
-"Buddy, no. You don't do that. You keep the work. You stop holding a worker while you wait."
+"Bud, no. You don't do that. You keep the work. You stop holding a worker while you wait."
 
 "On CE. On the 2008 compiler."
 
@@ -133,12 +136,12 @@ Kevin put the wing down.
 
 >(A state machine is a way of cutting a job into pieces so it can stop in the middle and pick up later. A callback is a piece of code you hand to someone and say "call this when you're done." You'll get both of them in chapters 2 and 3. For tonight, just know the words.)
 
-"I built the rest. It's about seven hundred lines and it runs on 3.5." Steve pulled his own laptop out and set it next to the wing basket. "We're going to go through it chapter by chapter, tonight. We'll replace the thread that waits for an authorization reply and the thread that sleeps between pulse checks. The display can keep responding during those waits. We'll also check which threads the serial link still needs."
+"I built the rest. It's about seven hundred lines and it runs on 3.5." Steve pulled his own laptop out and set it next to the wing basket. "We're going to go through it one topic at a time tonight. We'll replace the thread that waits for an authorization reply and the thread that sleeps between pulse checks. The display can keep responding during those waits. We'll also check which threads the serial link still needs."
 
 
 "Dale is going to have a stroke," Kevin said. "I'm not putting a library into certified firmware."
 
-"We'll get to Dale. Chapter 9 is Dale's chapter."
+"We'll get to Dale. Later, when we look at the design patterns and principles, we'll work out how to explain these choices to him."
 
 "How many wings is this going to take?"
 
@@ -204,9 +207,9 @@ The dinner continues through the course. Each chapter starts with Kevin's next q
 
 The code Kevin brought (the threads) and the code he left with (this library) are in `samples/MMP.AsyncProxy.Forecourt`. They are built for `net35` with the C# 3 compiler. The tests in `tests/MMP.AsyncProxy.Tests/ForecourtTests.cs` run both versions.
 
-The library also builds against the Compact Framework 3.5 (`src/MMP.AsyncProxy.NetCF`), and Kevin's pump code builds there too. That build is checked on the desktop runtime, not on a real Windows CE board. The library keeps `Monitor.Wait` and `Monitor.Pulse` (two older locking tools the Compact Framework doesn't have) out of itself, and the sample does the same. Chapter 5 and `docs/netcf-port.md` say what else the port gives up.
+The library also builds against the Compact Framework 3.5 (`src/MMP.AsyncProxy.NetCF`), and Kevin's pump code builds there too. That build is checked on the desktop runtime, not on a real Windows CE board. The library keeps `Monitor.Wait` and `Monitor.Pulse` (two older locking tools the Compact Framework doesn't have) out of itself, and the sample does the same. The context discussion in chapter 5 and `docs/netcf-port.md` say what else the port gives up.
 
-Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of one, and chapter 10 is where the two meet.
+Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of one. The worker-loop walkthrough in chapter 10 brings the two together.
 
 ## Words you just met
 
@@ -217,7 +220,7 @@ Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of on
 | **Stack** | Memory for active method calls and their local data | Each thread reserves its own stack space |
 | **Kernel object** | The operating system's control record for a thread | Holds the thread ID, priority, and state |
 | **Scheduler** | Chooses a ready thread to run next | A waiting thread becomes eligible when its wait ends |
-| **Blocked** | A thread put to sleep by the operating system until what it asked for is ready | Standing at the counter, staring at the cook |
+| **Blocked** | A thread put to sleep by the operating system until what it asked for is ready | Staying in the entrance line to keep a place for a table |
 | **Serial line / UART** | A connection that sends bits in sequence, and the chip that sends and receives them | Carries requests and replies between the pump and controller |
 | **Forecourt / forecourt controller** | The pump area of a gas station; the station's computer that looks after every pump and talks to the bank | The front desk that phones the bank for every pump |
 | **Watchdog** | A timer that reboots the board if the program stops checking in | A missed check-in triggers a restart |

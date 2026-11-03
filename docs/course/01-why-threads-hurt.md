@@ -4,6 +4,8 @@
 
 The wings were not even halfway to gone. Kevin had finished his third hot one and was making the face of a man who says it's fine. Dee topped off his tea and filled Steve's coffee without being asked, and then she looked at the napkin on the table with the four boxes on it and said, "Is that a bomb?" and Steve said, "It's a gas pump," and she said, "Same thing, at your age," and left.
 
+At the bar, somebody asked for the Cowboys highlights. Dee found the remote and replaced the bass boat with football. A Dallas receiver made the same sideline catch on all four screens.
+
 "Four threads," Steve said, tapping the napkin. "Tell me what each one is doing right now. Not what it's *for*. What it's doing, this second."
 
 "Right now? Nobody's at the pump. The pulser thread is asleep. Fifty milliseconds, it wakes up, reads zero pulses, goes back to sleep. The card reader thread is blocked on the reader. The serial thread is blocked on a read. The display thread is asleep until something changes."
@@ -22,17 +24,17 @@ Kevin thought about it. "The stack. CE gives you sixty-four K by default." He sa
 
 "It's how I did it in 1989. Different problem, same mistake." Steve ate a wing, wiped his fingers, and slid the napkin around so it faced Kevin. "Here's what I want you to see. The UART receives bytes from the wire. A timer tracks elapsed time. Your blocked thread runs no code while it waits for either one. If the driver supports a callback, we can save the next step and return instead. We still need to check how your serial driver delivers those bytes."
 
-"Somebody's got to notice, buddy."
+"Somebody's got to notice, bud."
 
-"Does it have to be a thread? Think about a restaurant. You can wait for your food two ways. One, you stand at the counter and stare at the cook until the plate comes up. You can't do anything else. You can't sit down, you can't answer your phone, you're just a person-shaped waiting machine. Two, they give you one of those pagers. You go sit. Your hands are free. When the food's ready, it buzzes, and *then* you get up."
+"Think about all the people waiting for tables at a busy restaurant. Suppose you have to stay in the entrance line to keep your place. You can't walk down the street while you wait. Now suppose the host records your party and gives you a pager. You can leave the line and do something else. When a table opens, the host buzzes you. You come back and ask which table is yours."
 
-Kevin looked at his tea. "My serial thread is the guy at the counter."
+Kevin looked at his tea. "My serial thread is the guy who has to stay in line."
 
 "Your serial thread keeps its stack and operating-system record while it waits. What if we saved the next step and let a free thread run it when the reply arrives?"
 
 "Something else like what."
 
-"Like a **callback**. That's the pager. It is code we register to run when the operation finishes. A timer can run it on a pool thread. Other operations may call it on the thread that delivers the result. We'll choose where our next piece runs."
+"Like a **callback**. That is the code we register to run when the operation finishes. Think of it as the action after the buzz: return to the host and get your table assignment. The pager gives the signal, and the callback does the next piece of work. A timer can run it on a pool thread. Other operations may call it on the thread that delivers the result. We'll choose where our next piece runs."
 
 "Pool thread? Like from a pool of threads? On CE?"
 
@@ -55,7 +57,7 @@ Each thread needs memory and operating-system support:
 
 During `Thread.Sleep` or a blocking read, the thread keeps its stack and kernel record. It uses no CPU time while blocked. More waiting threads therefore increase memory use even when the CPU is idle.
 
-**Blocked** is the word for it. A blocked thread is not running any of your code. It has been put to sleep by the operating system, and will be woken up when the thing it is waiting for happens. It is the person at the counter staring at the cook.
+**Blocked** is the word for it. A blocked thread is not running any of your code. It has been put to sleep by the operating system, and will be woken up when the thing it is waiting for happens. It is like the customer who must stay in the entrance line to keep a place.
 
 ## A thread pool is the first fix for thread problems
 
@@ -150,7 +152,7 @@ flowchart LR
 5. Once that callback finishes, the worker can run another item. The diagram shows three workers; the actual number can change.
 6. When workers are occupied, queued callbacks wait. The pool may add threads within its limits, but it cannot guarantee an immediate start.
 
-In this library, continuations registered after a promise has already completed run during registration, even with the queue option. The diagram shows continuations registered while the promise was pending. A captured display context can also send the next step to the display thread; chapter 5 covers that path.
+In this library, continuations registered after a promise has already completed run during registration, even with the queue option. The diagram shows continuations registered while the promise was pending. A captured display context can also send the next step to the display thread; the later context discussion in chapter 5 covers that path.
 
 ### Three ways to schedule a callback
 
@@ -248,12 +250,12 @@ flowchart LR
 
 The rest of the course is how you build the right-hand side without a compiler that knows `await`. You need:
 
-1. A way to hand out "the answer is coming" and let one party fill it in later. Chapter 2.
-2. A way to cut a method in half at the wait and resume it later. Chapter 3.
-3. A protocol between the two. Chapter 4.
-4. A way to carry per-request data across the cut. Chapter 5.
+1. A way to hand out "the answer is coming" and let one party fill it in later. Callbacks and promises, in chapter 2.
+2. A way to cut a method in half at the wait and resume it later. The state machine, in chapter 3.
+3. A protocol between the two. Awaiter and builder, in chapter 4.
+4. A way to carry per-request data across the cut. Context, in chapter 5.
 
-Then we run the numbers in chapter 6 and cheat with iterators in chapter 7.
+Then we compare thread usage and timing in chapter 6 and use the iterator trick in chapter 7.
 
 ## Words you just met
 
@@ -263,8 +265,8 @@ Then we run the numbers in chapter 6 and cheat with iterators in chapter 7.
 | **Address space** | The range of memory addresses a process can use | Stack reservations take up part of this range |
 | **Kernel object** | The operating system's control record for a thread | Holds the thread ID, priority, and state |
 | **Scheduler** | Chooses a ready thread to run on a CPU core | A waiting thread becomes eligible when its wait ends |
-| **Blocked** | A thread asleep, waiting for something | The person staring at the cook |
-| **Callback** | Code you hand over to be run when something finishes | The restaurant pager |
+| **Blocked** | A thread asleep, waiting for something | The customer who must stay in the entrance line |
+| **Callback** | Code you hand over to be run when something finishes | Returning to the host after the pager buzzes |
 | **Thread pool** | A shared crew of reusable worker threads plus a job board | A shared crew and its job board |
 | **Work item** | A callback queued for a pool thread to call, with access to its required data | A ticket saying which code to run |
 | **Promise** | Stores an operation's outcome and arranges for registered continuations to run when it completes | The receiving callback stores the bank reply here |

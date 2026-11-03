@@ -2,7 +2,7 @@
 
 ## At the table
 
-The wings were down to bones and a pile of celery nobody was going to touch. Steve had finally pulled his laptop out and propped it against the napkin dispenser, and Kevin had a fresh napkin, number five, with a box on it labeled MY BOX and a circle off to one side labeled TIMER. Between the two he had drawn a line and put a question mark on it.
+The second basket was down to bones and almost all the celery was gone, mostly eaten by Kevin. Steve propped the open laptop against the napkin dispenser, and Kevin had a fresh napkin, number five, with a box on it labeled MY BOX and a circle off to one side labeled TIMER. Between the two he had drawn a line and put a question mark on it.
 
 "Who calls `MoveNext`," Kevin said. He tapped the question mark. "You keep saying the timer calls it. The timer doesn't know about my box."
 
@@ -14,7 +14,7 @@ The wings were down to bones and a pile of celery nobody was going to touch. Ste
 
 "The protocol."
 
-"Okay. Think about the pager again. You're at the restaurant and you ordered the burger. The host takes your name, hands you a pager, and says go sit. Now what does the kitchen need to be able to do for that to work? Three things. One: tell you whether the burger is ready right now, because maybe it already is. Two: take your pager number so they can buzz you when it is. Three: hand you the burger when you come up."
+"Think about waiting for a table again. The host records your party and gives you a claim ticket and a pager. You need three things from the host: check whether your request is complete, arrange to be buzzed when it completes, and read the table assignment when you return."
 
 "Is it ready. Buzz me when it is. Give it to me."
 
@@ -24,7 +24,7 @@ Kevin wrote them down on the napkin, small, under the circle: *done? buzz me. an
 
 "And the four calls?"
 
-"That's the builder. It's the machine's assistant." Steve picked up a wing bone and laid it on the table. "Make the pickup window for the result. That's call one. Start the machine. Two." Another bone. "When the machine has to park, hook its `MoveNext` to the awaiter's buzz-me. Three. And when the machine finishes, put the answer in the window. Four."
+"That's the builder. It's the machine's assistant." Steve picked up a wing bone and laid it on the table. "Create the result record. That's call one. Start the machine. Two." Another bone. "When the machine has to park, hook its `MoveNext` to the awaiter's buzz-me. Three. And when the machine finishes, store the answer in the result record. Four."
 
 "Create, start, hook, finish."
 
@@ -32,7 +32,7 @@ Kevin wrote them down on the napkin, small, under the circle: *done? buzz me. an
 
 "And `AwaitOnCompleted`," Kevin said slowly, "that's the line where the timer finds out about my box."
 
-"It's one line of idea. `awaiter.OnCompleted(machine.MoveNext)`. When you're done, call this. That's `await`, buddy. That's the whole word. Every other line in that method is about carrying stuff across the gap, and that's next chapter."
+"It's one line of idea. `awaiter.OnCompleted(machine.MoveNext)`. When you're done, call this. That's my version of `await`, bud. Next we'll look at context: which request data travels with the continuation, and which thread should run it."
 
 Kevin sat back. For a second he didn't say anything. Then: "On CE. Is `System.Threading.Timer` even there?"
 
@@ -42,9 +42,9 @@ Kevin sat back. For a second he didn't say anything. Then: "On CE. Is `System.Th
 
 "A pool thread runs each timer callback. It is shared with the rest of the program. Between callbacks, your loop holds no thread." Steve turned the laptop around. "Watch the arrows."
 
-Dee came by with the tea pitcher, glanced at the screen, saw a diagram with seven columns and about two dozen arrows, and decided not to ask.
+Dee came by with a pitcher of sweet tea, refilled Kevin's glass, and left the pitcher within his reach. She glanced at the screen, saw a diagram with seven columns and about two dozen arrows, and decided not to ask.
 
-Chapter 3 had two calls we hand-waved: `GetAwaiter()` and `Builder.AwaitOnCompleted(...)`. This chapter is those two calls. Open `Core/FutureAwaiter{T}.cs` and `Builder/AsyncMethodBuilder{T}.cs`.
+The state-machine walkthrough in chapter 3 used two calls without taking them apart: `GetAwaiter()` and `Builder.AwaitOnCompleted(...)`. We now examine those calls. Open [IAwaiter.cs](../../src/MMP.AsyncProxy/Core/IAwaiter.cs), [FutureAwaiter{T}.cs](../../src/MMP.AsyncProxy/Core/FutureAwaiter%7BT%7D.cs), and [AsyncMethodBuilder{T}.cs](../../src/MMP.AsyncProxy/Builder/AsyncMethodBuilder%7BT%7D.cs).
 
 ## The awaiter: three questions
 
@@ -53,13 +53,20 @@ An **awaiter** connects the state machine to an operation, such as a delay. It c
 ```csharp
 public interface IAwaiter
 {
-    bool IsCompleted { get; }              // are you done?
-    void OnCompleted(Action continuation); // call me when you are
-    void GetResult();                      // give me the answer, or throw
+    bool IsCompleted { get; }              // checks status without blocking
+    void OnCompleted(Action continuation); // registers code for completion, even if it just happened
+    void GetResult();                      // after completion: throw on fault or cancellation
 }
 ```
 
-**Read it like this.** `IsCompleted` is "is the burger ready right now?" It answers yes or no and does not wait. `OnCompleted` is "here is my pager, buzz me". The `Action continuation` is the pager: it is a piece of code that means "the rest of my method", and it will be run when the thing finishes. `GetResult` is "hand me the burger". If the thing failed, `GetResult` throws instead, which is how a failure travels back to your method.
+**Read it like this.**
+- `IsCompleted` is "has the host finished handling my table request?" It answers yes or no and does not wait.
+- `OnCompleted` is "buzz me when my request completes". The `Action continuation` is the code that resumes the method. In the restaurant example, it is the action after the buzz: return to the host and read the table assignment.
+- `GetResult` reads that assignment. If the thing failed, `GetResult` throws instead, which is how a failure travels back to your method.
+
+Kevin tapped `void`. "Where does the bank's string come back?"
+
+"This is the untyped interface," Steve said. "A delay has no value to return. `IAwaiter<string>` adds a `GetResult` that returns a string. The untyped call still checks the outcome, but discards any value."
 
 The machine checks completion before reading the result. Calling this library's `GetResult` too early throws an exception. Here is how the machine uses them:
 
@@ -75,19 +82,45 @@ flowchart TD
 **In words:**
 
 1. The machine asks the awaiter question one: `IsCompleted`. It is a quick yes or no.
-2. If yes, the machine goes straight to question three, `GetResult`, takes the answer, and keeps running on the same thread. No pager, no waiting. This is the fast path from chapter 3.
-3. If no, the machine asks question two: `OnCompleted`, handing over the continuation. The awaiter stores it.
+2. If yes, the machine goes straight to question three, `GetResult`, takes the answer, and keeps running on the same thread. No pager, no waiting. This is the fast path from the earlier state-machine walkthrough in chapter 3.
+3. If no, the machine calls `OnCompleted`, handing over the continuation. The awaiter registers it with the promise. If completion already happened, registration runs or posts the continuation immediately.
 4. The machine returns. The thread leaves. Nothing is blocked.
 5. Later the thing finishes and runs the stored continuation. That calls `MoveNext`, and the first thing `MoveNext` does is question three: `GetResult`.
 
 
 C# 5 uses an awaiter pattern, so custom types can support `await` too. The type supplies `GetAwaiter()`. Its awaiter supplies `IsCompleted` and `GetResult`, plus the required completion interface. Our `IAwaiter` is a teaching version of that pattern. `Task.Delay` and `Task.Yield()` both return awaitable objects. An `HttpClient` async call returns a task that can be awaited.
 
-Our `FutureAwaiter<T>` is a struct that wraps a `Promise<T>`. `IsCompleted` reads the promise's status. `GetResult` reads its value or throws its error. `OnCompleted` registers the callback that will resume the machine. Chapter 5 explains how it chooses where that callback runs.
+Our `FutureAwaiter<T>` is a struct that wraps a `Promise<T>`. `IsCompleted` reads the promise's status. `GetResult` reads its value or throws its error. `OnCompleted` registers the callback that will resume the machine. The next topic, context, explains how it chooses where that callback runs.
+
+## Choosing the continuation at runtime
+
+Kevin tapped `OnCompleted`. "Earlier, when we discussed the authorization continuation, we chose between self-service and an attended sale. Where does that choice go?"
+
+"Before registration, if you already know the sale mode," Steve said. "Your code chooses a delegate, then passes that delegate to `OnCompleted`. The awaiter registers the delegate you supplied."
+
+"So a self-service sale gets the pump's outcome handler. An attended sale gets the attendant's outcome handler."
+
+"Yes. Both handlers read the authorization outcome and apply their own workflow. They still need to handle a rejection, timeout, or error. Choosing the handler doesn't choose the bank's answer."
+
+"What if the sale mode changes while authorization is pending?"
+
+"Then decide whether the sale should use its original mode or its current mode. Choosing a delegate before registration keeps the original choice. Registering one continuation that reads the mode when it runs lets you make the choice after completion."
+
+"Could I just call `OnCompleted` again with the new handler?"
+
+"That adds another continuation. Both can run for the same outcome. This API has no method to replace or remove a registered continuation. For one decision after completion, register one continuation and make the decision inside it."
+
+"And if something else changes that mode at the same time?"
+
+"Keep those changes and the decision on the same owning thread, or protect the shared state. When we discuss context next, I'll show you how to return the continuation to the display thread."
+
+Kevin pointed back to the state machine. "But here we keep passing `MoveNext`."
+
+"Right. In our hand-written callback example, we choose the delegate ourselves. For the state machine, the builder registers `MoveNext`. The sale decisions belong in the method that the machine resumes. You don't replace `MoveNext` to choose a different sale path."
 
 ## The builder: four calls
 
-The **builder** is the compiler's helper. It owns the result future (the pickup window from chapter 2) and does the bookkeeping the machine should not have to. Think of it as the machine's assistant: the machine does the cooking, the assistant handles the paperwork.
+The **builder** is the compiler's helper. It owns the promise behind the result future and handles completion and continuation registration for the machine. In the earlier promise discussion, the promise was the host's record and the future was the customer's claim ticket.
 
 | Call | When | What it does |
 |------|------|--------------|
@@ -96,17 +129,18 @@ The **builder** is the compiler's helper. It owns the result future (the pickup 
 | `AwaitOnCompleted(ref awaiter, ref machine)` | at each suspend | hooks `MoveNext` to the awaiter's callback |
 | `SetResult(x)` / `SetException(ex)` | at the end | completes the promise |
 
-**Read it like this.** `Create` builds the empty pickup window. `Start` is "begin cooking". `AwaitOnCompleted` is "I have to park, so take this pager number and buzz it when you are ready". `SetResult` or `SetException` is "I'm finished, put the answer, or the failure, in the window".
+**Read it like this.** `Create` makes the result promise. `Start` calls the machine for the first time. At a pending wait, `AwaitOnCompleted` registers the code that resumes the machine. When the method ends, `SetResult` or `SetException` stores its outcome in the result promise.
 
 The .NET task builder is `AsyncTaskMethodBuilder<T>`. It has these same jobs, plus runtime details that this teaching builder leaves out.
 
 `AwaitOnCompleted` is one line of idea:
 
 ```csharp
+// Register a method call, not its result. Completion will call MoveNext.
 awaiter.OnCompleted(machine.MoveNext);
 ```
 
-"When you finish, call `MoveNext`." That is `await`. Everything else in that method is about carrying context across the gap, which is chapter 5.
+This line is the registration idea, not the full builder implementation. The complete builder also carries execution context on desktop builds. "When you finish, call `MoveNext`." The next discussion, about context, explains how the builder carries request data across suspension.
 
 ## Who calls whom
 
@@ -132,10 +166,10 @@ flowchart LR
 3. The builder calls `MoveNext` on the machine, on the caller's own thread.
 4. The machine asks the delay's awaiter `IsCompleted`. The answer is no.
 5. The machine tells the builder `AwaitOnCompleted`: "I'm parking".
-6. The builder passes the buzz-me along: `OnCompleted(MoveNext)` on the awaiter. Now the awaiter holds a pager that rings the machine.
+6. The builder passes the buzz-me along: `OnCompleted(MoveNext)` on the awaiter. The awaiter registers the code that resumes the machine when the operation completes.
 7. Later the timer fires. It pins a ticket on the pool's job board, and a free crew worker picks it up.
 8. That pool thread calls `MoveNext` on the machine. The machine runs the next piece.
-9. When the machine finishes, it tells the builder `SetResult`, and the pickup window fills.
+9. When the machine finishes, it tells the builder `SetResult`, and the result promise stores the answer.
 
 
 ## The whole round trip
@@ -183,7 +217,7 @@ sequenceDiagram
 
 1. **Setup (caller thread).** The caller calls the stub. The stub asks the builder to `Create` the future and `Start` the machine. The builder calls `MoveNext`.
 2. **First question.** `MoveNext` asks for a ten-millisecond delay's awaiter and asks `IsCompleted`. No.
-3. **Park.** `MoveNext` tells the builder `AwaitOnCompleted`. The builder hands the awaiter the pager: `OnCompleted(MoveNext)`. `MoveNext` returns.
+3. **Park.** `MoveNext` tells the builder `AwaitOnCompleted`. The builder registers the resuming callback with the awaiter: `OnCompleted(MoveNext)`. `MoveNext` returns.
 4. **Free.** The stub hands the caller a pending future. The caller's thread is free and goes on with its life.
 5. **First ding.** Once the delay expires, the timer callback runs. Timer and thread scheduling can make this later than ten milliseconds. A pool thread calls `MoveNext`. It calls `GetResult` on the saved awaiter and computes `_sum = A + B`.
 6. **Second wait.** The machine asks for the second delay, which is not done, so it parks again with `AwaitOnCompleted` and returns. The pool thread is free.
@@ -209,11 +243,11 @@ The first call starts the method. The next two calls resume it after the saved d
 
 | Term | Plain meaning | The picture |
 |------|---------------|-------------|
-| **awaiter** | A small helper in front of the thing you are awaiting. It answers three questions: done? buzz me when you are, give me the answer. | The counter at the pickup window |
-| **`IsCompleted`** | "Is it done right now?" A quick yes or no. | "Is the burger ready?" |
-| **`OnCompleted`** | "Run this piece of code when you finish." | Handing over your pager |
-| **`GetResult`** | "Give me the answer, or throw if it failed." | Taking the burger |
-| **continuation** | The rest of the method, packaged as code to run later. | The pager's message: "come back and finish" |
-| **builder** | The machine's assistant. Four calls: `Create`, `Start`, `AwaitOnCompleted`, `SetResult`. | The one who handles the paperwork and the pickup window |
+| **awaiter** | A small helper in front of the thing you are awaiting. It answers three questions: done? buzz me when you are, give me the answer. | Asking the host about your table request |
+| **`IsCompleted`** | "Is it done right now?" A quick yes or no. | "Has my table request completed?" |
+| **`OnCompleted`** | "Run this piece of code when you finish." | Arranging to be buzzed when the request completes |
+| **`GetResult`** | "Give me the answer, or throw if it failed." | Reading the table assignment through the claim ticket |
+| **continuation** | The rest of the method, packaged as code to run later. | Returning to the host after the buzz |
+| **builder** | The machine's assistant. Four calls: `Create`, `Start`, `AwaitOnCompleted`, `SetResult`. | The helper that creates and completes the result record |
 | **`ref`** | Pass the original, not a copy. | Handing over the real recipe card, not a photocopy |
 | **pool thread** | One of the shared crew of worker threads from the thread pool. It runs a ticket, then goes back to wait. | A crew worker from the break room |

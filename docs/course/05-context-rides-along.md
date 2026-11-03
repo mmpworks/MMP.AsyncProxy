@@ -2,7 +2,7 @@
 
 ## At the table
 
-Dee brought the second pitcher of tea without being asked and a basket of fries nobody had ordered. "On the house," she said. "You two have been here three hours and I'm afraid to take the napkins." Behind her, one of the TVs was showing a man in a bass boat holding up a fish. Nobody was watching it.
+Dee brought a second pitcher of tea without being asked and a basket of fries nobody had ordered. "On the house," she said. "You two have been here three hours and I'm afraid to take the napkins." Behind her, the sports channel had moved from Cowboys highlights to the Rangers game. A Texas batter stepped out of the box and adjusted both gloves while the pitcher waited.
 
 Kevin was on napkin number six. He had stopped drawing boxes and started drawing little stick figures at desks, which Steve took as a sign that it was sinking in.
 
@@ -32,7 +32,7 @@ Kevin stopped with a fry halfway to his mouth. "Leaves."
 
 "Does CE have the backpack?"
 
-Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pulled the 3.5 assemblies and looked. So on your box, the backpack is off the table, and you do the first fix. Which is the better fix anyway, buddy. A value you can see in the argument list is a value you can't forget about."
+Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pulled the 3.5 assemblies and looked. So on your box, the backpack is off the table, and you do the first fix. Which is the better fix anyway, bud. A value you can see in the argument list is a value you can't forget about."
 
 "And the display thread? That's the one thread I'm keeping. It owns the LCD."
 
@@ -46,21 +46,21 @@ Kevin leaned back and looked at napkin six for a while. A desk. A taped note. An
 
 "Two contexts," he said.
 
-"Two contexts, two jobs, one table. Next page." Steve pushed the fries toward him. "Eat. You're going to need it for chapter six. Chapter six has numbers."
+"Two contexts, two jobs, one table." Steve pushed the fries toward him. "Eat. Next we'll compare threads, pool jobs, and state machines. That part has numbers."
 
-Chapter 4 ended on "the method wakes up on a different thread." That raises a question any real system has to answer: what happened to the stuff that was on the old thread?
+The awaiter-and-builder discussion showed that a method can resume on a different thread. That raises a question any real system has to answer: what happened to the stuff that was on the old thread?
 
 ## The problem
 
 Say a web request sets a tenant id in a **thread-static** before it starts work. A thread-static field is a variable with one copy per thread. Each thread sees only its own copy, like a sticky note taped to its own desk.
 
 ```csharp
-[ThreadStatic] static string CurrentTenant;
+[ThreadStatic] static string CurrentTenant; // one value per thread, not per request
 ```
 
 Then the request awaits something, and the continuation runs on pool thread 7. (A pool thread is one of the crew's worker threads from the shared thread pool.) Thread 7 reads its own `CurrentTenant`. That value may be empty, or a previous request may have left another tenant's name there. The continuation can therefore select the wrong customer's data. Toub shows this bug live at 15:55.
 
-Here is that story as a sketch. It is not in the repo. It only shows the mistake:
+This intentionally flawed sketch uses conceptual modern `async` syntax. It cannot compile with Kevin's C# 3 compiler. Its `IFuture<string>` return also needs custom async-return support beyond C# 5. The sketch shows the thread-static mistake:
 
 ```csharp
 [ThreadStatic] static string CurrentTenant;       // a note taped to this thread's desk
@@ -81,13 +81,13 @@ Keep per-request data with the request when work can move between threads.
 
 **`ExecutionContext`** carries supported ambient data across a thread change. Ambient data is information code can read without receiving it as an argument. On desktop .NET 3.5, `CallContext.LogicalSetData` stores logical call data, such as a tenant name. The builder captures that data before suspension and restores it when the method resumes. Newer .NET versions also offer `AsyncLocal<T>`. The details of which other values flow, including culture, depend on the runtime version.
 
-The builder does the carrying:
+The builder does the carrying. This shortened desktop excerpt comes from [AsyncMethodBuilder{T}.cs](../../src/MMP.AsyncProxy/Builder/AsyncMethodBuilder%7BT%7D.cs). It omits generic constraints and the separate Compact Framework branch:
 
 ```csharp
 public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref TStateMachine stateMachine)
 {
     IAsyncStateMachine machine = stateMachine;
-    ExecutionContext captured = ExecutionContext.Capture();   // snapshot, here, now
+    ExecutionContext captured = ExecutionContext.Capture();   // capture supported ambient data at registration
     if (captured == null)                                     // flow was switched off: nothing to carry
     {
         awaiter.OnCompleted(machine.MoveNext);
@@ -95,7 +95,8 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
     }
     awaiter.OnCompleted(delegate
     {
-        ExecutionContext.Run(captured, delegate { machine.MoveNext(); }, null);   // restore, there, later
+        // Apply the captured data during MoveNext, then restore this thread's previous context.
+        ExecutionContext.Run(captured, delegate { machine.MoveNext(); }, null);
     });
 }
 ```
@@ -103,7 +104,7 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
 **Read it like this.**
 
 1. `ExecutionContext.Capture()` packs the backpack. It runs right here, at the `await`, on the thread that is about to leave. Whatever the code set with `CallContext.LogicalSetData` is in the bag now.
-2. `awaiter.OnCompleted(delegate { ... })` is the pager from chapter 4. We hand over a piece of code to run when the thing finishes.
+2. `awaiter.OnCompleted(delegate { ... })` registers code to run when the operation finishes. In the earlier awaiter discussion's restaurant example, this is the action after the pager buzzes.
 3. If `Capture()` gives back `null`, the code that set things up turned flow off (`ExecutionContext.SuppressFlow()`), so there is no backpack to carry and the continuation is just `MoveNext`. (On the Compact Framework build this whole method is that one line, `awaiter.OnCompleted(machine.MoveNext)`, because that platform has no `ExecutionContext` at all.)
 4. Inside the other branch's code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. The resumed method can then read the captured values.
 
@@ -149,7 +150,7 @@ sequenceDiagram
 
 There is one case where you do want to go back to a specific thread. UI frameworks. WinForms and WPF have one thread that owns the controls, and touching a control from any other thread throws.
 
-That thread has a **`SynchronizationContext.Current`**. A synchronization context decides where posted code runs. A UI context sends it to the UI thread. Its **`Post`** method says "run this on my thread, when you get to it." Our awaiter captures it:
+That thread has a **`SynchronizationContext.Current`**. A synchronization context decides where posted code runs. A UI context sends it to the UI thread. Its **`Post`** method schedules a callback through that context. A UI context queues it for its UI thread. This excerpt from [FutureAwaiter{T}.cs](../../src/MMP.AsyncProxy/Core/FutureAwaiter%7BT%7D.cs) captures the context when `OnCompleted` is called:
 
 ```csharp
 public void OnCompleted(Action continuation)
@@ -158,6 +159,7 @@ public void OnCompleted(Action continuation)
     SynchronizationContext context = _continueOnCapturedContext ? SynchronizationContext.Current : null;
     if (context != null)
     {
+        // Save a wrapper now; completion posts the actual continuation to this context.
         _promise.RegisterContinuation(delegate { context.Post(delegate { continuation(); }, null); });
         return;
     }
@@ -165,6 +167,7 @@ public void OnCompleted(Action continuation)
     // The Compact Framework has no SynchronizationContext. A thread that wants continuations
     // back registers an IPostTarget once; see PostTarget.
     IPostTarget target = _continueOnCapturedContext ? PostTarget.Current : null;
+    // Without a destination, the promise decides whether to call inline or queue.
     if (target == null) { _promise.RegisterContinuation(continuation); return; }
     _promise.RegisterContinuation(delegate { target.Post(continuation); });
 }
@@ -180,7 +183,7 @@ A captured UI context posts the continuation back to the UI thread. Without a ca
 
 ### The same sign on the Compact Framework: `IPostTarget`
 
-The Compact Framework does not ship `SynchronizationContext`, so the library has a small copy of the idea. `IPostTarget` has one method, `Post(Action)`: "run this on my thread, later, never inline." A thread that wants continuations back, like Kevin's display thread, registers itself once at startup:
+The Compact Framework does not ship `SynchronizationContext`, so the library has a small copy of the idea. `IPostTarget` has one method, `Post(Action)`: "run this on my thread, later, never inline." A thread that wants continuations back, like Kevin's display thread, registers itself once at startup. This application sketch omits the `DisplayQueue` implementation and message loop. That queue must accept posts from other threads; only the display thread drains it. See [PostTarget.cs](../../src/MMP.AsyncProxy/Core/PostTarget.cs) for the library registry:
 
 ```csharp
 // On the display thread, once, when it starts. It owns the LCD, so continuations come back here.
@@ -271,6 +274,6 @@ Thread-static state belongs to one thread. Per-request data can be lost or mixed
 | **capture / restore** | Take a snapshot now, put it back later. | Pack the backpack, unpack it |
 | **`SynchronizationContext`** | An object that can run code on one particular thread, usually the UI thread. | A sign: "return to counter three" |
 | **`Post`** | "Run this on your thread when you get to it." | Dropping a note in counter three's in-tray |
-| **`ContinueOnAnyThread`** | Do not go back to the captured thread; run wherever the work finished. | Taking the sign off |
+| **`ContinueOnAnyThread`** | Skip context capture; the promise decides whether to run inline or queue. | Taking the sign off |
 | **`ConfigureAwait(false)`** | The real .NET name for the same switch. | Same as above |
 | **pool thread** | One of the shared crew of worker threads from the thread pool. | A crew worker; the desk it sits at is not yours |

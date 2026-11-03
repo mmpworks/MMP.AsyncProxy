@@ -2,19 +2,19 @@
 
 ## At the table
 
-The next Tuesday. Same booth, same bass-fishing channel, same fish losing the same fight on all four TVs. Steve was ten minutes late this time, and when he slid in, Kevin was already there. He had already ordered. That was how Steve knew it was bad.
+The next Tuesday. Same booth, same sports channel, a replay of Sunday's Cowboys game on all four TVs. Steve was ten minutes late this time, and when he slid in, Kevin was already there. He had already ordered. That was how Steve knew it was bad.
 
 "You ordered the hot ones *before* I got here," Steve said.
 
 "I had a feeling," Kevin said. "Dee knows."
 
-Dee knew. She put down the tea and the coffee, looked at Kevin, looked at Steve, and said, "Whatever it is, I'm not bringing the pie until you two have settled it." Then she went off to ruin somebody else's night.
+Dee knew. She set Kevin's sweet tea beside his plate and Steve's coffee by the laptop, then brought the fresh basket of wings. She looked at Kevin, looked at Steve, and said, "Whatever it is, I'm not bringing the pie until you two have settled it." Then she went off to ruin somebody else's night.
 
 Kevin had a new napkin flat on the table, smoothed with the side of his hand. It was napkin number ten. He had written at the top of it, in block capitals: **SETTLEMENT.**
 
 "Good news first," he said. "The serial thread is gone. The pulser thread is gone. I turned both of them into machines like you showed me. The display hasn't frozen once. Dale walked past my desk and said the pump *felt* faster. Dale does not say things like that."
 
-"That's great, buddy."
+"That's great, bud."
 
 "It is great. And then Dale came back an hour later." Kevin tapped the napkin. "The certification people want a new thing. At the end of every day, the station settles. Every sale gets *sealed*. You take the sale and you run it through a hash, SHA-256, three hundred times in a row. That gives our example enough CPU work to measure. On a busy station that's twenty thousand sales. And it has to run at midnight, while the pumps are still on, because pumps don't close."
 
@@ -32,7 +32,7 @@ Steve did not answer right away. He picked a wing off Kevin's plate. Kevin let h
 
 Kevin opened his mouth, and then he closed it. "...Math."
 
-"Math. Three hundred rounds of it, times twenty thousand. Not one second of that is waiting. Every second of it is a core running flat out." Steve pulled the napkin over and turned it sideways. He drew a restaurant: a dining room on the left, a kitchen on the right, a swinging door in the middle. "Here's the whole chapter. The waiters take your order, walk it back, and then go serve other tables while the kitchen cooks. That's async. A waiter does not stand at the pass staring at your steak. If he did, you'd need a waiter per table. Async is how one waiter looks after twenty tables, because most of what a waiter does is wait."
+"Math. Three hundred rounds of it, times twenty thousand. Not one second of that is waiting. Every second of it is a core running flat out." Steve pulled the napkin over and turned it sideways. He drew a restaurant: a dining room on the left, a kitchen on the right, a swinging door in the middle. "Here's the difference between waiting and doing CPU work. The waiters take your order, walk it back, and then go serve other tables while the kitchen cooks. That's async. A waiter does not stand at the pass staring at your steak. If he did, you'd need a waiter per table. Async is how one waiter looks after twenty tables, because most of what a waiter does is wait."
 
 "Okay."
 
@@ -40,7 +40,7 @@ Kevin opened his mouth, and then he closed it. "...Math."
 
 "You hire cooks."
 
-"You hire cooks. And knives. And you don't put them in the dining room." Steve tapped the swinging door. "Async is for waiting. Threads are for working. I told you in chapter one that a thread is a terrible tool for *waiting*. I never told you it was a terrible tool."
+"You hire cooks. And knives. And you don't put them in the dining room." Steve tapped the swinging door. "Async is for waiting. Threads are for working. When we first looked at your sleeping threads, I told you a thread is a terrible tool for *waiting*. I never told you it was a terrible tool."
 
 Kevin looked at the napkin for a long moment. "You told me threads hurt."
 
@@ -77,15 +77,19 @@ Some words first, because they come up on every page.
 
 `training/05-crunch`. A day of sales is a list of records. **Sealing** one record means hashing it over and over. SHA-256, `rounds` times. That is the CPU work, and it is the same loop in every version:
 
+The source paths in the following comments are relative to this repository. The blocks excerpt methods and loop bodies; declarations, result merging, and disposal remain in the named files. These are C# 3 training examples. `Task.Run` and `Parallel.For` are modern comparisons, rather than .NET 3.5 APIs.
+
 ```csharp
 // training/MMP.AsyncProxy.Training/Crunch/Contract/ISettler.cs
 public static ulong Seal(SHA256 sha, SaleRecord sale, int rounds)
 {
+    // Start from the sale's ID and cents; unused bytes stay zero.
     byte[] h = new byte[32];
     BitConverter.GetBytes(sale.Id).CopyTo(h, 0);
     BitConverter.GetBytes(sale.Cents).CopyTo(h, 4);
+    // Each round consumes CPU on the calling thread. No asynchronous wait occurs.
     for (int r = 0; r < rounds; r++) h = sha.ComputeHash(h);
-    return BitConverter.ToUInt64(h, 0);
+    return BitConverter.ToUInt64(h, 0); // the benchmark combines this value into its checksum
 }
 ```
 
@@ -95,7 +99,7 @@ Here, "seal" names a test result. Repeated hashing by itself provides no proof o
 
 The answer a version returns is the money (total, and per grade) and one checksum made by XOR-ing every record's seal. XOR combines numbers by comparing their bits: a result bit is 1 when the input bits differ. Reordering the inputs gives the same final result, so four threads that finish in any order still agree with one thread. That is what lets the test say "every version gets the same answer as one plain loop."
 
-And while the settlement runs, a **heartbeat** stands in for Kevin's pulser. It has to tick every 20 ms. (The real pulser polls every 50 ms. The bench ticks faster so that lateness is easy to see.) It waits on a timer, not on a thread, which is just what chapter 7 taught, so it needs a worker for a few microseconds per tick. After each tick it records how late the tick was.
+And while the settlement runs, a **heartbeat** stands in for Kevin's pulser. It has to tick every 20 ms. (The real pulser polls every 50 ms. The bench ticks faster so that lateness is easy to see.) It waits on a timer, not on a thread, as shown in the earlier iterator discussion in chapter 7, so it needs a worker for a few microseconds per tick. After each tick it records how late the tick was.
 
 ### Version 1: a crew of threads of its own (`threaded`)
 
@@ -103,11 +107,12 @@ And while the settlement runs, a **heartbeat** stands in for Kevin's pulser. It 
 // training/MMP.AsyncProxy.Training/Crunch/Threaded/CrewSettler.cs
 for (int t = 0; t < _crew; t++)
 {
+    // Capture this iteration's index. The changing loop variable t is shared by iterations.
     int me = t;
     threads[t] = new Thread(delegate() { parts[me] = Ledger.SealRange(sales, me, sales.Length, _crew, rounds); });
     threads[t].IsBackground = true;
     threads[t].Name = "crunch:" + t;
-    threads[t].Priority = ThreadPriority.BelowNormal;       // the crew yields to anything more urgent
+    threads[t].Priority = ThreadPriority.BelowNormal;       // scheduling request; support depends on the OS
     threads[t].Start();
 }
 ```
@@ -128,11 +133,13 @@ Where did the threads come from? From `new Thread`. Not the pool. The sealing wo
 // training/MMP.AsyncProxy.Training/Crunch/Async/LoopSettler.cs
 for (int start = 0; start < sales.Length; start += ChunkSize)
 {
+    // Keep this chunk's bounds in locals captured by its work delegate.
     int from = start;
     int to = Math.Min(start + ChunkSize, sales.Length);
+    // Stride 1 processes every record from 'from' up to, but excluding, 'to'.
     IFuture<Tally> chunk = Futures.Run<Tally>(delegate { return Ledger.SealRange(sales, from, to, 1, rounds); });
-    yield return chunk;                       // "await": the machine parks, the pool thread runs the chunk
-    all.Merge(chunk.Result);
+    yield return chunk;                       // only this chunk is outstanding; the pool does its CPU work
+    all.Merge(chunk.Result);                  // driver already checked completion; a fault ends the run
 }
 ```
 
@@ -146,14 +153,17 @@ It never holds a thread while it waits. It also never has more than one chunk ru
 // training/MMP.AsyncProxy.Training/Crunch/Async/PoolFanOutSettler.cs
 for (int c = 0; c < _chunks; c++)
 {
+    // Each delegate gets a stable start index and stride for its own set of records.
     int me = c;
     int count = _chunks;
     chunks[c] = Futures.Run<Tally>(delegate { return Ledger.SealRange(sales, me, sales.Length, count, rounds); });
 }
-yield return Futures.WhenAll(chunks);          // park once; every chunk runs on a borrowed worker
+yield return Futures.WhenAll(chunks);          // wait for all queued jobs; available workers determine overlap
 ```
 
 **Walkthrough.** The loop starts `_chunks` pool jobs before it waits for any result. Each job processes a different set of sales. Then `WhenAll(chunks)` returns a future that completes after every job finishes.
+
+Here `SealRange` advances by `count`: with four chunks, chunk 0 takes records 0, 4, 8, and chunk 1 takes 1, 5, 9. The full method merges each `chunks[c].Result` after the yield, when all jobs have ended. A fault from `WhenAll` ends the iterator run before that merge. The dedicated-thread version instead calls `Join` before reading each thread's partial tally.
 
 The previous version waited for chunk 1 before starting chunk 2. This version lets chunks run at the same time on several cores. Modern C# can schedule similar work with `Task.Run` or `Parallel.For`.
 
@@ -256,6 +266,7 @@ The measurement has a limit. The container here is Linux, which mostly ignores `
 // training/MMP.AsyncProxy.Training/Printer/Contract/IReceiptDesk.cs
 public void Open()
 {
+    // This training fake records ownership; it does not open a real COM printer.
     lock (_gate) _owner = Thread.CurrentThread.ManagedThreadId;
 }
 
@@ -264,18 +275,20 @@ public void PrintLine(string line)
     int me = Thread.CurrentThread.ManagedThreadId;
     lock (_gate)
     {
-        _callers[me] = true;
+        _callers[me] = true; // record attempted callers, including rejected ones
         if (me != _owner)
         {
             _rejected++;
             throw new WrongThreadException("The printer was opened on thread " + _owner + " and called from thread " + me + ".");
         }
-        _lines.Add(line);
+        _lines.Add(line); // count a printed line only after the ownership check passes
     }
 }
 ```
 
 **Walkthrough.** `Open` writes down which thread called it. `PrintLine` checks: is the caller that same thread? If not, count a rejection and throw. A real driver might not throw. It might quietly scribble over its own memory. This one tells you.
+
+The class in `Printer/Contract/IReceiptDesk.cs` simulates thread affinity. `OwnerThread` is a teaching queue with a `SynchronizationContext`; it does not set up a COM apartment or its message pump. A real COM driver requires its documented apartment setup as well as the correct calling thread.
 
 A receipt job prints some receipts, and after each one the paper has to advance, which takes `feedMs`. The paper feed is a wait. Remember that the chapters before this one are about waits.
 
@@ -291,7 +304,7 @@ _owner.Invoke(delegate
     {
         _printer.PrintLine(receipts[i]);
         printed++;
-        Thread.Sleep(feedMs);              // the owner thread sits here. Nobody else can use the printer meanwhile.
+        Thread.Sleep(feedMs);              // owner cannot serve another queued job during this delay
     }
 });
 ```
@@ -302,42 +315,51 @@ _owner.Invoke(delegate
 
 The state machine is started on whatever thread happens to call `PrintJob`.
 
+This block omits the `try`/`catch` and the loop around it. Literal `...` marks omitted code. The full example catches each `WrongThreadException`, counts a rejection, and continues, which explains the benchmark's 40 attempts despite the first failure.
+
 ```csharp
 // training/MMP.AsyncProxy.Training/Printer/Async/NaiveDesk.cs
-_printer.PrintLine(receipts[i]);   // the first line is called from the caller's thread, the rest from the pool
+_printer.PrintLine(receipts[i]);   // in this console scenario: caller thread first, then pool threads
 printed++;
 ...
 yield return Futures.Delay(feedMs);
 ```
 
-**Walkthrough.** The printer was opened on the owner thread. This machine did not start there, and it never goes back there. The first `PrintLine` comes from the caller's thread. After the first `yield return`, the machine resumes on a pool thread, and so does every line after it. Every one of them is on the wrong thread.
+**Walkthrough.** In this console scenario, the printer was opened on the owner thread, while `PrintJob` is called from a separate thread with no captured context. After a pending delay, the machine resumes on a pool thread. These calls all violate the owner's thread rule. The result depends on where the machine starts and which context it captures; async alone guarantees neither the wrong thread nor the right one.
 
 ### Version 3: post back to the owner (`async-postback`)
+
+This excerpt joins the setup inside `PrintJob` to its separate `Body` method. In the full source, `IFuture<PrintReport> job = null` appears before `_owner.Invoke`. The callers in this example are separate from the owner thread.
 
 ```csharp
 // training/MMP.AsyncProxy.Training/Printer/Async/PostBackDesk.cs
 _owner.Invoke(delegate
 {
+    // Invoke waits for this setup to run; it does not wait for the entire print job.
     job = AsyncProxy.Run<PrintReport>(delegate(Return<PrintReport> ret) { return Body(receipts, feedMs, ret); });
 });
-return job.Result;                         // this blocks the CALLER, not the owner thread
+return job.Result;                         // caller waits here; owner is free to process posted continuations
 
 private IEnumerable<IFuture> Body(string[] receipts, int feedMs, Return<PrintReport> ret)
 {
     int printed = 0;
     for (int i = 0; i < receipts.Length; i++)
     {
-        _printer.PrintLine(receipts[i]);       // on the owner thread, every time
+        _printer.PrintLine(receipts[i]);       // startup and captured context both lead to the owner thread
         printed++;
-        yield return Futures.Delay(feedMs);    // the owner thread goes back to its line; the timer waits
+        yield return Futures.Delay(feedMs);    // save this job's place; owner can serve other queued jobs
     }
-    ret.Value = new PrintReport(printed, 0, null);
+    ret.Value = new PrintReport(printed, 0, null); // successful iterator exit publishes this report
 }
 ```
 
-**Walkthrough.** The machine is *started* on the owner thread, inside the `Invoke`. That matters because of chapter 5. When the machine parks at the `yield return`, the awaiter captures the `SynchronizationContext` that is current: the `OwnerThread` installs one for its queue. When the timer fires, the library does not run the next step on whichever pool thread is free. It **posts** it back to the owner thread's line. The owner thread picks it up and calls `PrintLine`, on the right thread. (The Compact Framework has no `SynchronizationContext`. There the library's `IPostTarget` plays the same part: a thread registers itself once, and the awaiter posts back to it.)
+**Walkthrough.** The machine is *started* on the owner thread, inside the `Invoke`. This uses the context-capture behavior explained earlier in chapter 5. When the machine parks at the `yield return`, the awaiter captures the `SynchronizationContext` that is current: the `OwnerThread` installs one for its queue. When the timer fires, the library does not run the next step on whichever pool thread is free. It **posts** it back to the owner thread's line. The owner thread picks it up and calls `PrintLine`, on the right thread. (The Compact Framework has no `SynchronizationContext`. There the library's `IPostTarget` plays the same part: a thread registers itself once, and the awaiter posts back to it.)
 
 While the machine waits for the timer, the owner thread can take another queued job. This fake printer allows jobs to overlap their feed delays. A real printer may need each receipt to stay together, or may reject calls while paper moves. Those device rules must also be enforced.
+
+Kevin pointed at `job.Result`. "Could I call `PrintJob` from the owner thread itself?"
+
+"That would block the thread its continuation needs," Steve said. "The synchronous entry point assumes another thread calls it. An owner-thread caller needs a future-returning entry point and a continuation, so the owner can keep processing its queue."
 
 ```mermaid
 flowchart LR
@@ -384,7 +406,7 @@ A note on how this bench got fixed. The first draft of the printer bench ran its
 
 ## Case 3, in one paragraph: the library that only blocks
 
-Chapter 10 has the third case. The bank's 2008 library has a call that blocks until the bank answers, and there is no async version. If you call it inside `Futures.Run`, a pool worker sits parked for the whole call: the parked-car problem again. The fix is the same as the printer's: give the blocking call a thread of its own, and let the rest of your program wait on a future for the answer. That is the `PrefersBlockingIo` flag in the pump simulator.
+The worker-loop discussion in chapter 10 includes the third case. The bank's 2008 library has a call that blocks until the bank answers, and there is no async version. If you call it inside `Futures.Run`, a pool worker sits parked for the whole call: the parked-car problem again. The fix is the same as the printer's: give the blocking call a thread of its own, and let the rest of your program wait on a future for the answer. That is the `PrefersBlockingIo` flag in the pump simulator.
 
 ## Which tool, when
 
@@ -430,7 +452,7 @@ Check all three needs before following the diagram's waiting branch. A printer c
 | **Core** | A part of the CPU that runs instructions; hardware threading can let it share execution resources between threads | One cook at one cutting board |
 | **Dedicated thread** | A thread you make and own for a job, not borrowed from the pool | A cook hired just for this job |
 | **Priority / preempt** | A number that says who goes first; a higher one pushes a lower one aside | The head cook can pull a helper off a task |
-| **Busy crew** | The pool's workers are all working, so new tickets wait | Every cook is chopping; the pager buzzes and no one answers |
+| **Busy crew** | The pool's workers are all working, so new tickets wait | Every pool worker is computing; the heartbeat callback remains queued |
 | **Thread affinity** | Calls for an object must run on a particular thread | The printer checks the calling thread's ID |
 | **Owner thread** | The thread assigned to run calls for an object | It can run other queued work between printer calls |
 | **Post back** | Hand the rest of a method to the owner thread instead of running it anywhere | "Send the rest of this order back to counter 3" |
