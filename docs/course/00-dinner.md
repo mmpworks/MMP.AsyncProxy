@@ -50,23 +50,49 @@ Quick stop for the word. A **thread** is one worker inside a program. A program 
 
 (A **serial line** is a wire that sends one thing at a time, like a one-lane road.)
 
-(The **forecourt** is the paved area of a gas station where the pumps sit. The **forecourt controller** is the station's computer that looks after every pump out there. The pump itself only runs the nozzle and counts fuel. It does not handle money. So when a card is tapped, the pump asks the controller, and the controller asks the bank. There is usually one controller for the whole station, not one per pump. Every dispenser on every island is a numbered fueling position on a shared wire, and the controller talks to them all. To keep the story simple, Kevin's board is drawn with a wire of its own.)
+(The **forecourt** is the paved area of a gas station where the pumps sit. The **forecourt controller** is the station's computer that looks after every pump out there. The pump itself only runs the nozzle and counts fuel. It does not handle money. So when a card is tapped, the pump asks the controller, and the controller asks the bank. There is usually one controller for the whole station, not one per pump. Every dispenser on every island is a numbered fueling position on a shared wire, and the controller talks to them all. The picture below shows that arrangement, with Kevin's board as one of several.)
 
 ```mermaid
 flowchart LR
-    P["Pump<br/>(Kevin's board)"] -->|"AUTH + card,<br/>over the serial line"| C["Forecourt controller<br/>(the station's computer)"]
-    C -->|"asks for a hold"| B["The bank"]
-    B -->|"yes or no, whenever it answers"| C
-    C -->|"yes or no,<br/>over the serial line"| P
+    subgraph Island["One island: 3 pump cabinets, 6 fueling positions"]
+        subgraph CabA["Cabinet A"]
+            P1["Position 1"]
+            P2["Position 2"]
+        end
+        subgraph CabB["Cabinet B"]
+            P3["Position 3<br/>(Kevin's board)"]
+            P4["Position 4"]
+        end
+        subgraph CabC["Cabinet C"]
+            P5["Position 5"]
+            P6["Position 6"]
+        end
+    end
+    W(("Shared wire<br/>(the serial line)"))
+    C["Forecourt controller<br/>(the station's computer)"]
+    BK["The bank"]
+    P1 --- W
+    P2 --- W
+    P3 --- W
+    P4 --- W
+    P5 --- W
+    P6 --- W
+    W <-->|"messages carry a position number"| C
+    C <-->|"asks for a hold, gets yes or no"| BK
+    style P3 stroke-width:3px
 ```
 
 **In words:**
 
-1. Someone taps a card. The pump sends the word AUTH and the card down the serial line to the forecourt controller.
-2. The controller is the only one that talks to the bank. It asks the bank to put a hold on that much money.
-3. The bank answers yes or no. That can take a moment, and sometimes it never comes.
-4. The controller sends the answer back down the serial line to the pump. The pump arms the nozzle or says "declined."
-5. The pump's serial thread is the one waiting for step 4. Kevin's worry is what happens when step 3 or step 4 never arrives.
+1. This is the real arrangement. One island has three pump cabinets with a fueling position on each side, so six positions in all. Every position has its own board, like Kevin's. Position 3 is the one the story follows.
+2. All six boards hang off the **same wire**. There is one serial line for the whole island, not one per pump.
+3. Someone taps a card at position 3. Kevin's board sends AUTH and the card onto the wire, marked as coming from position 3.
+4. The forecourt controller is on the other end of the wire. It sees the message and which position sent it. It is also the only one that talks to the bank, so it asks the bank to put a hold on the money.
+5. The bank answers yes or no. That can take a moment, and sometimes it never comes.
+6. The controller sends the answer back onto the wire, addressed to position 3. The other five boards ignore it, because it is not theirs. (Real stations differ on the details. Some controllers ask each position in turn, so nobody talks over anybody. The idea is the same.)
+7. Position 3's serial thread is the one waiting for step 6. Kevin's worry is what happens when step 5 or step 6 never arrives. The other positions have their own threads waiting for their own replies.
+
+**Why it matters:** the whole station shares one controller and one wire, and every pump is waiting on it. When the controller is slow, every board that asked it a question is waiting at the same time. That makes a pump's wait an even bigger problem than it looks from one board.
 
 **Why it matters:** the pump asks a question of somebody else's computer and then has to wait for the answer. A wait on someone else is the job that async is good at, and the whole course is about that wait.
 

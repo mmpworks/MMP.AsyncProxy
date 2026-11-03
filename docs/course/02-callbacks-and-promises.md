@@ -227,11 +227,61 @@ private bool Complete(FutureStatus status, T result, Exception exception)
 
 **Read it like this.** Inside the lock, check that nobody finished it first. If not, write down the result, take the whole callback list, and empty the promise's own list. Then let go of the lock and call every callback on the list.
 
+### An example, one step at a time
+
+Take Kevin's serial reply. Two pieces of code are waiting for it. The sale machine wants to arm the pump when the answer is "OK". The display wants to show "Approved". Each one handed the promise a callback, so the promise's list holds both. The bank's answer is about to arrive on the UART thread, and at nearly the same moment the 30-second timer runs out.
+
+```csharp
+Promise<string> reply = new Promise<string>();
+reply.Future.GetAwaiter().OnCompleted(() => ArmThePump());      // callback A: the sale machine
+reply.Future.GetAwaiter().OnCompleted(() => ShowApproved());    // callback B: the display
+
+// On the UART thread, the answer arrives:
+bool first = reply.TrySetResult("OK");        // this call runs Complete(...)
+// Almost at once, on the timer thread, the timeout fires:
+bool second = reply.TrySetCanceled();         // this call runs Complete(...) too
+```
+
+Here is what the promise looks like at each moment. Read down the table, one row at a time.
+
+| Moment | `_status` | `_result` | `_continuations` | What is happening |
+|---|---|---|---|---|
+| Before anything | Pending | nothing | [A, B] | Both callbacks are waiting. The shelf is empty. |
+| UART thread enters `Complete`, takes the lock | Pending | nothing | [A, B] | Still pending, so it is allowed to finish the promise. |
+| Inside the lock, writing | Succeeded | "OK" | [A, B] | The answer is on the shelf. The status says so. |
+| Inside the lock, taking the list | Succeeded | "OK" | empty (`null`) | `toRun` now holds [A, B]. The promise's own list is cleared. |
+| Lock released | Succeeded | "OK" | empty | From here on, any other thread can look at the promise. |
+| Timer thread enters `Complete` | Succeeded | "OK" | empty | It takes the lock and sees the status is not Pending. It returns `false` and changes nothing. `second` is `false`. |
+| UART thread runs `toRun` | Succeeded | "OK" | empty | A runs (`ArmThePump`), then B runs (`ShowApproved`). Then `Complete` returns `true`. `first` is `true`. |
+
+Two things to see in that table. The timer thread lost the race, so the promise ended with the answer "OK", and nothing about the timeout was recorded. And the callbacks ran last, after the lock was released and with the answer already on the shelf. When `ArmThePump` reads the result, it finds "OK" waiting.
+
 Three things to notice.
 
-1. **First completion wins.** The second `SetResult` returns false. `TrySetResult` lets you ask politely ("did it work?"). `SetResult` throws if you lose. Think of a window with one cake: the first baker to set it down wins, and a second baker is told it's already there.
-2. **The callbacks run outside the lock.** A callback might complete another promise, which takes another lock. Hold yours while that happens and you have built a deadlock kit. (A **deadlock** is when two things each wait for the other forever.)
-3. **The callbacks run on the completing thread.** Whoever calls `SetResult` runs every waiting callback right there, before `SetResult` returns. That is how `TaskCompletionSource` works by default too. A long chain of synchronous completions makes the call stack grow. We live with that for now; it is on the plan.
+1. **First completion wins.** In the example, `TrySetResult` came back `true` and `TrySetCanceled` came back `false`. That is the "ask politely" version: it tells you whether you won. Its louder sibling, `SetResult`, throws an `InvalidOperationException` ("The promise was already completed.") if you lose, because ordinary code that loses this race has a bug. Think of a window with one cake: the first baker to set it down wins, and a second baker is told it's already there. Code that is *supposed* to race, like a reply against a timeout, uses the `Try` versions.
+2. **The callbacks run outside the lock.** A callback might complete another promise, which takes another lock. Hold yours while that happens and you have built a deadlock kit. (A **deadlock** is when two things each wait for the other forever.) Here is how it would go if `Complete` ran the callbacks *inside* the lock. Say callback A, running under promise `reply`'s lock, finishes a second promise `other`, and `other`'s own callback tries to finish `reply`:
+
+   | Thread 1 | Thread 2 |
+   |---|---|
+   | finishes `reply`: holds `reply`'s lock, runs A | finishes `other`: holds `other`'s lock, runs its callback |
+   | A tries to finish `other`: needs `other`'s lock, waits | the callback tries to finish `reply`: needs `reply`'s lock, waits |
+   | both are waiting for a lock the other one holds, and neither lets go | |
+
+   Releasing the lock before running the callbacks removes the problem: nobody holds a lock while someone else's code runs.
+3. **The callbacks run on the completing thread.** Whoever calls `SetResult` runs every waiting callback right there, before `SetResult` returns. That is how `TaskCompletionSource` works by default too. In the example, `ArmThePump` and `ShowApproved` ran on the UART thread, the one that called `TrySetResult`. You can see it for yourself (in a console program, which has no synchronization context. Chapter 5 explains when that matters):
+
+   ```csharp
+   reply.Future.GetAwaiter().OnCompleted(() => Console.WriteLine("callback ran on thread " + Thread.CurrentThread.ManagedThreadId));
+   Console.WriteLine("completing on thread " + Thread.CurrentThread.ManagedThreadId);
+   reply.SetResult("OK");
+   Console.WriteLine("SetResult has returned");
+   // Example output:
+   //   completing on thread 1
+   //   callback ran on thread 1     <- printed before SetResult returned, on the same thread
+   //   SetResult has returned
+   ```
+
+   A long chain of synchronous completions makes the call stack grow. We live with that for now; it is on the plan.
 
 That third one has an off switch. If the code that sets the result should not run other people's code (it holds a lock, or it is a hardware interrupt), build the promise like this:
 
