@@ -18,17 +18,27 @@ Dee nodded like that was a normal thing to be worried about, and went to check o
 
 Kevin came in ten minutes later with a laptop bag he did not open. He slid into the booth and put the bag next to him on the bench, the way you park a thing you plan to use later.
 
+They had met at a local AI group meetup a few months earlier. A dozen dinners and Dungeons and Dragons game outings had followed. This was their fourth visit to the wing place, and Steve had picked it every time.
+
 "You said bring the pump problem," Kevin said. "I brought the pump problem."
 
 "Sit down first. Let's get our orders in before we go to far. Then we fix the pump."
 
 Dee was already there. "Sweet tea, and the Cluckin' Hot ones," she said to Kevin. "And you want the ones that say hot and aren't," she said to Steve.
 
-"Dee knows me better than my wife does," Kevin said.
-
-"Dee has to. You tip better when you're stressed."
-
 Dee wrote nothing down, she never did with these two, and left.
+
+Kevin watched her go. "Fourth time here. You really like this place."
+
+"It's got a lot to offer."
+
+"And somehow we get Dee every time. I'm always surprised. She's great, though. Remembers what I eat, keeps the tea coming."
+
+"Yeah. Odd how she keeps being our waitress." Steve picked up his coffee. "She must like you."
+
+"Dude, I'm married."
+
+Steve took a sip. "The wings are good, too."
 
 Ordering finished, Kevin and Steve caught up on each other's lives while they waited for their food.
 
