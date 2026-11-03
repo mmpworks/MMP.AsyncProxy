@@ -163,7 +163,7 @@ Kevin looked at the basket. There were eleven left, between them. He picked up t
 
 ## How the pump talks to the bank
 
-> (A **serial line** is a wire that sends one thing at a time, like a one-lane road.)
+> (A **serial line** sends its bits one after another, in single file. It is usually a wire for each direction, so both ends can talk at once. On a shared wire, the devices take turns.)
 
 The **forecourt** is the pump area of a gas station. In this story, one **forecourt controller** serves the station. It is a computer that routes card requests to the bank and sends replies to the pumps.
 
@@ -231,7 +231,7 @@ Kevin is made up. The pump is not: MMP.GasPumpSimulator is a working model of on
 | **Kernel object** | The operating system's control record for a thread | Holds the thread ID, priority, and state |
 | **Scheduler** | Chooses a ready thread to run next | A waiting thread becomes eligible when its wait ends |
 | **Blocked** | A thread put to sleep by the operating system until what it asked for is ready | Staying in the entrance line to keep a place for a table |
-| **Serial line / UART** | A connection that sends bits in sequence, and the chip that sends and receives them | Carries requests and replies between the pump and controller |
+| **Serial line / UART** | A connection that sends bits in sequence, usually a wire each way (on a shared wire, devices take turns), and the chip that sends and receives them | Carries requests and replies between the pump and controller |
 | **Forecourt / forecourt controller** | The pump area of a gas station; the station's computer that looks after every pump and talks to the bank | The front desk that phones the bank for every pump |
 | **Watchdog** | A timer that reboots the board if the program stops checking in | A missed check-in triggers a restart |
 | **State machine, callback** | Two tools you'll build in chapters 2 and 3 | Coming up |
