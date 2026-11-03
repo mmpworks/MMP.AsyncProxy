@@ -16,9 +16,15 @@ The code is in `MMP.AsyncProxy.Training/Mailbox/`. The contract is three interfa
 T slip;
 while (_tray.TakeBlocking(out slip))      // sleeps inside Monitor.Wait while the tray is empty
 {
+    Interlocked.Exchange(ref _busy, 1);
     try { _handle(slip); }
-    catch (Exception) { /* the clerk stays seated */ }
-    finally { _tray.Handled(); }
+    catch (Exception) { /* a slip that throws is still a slip handled; the clerk stays seated */ }
+    finally
+    {
+        Interlocked.Increment(ref _handled);
+        _tray.Handled();
+        Interlocked.Exchange(ref _busy, 0);
+    }
 }
 ```
 
@@ -53,7 +59,7 @@ sequenceDiagram
   C->>T: TakeBlocking() again
 ```
 
-While the tray is empty the clerk holds a whole thread: a reserved stack of about one megabyte, a kernel object, and a place in the scheduler's lists. The test `Two_hundred_idle_threaded_clerks_hold_two_hundred_threads` makes that visible. Seat 200 clerks who have nothing to do, count the process's threads, and the count went up by 200.
+While the tray is empty the clerk holds a whole thread: a reserved stack of about one megabyte, a kernel object, and a place in the scheduler's lists. The test `Two_hundred_idle_threaded_clerks_hold_two_hundred_threads` makes that visible. Seat 200 clerks who have nothing to do, count the process's threads, and the count goes up by about 200 (the test requires 190).
 
 ## 3. The AsyncProxy way
 
@@ -83,7 +89,12 @@ Promise<T> wake = null;
 lock (_gate)
 {
     if (_closed) return false;
-    if (_waiting != null) { wake = _waiting; _waiting = null; }   // the clerk is waiting: hand it over
+    if (_waiting != null)
+    {
+        // The clerk is waiting on an IOU: hand it over.
+        wake = _waiting;
+        _waiting = null;
+    }
     else if (_slips.Count >= _capacity) return false;
     else _slips.Enqueue(slip);
     Interlocked.Increment(ref _pending);
@@ -92,19 +103,35 @@ if (wake != null) wake.TrySetResult(slip);                        // outside the
 return true;
 ```
 
-**The clerk becomes an iterator.** `IteratorClerk<T>.Loop` is the same loop with `yield return` where the thread used to sleep:
+**The clerk becomes an iterator.** `IteratorClerk<T>.Loop` is the same loop with `yield return` where the thread used to sleep. When a slip is already queued, `TryTake` hands it over and the loop does not park:
 
 ```csharp
 private IEnumerable<IFuture> Loop()
 {
     while (!_stopping)
     {
-        IFuture<T> next = _tray.TakeAsync();
-        yield return Futures.Observe(next);                        // park here if the tray is empty
-        if (next.IsCanceled || next.IsFaulted || _stopping) yield break;
-        try { _handle(next.Result); }
-        catch (Exception) { /* the clerk stays seated */ }
-        finally { _tray.Handled(); }
+        T slip;
+        if (!_tray.TryTake(out slip))
+        {
+            IFuture<T> next = _tray.TakeAsync();
+            yield return Futures.Observe(next);                    // park here if the tray is empty
+            if (next.IsCanceled || next.IsFaulted || _stopping) yield break;
+            slip = next.Result;
+        }
+        Handle(slip);
+    }
+}
+
+private void Handle(T slip)
+{
+    Interlocked.Exchange(ref _busy, 1);
+    try { _handle(slip); }
+    catch (Exception) { /* a slip that throws is still a slip handled; the clerk stays seated */ }
+    finally
+    {
+        Interlocked.Increment(ref _handled);
+        _tray.Handled();
+        Interlocked.Exchange(ref _busy, 0);
     }
 }
 ```
@@ -140,7 +167,7 @@ Line by line, here is what moved:
 | `_thread.Join(2000)` | an `OnCompleted` callback on the loop's future and `WaitOne(2000)` | Waiting for the clerk to go home, with a bound either way |
 | `_running` flag set in `finally` | `!_loop.IsCompleted` | The loop's own future says whether it is still going |
 
-Two rules in the new tray carry weight. The promise is built with `true`, so its continuation runs on the pool and never on the sender's stack. And the promise is completed outside the lock, so the clerk's code never runs while the tray's lock is held. Chapter 10 of the course explains both.
+Two rules in the new tray carry weight. The promise is built with `PromiseOptions.RunContinuationsAsynchronously`, so its continuation runs on the pool and never on the sender's stack. And the promise is completed outside the lock, so the clerk's code never runs while the tray's lock is held. Chapter 10 of the course explains both.
 
 ## 4. Thread model against async model
 
@@ -148,7 +175,7 @@ Two rules in the new tray carry weight. The promise is built with `true`, so its
 
 **What stayed.** The three rules are kept by the shape of the loop, in both versions. One slip at a time, because the loop is sequential. A bounded tray, because `TryPost` refuses when full. A seated clerk after a bad slip, because the `catch` is the same. None of that came from async. Races on shared state did not leave either: two clerks resumed on two pool threads can still write the same field, so the design still has to say that clerks share nothing. And a handler that blocks now blocks a pool thread everyone shares, where before it blocked only its own.
 
-**What the bench caught.** The first draft of `IteratorClerk.Dispose` polled `IsCompleted` with `Thread.Sleep(1)`. On Windows one millisecond of sleep is one 15 ms timer tick, so 1000 clerks took fifteen seconds to go home while the threaded version's `Thread.Join` took 288 ms in total. The fix is in `Dispose`: hang a callback on the loop's future, wait on an event with a bound. That is the `Task.Wait(timeout)` overload the library lacks, written by hand, and it is row 1 of the improvements table in `docs/prd-training.md`.
+**What the bench caught.** The first draft of `IteratorClerk.Dispose` polled `IsCompleted` with `Thread.Sleep(1)`. On Windows one millisecond of sleep is one 15 ms timer tick, so 1000 clerks took fifteen seconds to go home while the threaded version's `Thread.Join` took 288 ms in total. The fix is in `Dispose`: hang a callback on the loop's future, wait on an event with a bound. That is the `Task.Wait(timeout)` overload the library lacked, written by hand; the library added `IFuture.Wait(int)` after this. It is row 1 of the improvements table in `docs/prd-training.md`.
 
 ## 5. The same machine in IL
 
@@ -156,6 +183,7 @@ Both versions were compiled in Release and decompiled with ilspycmd 10.0.1. The 
 
 **The iterator machine, .NET 3.5**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private sealed class <Loop>d__14 : IEnumerable<IFuture>, IEnumerator<IFuture>, IDisposable
 {
@@ -195,6 +223,7 @@ private sealed class <Loop>d__14 : IEnumerable<IFuture>, IEnumerator<IFuture>, I
 
 **The async machine, .NET 10**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private struct <Loop>d__12 : IAsyncStateMachine
 {
@@ -263,19 +292,19 @@ Three differences, and each one is a lesson for the library:
 
 1. **The modern machine is a `struct`, and it lives on the stack until the first real pause.** A loop that finds a slip already waiting never allocates a machine at all. Ours is a class from the first `MoveNext`.
 2. **The modern machine deals with its own awaiter.** `if (!awaiter2.IsCompleted) { ... AwaitUnsafeOnCompleted(ref awaiter2, ref this); return; }` is inside `MoveNext`. Our iterator's `MoveNext` only returns `true` and leaves the future in `<>2__current`; `IteratorStateMachine<T>` in the library is that missing paragraph. One copy of it serves every iterator.
-3. **`ValueTask<bool>` from `MoveNextAsync` costs nothing when the channel already has an item.** Our fast path still builds a `Promise<T>`, its `Future<T>`, and an `Observe` wrapper for a slip that was already there. That is where the allocation column below comes from.
+3. **`ValueTask<bool>` from `MoveNextAsync` costs nothing when the channel already has an item.** Before the 0.2.0 fast path, ours built a `Promise<T>`, its `Future<T>`, and an `Observe` wrapper even for a slip that was already there. The decompiled machine above is from that build. Now `Loop` tries `TryTake` first and allocates nothing for a queued slip. A clerk that has to park still pays for the promise, the future, the `Observe` wrapper, and the callback objects. That is where the allocation column below comes from.
 
 ## 6. Memory and speed
 
-1000 clerks, each at its own tray, each handed ten slips in a round-robin: 10,000 wake-ups. The clerks sit idle for 50 ms first, so the peak-threads column shows what an idle clerk holds. Measured 2026-11-02 on a 24-core Windows 11 machine, Release build.
+1000 clerks, each at its own tray, each handed ten slips in a round-robin: 10,000 wake-ups. The clerks sit idle for 50 ms first, so the peak-threads column shows what an idle clerk holds. Measured on a 24-core Windows 11 machine, Release build. The net48 rows are from 2026-11-03, after the 0.2.0 fast paths. The net10.0 rows are from 2026-11-02, before them.
 
 ```
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 Runtime: .NET Framework 4.8.10008.0, cores: 24, N = 1000
 
 project      version      elapsed ms  peak threads  allocated bytes  peak WS bytes    ok
-mailbox      threaded            288          1018          835,632     93,360,128   yes
-mailbox      asyncproxy           96            34       12,591,240     93,360,128   yes
+mailbox      threaded            343          1019          835,632     95,645,696   yes
+mailbox      asyncproxy           88            33       12,812,392    106,258,432   yes
 
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 Runtime: .NET 10.0.14, cores: 24, N = 1000
@@ -288,10 +317,10 @@ mailbox      modern               88            36        1,776,728     84,041,7
 
 How to read it:
 
-- **Peak threads** is the headline. A thousand threaded clerks are a thousand threads. A thousand AsyncProxy clerks are the pool's idle count, 34 or 35, the same as the modern version.
-- **Elapsed** is three times lower for the state machines, on both runtimes. The threaded row pays to make, wake, and join a thousand threads. The machines pay a pool work item per slip.
-- **Allocated bytes** is where the hand-built machine loses, by about six times against the modern one: around one kilobyte per slip against about 180 bytes. Section 5 says why: a promise, a future, and an `Observe` wrapper per step, even on the fast path, where the modern runtime's `ValueTask` and struct machine allocate nothing. The improvements table in the PRD carries the fixes.
-- **Peak working set** is the process's high-water mark and the same for every row in a run, because the rows share one process and the first row sets it. Read it as "none of these blew up", and read the thread column for the memory story: a thousand reserved stacks are a thousand megabytes of address space that the working set does not show because nothing touched them.
+- **Peak threads** is the headline. A thousand threaded clerks are a thousand threads. A thousand AsyncProxy clerks are the pool's idle count, 33 to 35, the same as the modern version.
+- **Elapsed** is three to four times lower for the state machines, on both runtimes. The threaded row pays to make, wake, and join a thousand threads. The machines pay a pool work item per slip.
+- **Allocated bytes** is where the hand-built machine loses, by about six times against the modern one: around one kilobyte per slip against about 180 bytes. Section 5 says why: a parked step costs a promise, a future, an `Observe` wrapper, and callback objects, where the modern runtime's `ValueTask` and struct machine allocate nothing. In this bench most slips find their clerk parked, so the 0.2.0 fast path barely moves the net48 number. The improvements table in the PRD carries the fixes.
+- **Peak working set** is the process's high-water mark. It only rises during a run, because the rows share one process. Read it as "none of these blew up", and read the thread column for the memory story: a thousand reserved stacks are a thousand megabytes of address space that the working set does not show because nothing touched them.
 - The allocation column was taken in a second pass with the thread sampler off. On .NET Framework, `Process.Threads` reads the whole system process table on every call, and a first run under a 5 ms sampler charged 700 MB of the sampler's own garbage to the slow row.
 
 ## 7. CUPID, DRY, SOLID
@@ -305,7 +334,7 @@ How to read it:
 ## 8. Run it
 
 ```
-dotnet test training/MMP.AsyncProxy.Training.Tests           # 15 on net48 (two desks), 22 on net10.0 (three desks)
+dotnet test training/MMP.AsyncProxy.Training.Tests --filter "FullyQualifiedName~Mailbox"   # two desks on net48, three on net10.0
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 pwsh tools/decompile.ps1                                       # regenerates docs/compiler-output/training/mailbox.*

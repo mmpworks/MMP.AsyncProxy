@@ -211,7 +211,7 @@ sequenceDiagram
 
 1. The heartbeat asks the shared timer to wake it in 20 ms, and then holds no thread. Nothing is wrong yet.
 2. The pool's four workers are all busy sealing sales. This is not the parked-car problem from chapter 6. Nobody is waiting. They are working as hard as they can.
-3. When the timer becomes due, its callback needs pool time. The diagram shows that wait as a ticket on the board. The elapsed-time measurement does not tell us the exact instant that ticket was queued.
+3. When the timer becomes due, its callback needs pool time. The diagram shows that wait as a ticket on the board. The elapsed-time measurement does not tell us the instant that ticket was queued.
 4. There is no free worker to take it. The ticket sits on the board while the workers finish what they are doing.
 5. The workers finish a chunk, and one of them takes the next ticket. That ticket is the heartbeat's.
 6. The heartbeat runs, 885 ms later than it should have, and records the lateness.
@@ -250,7 +250,7 @@ Compare both elapsed time and heartbeat delay. This run finished sooner with poo
 
 Kevin's board has one ARM core, and this is the part that surprised him. A crew of `max(1, cores - 1)` is a crew of one thread. It cannot leave a core free, because there is no second core. So what keeps the pulser on time?
 
-**Priority can help.** The crew requests `BelowNormal` priority. On systems that honor that request, a higher-priority ready thread can interrupt the settlement work. This gives the pulser a chance to run sooner. The exact delay depends on the operating system, driver, and other running work. A Windows CE device needs its own timing test and priority setup.
+**Priority can help.** The crew requests `BelowNormal` priority. On systems that honor that request, a higher-priority ready thread can interrupt the settlement work. This gives the pulser a chance to run sooner. The delay depends on the operating system, driver, and other running work. A Windows CE device needs its own timing test and priority setup.
 
 `Futures.Run` provides no priority argument for one queued job. A dedicated thread exposes `Thread.Priority`, so the program can request a lower priority for settlement work.
 
@@ -406,7 +406,7 @@ A note on how this bench got fixed. The first draft of the printer bench ran its
 
 ## Case 3, in one paragraph: the library that only blocks
 
-The worker-loop discussion in chapter 10 includes the third case. The bank's 2008 library has a call that blocks until the bank answers, and there is no async version. If you call it inside `Futures.Run`, a pool worker sits parked for the whole call: the parked-car problem again. The fix is the same as the printer's: give the blocking call a thread of its own, and let the rest of your program wait on a future for the answer. That is the `PrefersBlockingIo` flag in the pump simulator.
+The worker-loop discussion in chapter 10 includes the third case. The bank's 2008 library has a call that blocks until the bank answers, and there is no async version. If you call it inside `Futures.Run`, a pool worker sits parked for the whole call: the parked-car problem again. The fix is close to the printer's: keep the blocking call off the shared pool, and let the rest of your program wait on a future for the answer. The pump simulator's `PrefersBlockingIo` flag lets the call block only where the worker already owns a thread; elsewhere the call continues on a callback.
 
 ## Which tool, when
 

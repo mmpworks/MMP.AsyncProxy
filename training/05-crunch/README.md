@@ -4,7 +4,7 @@ Built after slice 5. This is the first project where the plain thread is the rig
 
 ## The job
 
-Close the day at a fuel station. Every sale gets **sealed**: hashed with SHA-256, `rounds` times in a row, so that nobody can cheaply forge a day's log. Then add up the money, in total and per grade. Twenty thousand sales on a busy station.
+Close the day at a fuel station. Every sale gets **sealed**: hashed with SHA-256, `rounds` times in a row, so the bench has measurable CPU work. Then add up the money, in total and per grade. Twenty thousand sales on a busy station.
 
 Every version does the same sealing loop (`Ledger.SealRange`) and has to return the same answer as one plain loop on one thread: same count, same money, same checksum. The checksum is every seal combined with XOR, which doesn't depend on order, so four threads and one thread can agree.
 
@@ -61,6 +61,6 @@ dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.
 
 Run the bench alone, in a quiet process, and read the **worst late** column first.
 
-## One honest limit
+## One limit
 
 The container is Linux, which mostly ignores thread priority for ordinary programs. So the numbers above come from leaving a core free, not from `BelowNormal`. The priority part is what protects the pulser on a one-core Windows CE board, and it is not measured here.

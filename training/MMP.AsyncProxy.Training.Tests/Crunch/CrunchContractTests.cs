@@ -89,18 +89,33 @@ public class CrunchContractTests
         var day = Ledger.Day(3_000);
         Ledger.InOneLoop(Ledger.Day(100), 200);               // warm the hash code before timing
 
+        // The crew runs at BelowNormal priority, so any other process on the box takes cores
+        // from it first and a single timing can read two threads as no faster than one
+        // (527 ms vs 535 ms, once, with builds running beside the suite). Best of three per
+        // side, and up to three tries of the pair: the claim is that two CAN beat one here.
         using var one = new CrewSettler(1);
-        var oneClock = Stopwatch.StartNew();
-        one.Settle(day, 200);
-        oneClock.Stop();
-
         using var two = new CrewSettler(2);
-        var twoClock = Stopwatch.StartNew();
-        two.Settle(day, 200);
-        twoClock.Stop();
+        Stopwatch oneClock = null!, twoClock = null!;
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            oneClock = BestOfThree(() => one.Settle(day, 200));
+            twoClock = BestOfThree(() => two.Settle(day, 200));
+            if (twoClock.ElapsedMilliseconds < oneClock.ElapsedMilliseconds * 0.85) return;
+        }
+        Assert.Fail($"two threads took {twoClock.ElapsedMilliseconds} ms, one took {oneClock.ElapsedMilliseconds} ms, on three tries");
+    }
 
-        Assert.True(twoClock.ElapsedMilliseconds < oneClock.ElapsedMilliseconds * 0.85,
-            $"two threads took {twoClock.ElapsedMilliseconds} ms, one took {oneClock.ElapsedMilliseconds} ms");
+    private static Stopwatch BestOfThree(Action work)
+    {
+        Stopwatch? best = null;
+        for (int i = 0; i < 3; i++)
+        {
+            var clock = Stopwatch.StartNew();
+            work();
+            clock.Stop();
+            if (best == null || clock.ElapsedMilliseconds < best.ElapsedMilliseconds) best = clock;
+        }
+        return best!;
     }
 
     [Fact]
@@ -111,8 +126,11 @@ public class CrunchContractTests
         using var settler = new CrewSettler(crew);
         var heartbeat = new Heartbeat(20);
         heartbeat.Start();
+        // Keep the crew busy for at least 300 ms, however fast the box is. On a 24-core machine
+        // one day of 6,000 sales took 36 ms on .NET 10, which is room for two beats, not three.
         var clock = Stopwatch.StartNew();
-        settler.Settle(Ledger.Day(6_000), 200);                // about a second of work, depending on the machine
+        var day = Ledger.Day(6_000);
+        do settler.Settle(day, 200); while (clock.ElapsedMilliseconds < 300);
         clock.Stop();
         var report = heartbeat.Stop();
 

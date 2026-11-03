@@ -78,7 +78,7 @@ Think of three ways a shop could staff a counter.
 
 The simulator has all three, picked at startup. Everything above them is the same code.
 
-1. **A thread.** `ThreadedDispatch`. Each worker gets its own thread, and the thread sits inside `BlockingCollection.Take()` until a slip arrives. (`Take()` means "give me the next item, and if there isn't one, I'll wait right here.") It is simple, and it is the way it was done in 2008.
+1. **A thread.** `ThreadedDispatch`. Each worker gets its own thread, and the thread sits inside `BlockingCollection.GetConsumingEnumerable`, which waits like `Take()`, until a slip arrives. (`Take()` means "give me the next item, and if there isn't one, I'll wait right here.") It is simple, and it is the way it was done in 2008.
 2. **The compiler's state machine.** `ChannelDispatch`. Each worker is an `async` method that `await`s a **channel**. A channel is a built-in in-tray from modern .NET. When the channel is empty, the method stops, gives its thread back, and holds nothing but a small object. The C# compiler wrote the machinery for that in 2012.
 3. **A hand-built state machine.** `AsyncProxyDispatch`. The same idea as number 2, written without the `async` keyword, using a C# 2 iterator and this library for the rest.
 
@@ -98,7 +98,7 @@ When a thread waits inside `Take()`, it is **blocked**. It runs no code, but kee
 
 | | Threaded: a parked thread per worker | AsyncProxy: a bookmark per worker |
 |---|---|---|
-| Three workers | three threads, each with about 1 MB of reserved stack address space and an operating-system control record, all blocked in `Take()` | three small objects, a few hundred bytes each: the fields of the loop and which step it stopped at |
+| Three workers | three threads, each with about 1 MB of reserved stack address space and an operating-system control record, all blocked in `Take()` | three small objects, about one kilobyte each (1,152 bytes measured, `FootprintTests`): the fields of the loop and which step it stopped at |
 | Three thousand workers | three thousand threads, about 3 GB of reserved stack at 1 MB each, plus operating system records | three thousand small objects, and the same handful of pool threads |
 | Who runs the code | the worker's own thread, after a wake-up | a shared pool thread while a message is being handled; the pool adjusts its thread count |
 
@@ -167,6 +167,7 @@ What you write:
 
 This shortened iterator comes from `src/GasPump.Dispatch/AsyncProxyDispatch.cs` in MMP.GasPumpSimulator. It assumes the surrounding worker owns `_stopping` and calls it through `AsyncProxy.Run`. The simulator snippets use modern C# syntax even though the iterator technique works with C# 2. These excerpts describe the November 2 version named at the end of the chapter; newer checkouts may also dequeue ready messages without allocating a promise.
 
+<!-- fence: sketch excerpt from MMP.GasPumpSimulator AsyncProxyDispatch.cs, outside this repo -->
 ```csharp
 IEnumerable<IFuture> Loop(Mailbox<T> box, Action<T> handle)
 {
@@ -193,6 +194,7 @@ What the compiler builds from that, from the Release build of the simulator:
 
 The next block is a shortened decompiler sketch. Names such as `<>1__state` and literal `...` show generated structure; this block cannot be pasted into a C# source file.
 
+<!-- fence: sketch decompiled by ILSpy, shortened -->
 ```csharp
 class <Loop>d__5 : IEnumerator<IFuture>
 {
@@ -223,11 +225,21 @@ public void MoveNext()
         {
             // Check the completed step before asking the iterator to continue.
             // GetResult throws on failure/cancellation; catch forwards it if iterator cleanup succeeds.
-            if (_pending != null) { IAwaiter finished = _pending; _pending = null; finished.GetResult(); }
+            if (_pending != null)
+            {
+                IAwaiter finished = _pending;
+                _pending = null;
+                finished.GetResult();
+            }
 
             // The iterator owns its saved locals. Its next call resumes after the yield.
             // At its end, publish the separate result for the entire operation.
-            if (!_steps.MoveNext()) { _steps.Dispose(); _builder.SetResult(_return.Value); return; }
+            if (!_steps.MoveNext())
+            {
+                _steps.Dispose();
+                _builder.SetResult(_return.Value);
+                return;
+            }
 
             IFuture step = _steps.Current;
             if (step == null) throw new InvalidOperationException("The iterator yielded a null future.");
@@ -237,7 +249,11 @@ public void MoveNext()
 
             // Done but failed or canceled? GetResult throws. Still running? Fall through and park.
             IAwaiter awaiter = step.GetAwaiter();
-            if (awaiter.IsCompleted) { awaiter.GetResult(); continue; }
+            if (awaiter.IsCompleted)
+            {
+                awaiter.GetResult();
+                continue;
+            }
 
             // Save the awaiter before registration: completion could race with registration.
             // The builder arranges another MoveNext call; returning releases this thread.
@@ -247,7 +263,14 @@ public void MoveNext()
             return;
         }
     }
-    catch (Exception ex) { _steps.Dispose(); _builder.SetException(ex); }
+    catch (Exception ex)
+    {
+        // The body's finally blocks run now. If one of them throws too, the first
+        // fault still wins, so the future settles and the caller sees the cause.
+        try { _steps.Dispose(); }
+        catch (Exception disposeFault) { Attach(ex, disposeFault); }
+        _builder.SetException(ex);
+    }
 }
 ```
 
@@ -260,9 +283,9 @@ Read it as a clerk working a to-do list. Pull the next item. If it is already do
 3. `IFuture step = _steps.Current;`: the future the iterator just handed out. (A null is a bug in the iterator, so it throws a clear message.)
 4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;`: the **fast path**. The thing we asked for is already done and went fine, so there is nothing to wait for. Go around the loop again. No thread leaves, no callback is needed, and no awaiter is even made. If the step is done but failed or was canceled, we fall through: `GetAwaiter()` and `GetResult()` throw so the failure reaches the caller.
 5. `_pending = awaiter;` and `AwaitOnCompleted(...)`: the **slow path**, for a step that is still running. Remember what we are parked on, tell the builder "when this finishes, call `MoveNext` on me again," and `return`. That `return` is the thread walking away.
-6. `catch (Exception ex)`: dispose the iterator, then pass the exception to the builder. The builder records failure or cancellation in the overall result. This requires cleanup to succeed: a throwing `_steps.Dispose()` can prevent that final completion in this implementation.
+6. `catch (Exception ex)`: dispose the iterator, then pass the exception to the builder. The builder records failure or cancellation in the overall result. If `_steps.Dispose()` throws too, the inner `catch` keeps that second fault and the result still completes.
 
-Iterator disposal runs its active `finally` blocks. Those blocks might unsubscribe a device callback or release a resource. This driver's catch does not guard against cleanup throwing, so its examples assume reliable cleanup.
+Iterator disposal runs its active `finally` blocks. Those blocks might unsubscribe a device callback or release a resource. The driver guards that cleanup with its own `try`, so the future always settles and the first fault wins. A cleanup fault rides on the first exception, stored in its `Data` under `AsyncProxy.DisposeFaultKey`.
 
 Here is the same loop as a picture.
 
@@ -298,6 +321,7 @@ In the threaded design the mailbox is a `BlockingCollection` and the worker's th
 
 This excerpt shows the mailbox's two handoff methods, inside its surrounding class. Fields and `Canceled()` are omitted. There is one reader, so `_waiting` holds at most one pending dequeue; several senders can call `TryPost`.
 
+<!-- fence: sketch excerpt from MMP.GasPumpSimulator AsyncProxyDispatch.cs, outside this repo, modern C# -->
 ```csharp
 // GasPump.Dispatch/AsyncProxyDispatch.cs, the mailbox
 public IFuture<T> DequeueAsync()
@@ -307,12 +331,13 @@ public IFuture<T> DequeueAsync()
         if (_closed) return Canceled();
         if (_items.Count > 0)
         {
-            var ready = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
+            // v0.1.0 had no PromiseOptions; true asks for RunContinuationsAsynchronously.
+            var ready = new Promise<T>(true);
             ready.SetResult(_items.Dequeue());   // already done: the fast path, no suspend
             return ready.Future;
         }
         // Keep the completion side; return its read-only future to the single reader.
-        _waiting = new Promise<T>(PromiseOptions.RunContinuationsAsynchronously);
+        _waiting = new Promise<T>(true);
         return _waiting.Future;
     }
 }
@@ -443,6 +468,7 @@ These are shortened excerpts from `src/GasPump.Dispatch/ThreadedDispatch.cs` and
 
 **Thread per worker**
 
+<!-- fence: sketch excerpt from MMP.GasPumpSimulator ThreadedDispatch.cs, outside this repo, modern C# -->
 ```csharp
 // ThreadedDispatch.cs
 _thread = new Thread(() =>
@@ -463,6 +489,7 @@ _thread.Start();
 
 **Hand-built state machine**
 
+<!-- fence: sketch excerpt from MMP.GasPumpSimulator AsyncProxyDispatch.cs, outside this repo, shortened signature -->
 ```csharp
 // AsyncProxyDispatch.cs
 _loop = AsyncProxy.Run(Loop(box, handle, owner));
@@ -527,11 +554,11 @@ sequenceDiagram
 | Resource | Thread per worker | State machine per worker | Why |
 |---|---|---|---|
 | Threads while idle | one per worker | zero | A parked machine is an object, not a thread. Pool threads go back to the pool. |
-| Memory while idle | about 1 MB reserved stack per worker, plus a kernel object | a few hundred bytes per worker: the loop's fields and one pending promise | The locals that cross the yield became fields. Nothing else is kept. |
+| Memory while idle | about 1 MB reserved stack per worker, plus a kernel object | about one kilobyte per worker (1,152 bytes measured, `FootprintTests`): the loop's fields and one pending promise | The locals that cross the yield became fields. Nothing else is kept. |
 | Cost to deliver one slip | a kernel wake-up and a context switch to a specific thread | a queue push to the pool and a run on whichever thread is free | Any available pool thread can run the callback. An idle pool thread may need to wake first. |
 | Scaling to thousands of workers | thousands of threads; the scheduler and memory give out first | thousands of state objects; a shared pool that adjusts to demand | Work is proportional to messages, not to workers. |
 | A call that truly blocks (a 2008 bank library) | fine: it blocks its own thread and nobody else waits | bad: it would block a pool thread that everything shares | This is the parked-car problem from chapter 6. A pool thread that sits and waits is a crew worker parked at the curb, and a small crew can only afford a few of those. This is why the simulator has `PrefersBlockingIo`. The payment worker blocks under threads and continues on a callback under the other two. |
-| Allocation per message | none beyond the message | a promise and its future for each dequeue in the shown code, including the ready-message path | The ready-message path creates a promise and completes it at once. It saves a pause, while still allocating that promise and its future. |
+| Allocation per message | none beyond the message | at least a promise and its future for each dequeue in the shown code, including the ready-message path; a parked dequeue adds the `Observe` wrapper and callback objects | The ready-message path creates a promise and completes it at once. It saves a pause, while still allocating that promise and its future. |
 
 A pool callback can still involve a context switch. The main saving is that each idle worker holds a small state object instead of a separate thread.
 
@@ -553,7 +580,7 @@ People sometimes say async "removes threading problems." It removes some and lea
 
 - **Races on shared state.** A **race** is when two things touch the same data at about the same time and the answer depends on who gets there first. Two machines resumed on two pool threads at once can still stomp on a shared field. The simulator avoids this by the rule that workers share nothing and pass messages. Async did not buy that; the design did.
 - **Reentrancy.** This is when code runs again while an earlier run is still going. A continuation can run while you still hold a lock if you complete a promise inside the lock. The mailbox completes outside the lock and the promise queues to the pool, which is why that is written down twice in the code.
-- **Lost exceptions.** A faulted future nobody observes is a silent failure: it broke, and nobody was told. The loop wraps each dequeue in `Futures.Observe` and checks `IsFaulted`, so a closed mailbox ends the loop instead of throwing into nowhere.
+- **Lost exceptions.** A faulted future nobody observes is a silent failure: it broke, and nobody was told. The loop wraps each dequeue in `Futures.Observe` and checks `IsCanceled`, so a closed mailbox ends the loop instead of throwing into nowhere. Handler throws are caught and left to the sale machine to log.
 - **Debugging.** The stack trace of a resumed machine shows the pool, and nothing of your code's history. The library copies the first stack trace into the exception's data before rethrowing, because .NET 3.5 had no other way to keep it. (The Compact Framework build can't even do that: it has no `Exception.Data`, so the first trace is lost on the rethrow. The README lists it as a known limit.)
 
 > **The one-sentence rule.** Async decides *what a worker holds while it waits*. The actor rules decide *what a worker may touch while it runs*. You need both, and they are different decisions.
@@ -568,6 +595,7 @@ First, a few words you will need. **IL** (intermediate language) is the plain, l
 
 Both following C# blocks are shortened decompiler output from the simulator, rather than compilable source. They omit declarations and branches. The first is an iterator class; the second is a modern `async` method's generated struct. Literal `...` marks omitted material.
 
+<!-- fence: sketch decompiled by ILSpy 10.0.1, shortened -->
 ```csharp
 // decompiled, CSharp1, Release build
 private sealed class <Loop>d__5 : IEnumerable<IFuture>, IEnumerator<IFuture>, IDisposable
@@ -616,6 +644,7 @@ private sealed class <Loop>d__5 : IEnumerable<IFuture>, IEnumerator<IFuture>, ID
 
 **Async machine (Channel worker)**
 
+<!-- fence: sketch decompiled by ILSpy 10.0.1, shortened -->
 ```csharp
 // decompiled, CSharp4, Release build
 private struct <<-ctor>b__0>d : IAsyncStateMachine
@@ -699,7 +728,7 @@ The main difference in this comparison is who arranges the next call. The iterat
 
 Down at the IL level the resemblance is clearer still, because the names fall away and only the moves are left. Here is a small dictionary for the instructions you are about to see. Each line is one tiny step the machine takes.
 
-| IL word | What it does, in plain words |
+| IL word | What it does |
 |---|---|
 | `ldarg.0` | Load argument zero. In a method on an object, that is `this`: the machine itself. |
 | `ldfld` | Load a field: read one of the machine's labeled compartments. |
@@ -772,15 +801,15 @@ catch [System.Runtime]System.Exception
 }
 ```
 
-**Walkthrough.** It opens exactly the same way: `ldarg.0; ldfld '<>1__state'; stloc.0` is "read the bookmark." Then the same two branches: bookmark zero jumps to the resume point after await 0, bookmark one jumps to the resume point after await 1. Anything else is a first run. The new part is `.try { ... } catch`: the whole body is wrapped so that any failure is caught and sent to `SetException`, the same job the iterator driver's `catch` does.
+**Walkthrough.** It opens the same way: `ldarg.0; ldfld '<>1__state'; stloc.0` is "read the bookmark." Then the same two branches: bookmark zero jumps to the resume point after await 0, bookmark one jumps to the resume point after await 1. Anything else is a first run. The new part is `.try { ... } catch`: the whole body is wrapped so that any failure is caught and sent to `SetException`, the same job the iterator driver's `catch` does.
 
-Decompiled 2026-11-02 from `src/GasPump.Dispatch/bin/Release/net10.0/GasPump.Dispatch.dll` with ilspycmd 10.0.1 (`-lv CSharp1`, `-lv CSharp4`, `-il`). Names, offsets, and code sizes are as printed; long type names are shortened for the page.
+Decompiled 2026-11-02 from `src/GasPump.Dispatch/bin/Release/net10.0/GasPump.Dispatch.dll` with ilspycmd 10.0.1 (`-lv CSharp1`, `-lv CSharp4`, `-il`). Names, offsets, and code sizes are as printed; long type names are shortened for the page. The iterator IL is from that day's build of 95b8191 and is not reproducible from `main`; the async IL still matches the current build.
 
 Same opening: `ldarg.0`, `ldfld <>1__state`, `stloc.0`, then a branch on the state. Same parking move: store the new state, return. The async version is wrapped in a `.try` so that any exception becomes a faulted task instead of escaping, and its state machine is a `struct`, which can avoid a separate state-machine allocation when the method finishes without pausing. The method can still allocate other objects. Those are refinements on the same machine, and they are the same refinements `docs/compiler-vs-handwritten.md` records against the hand-written sample. The training track's `docs/compiler-output/training/` folder holds the same comparison for four more programs.
 
 ## 10. The proof
 
-The claim is that the three strategies behave the same. How would you check that? You would run the same sale three times, once under each strategy, and compare what happened. The simulator's test suite does exactly that, with a fake clock so nothing depends on real time, and the happy-path trace test prints the same event list three times:
+The claim is that the three strategies behave the same. How would you check that? You would run the same sale three times, once under each strategy, and compare what happened. The simulator's test suite does that, with a fake clock so nothing depends on real time, and the happy-path trace test prints the same event list three times:
 
 ```
 Passed  HappyPathTraceTests.The_happy_path_hits_the_events_in_this_order(strategy: "threaded")
@@ -792,7 +821,7 @@ events:  CardPresented > CodeEntered > Approved > PumpArmed > GradeSelected > No
          > NozzleHung > CompletionSent
 ```
 
-**Walkthrough.** Each `Passed` line is one run of the same test under a different worker strategy. The `events:` line is the story of one sale in the order things happened: the card goes in, the code is entered, the bank approves, the pump is armed, the customer picks a grade, lifts the nozzle, fuel flows, pauses, resumes, the nozzle goes back, and the completion message is sent. All three strategies produced that exact same list.
+**Walkthrough.** Each `Passed` line is one run of the same test under a different worker strategy. The `events:` line is the story of one sale in the order things happened: the card goes in, the code is entered, the bank approves, the pump is armed, the customer picks a grade, lifts the nozzle, fuel flows, pauses, resumes, the nozzle goes back, and the completion message is sent. All three strategies produced that same list.
 
 Under the AsyncProxy strategy, no worker owns a thread. The pool runs a machine when a slip lands and nothing otherwise. The one place the strategies are allowed to differ is the payment worker's bank call, and the difference is written in one `if` on `PrefersBlockingIo`.
 

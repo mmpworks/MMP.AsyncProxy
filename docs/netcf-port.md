@@ -50,14 +50,14 @@ Output on 2026-11-02:
 | `System.Net.Sockets.TcpListener`, `Socket` | | present | the island's accept loop |
 | `System.IO.Ports.SerialPort` | `DataReceived`, `BaseStream` | present | Kevin's serial line |
 
-The thread pool on CF 3.5 has `QueueUserWorkItem`, `SetMaxThreads`, and `GetMaxThreads`, and nothing else. `GetAvailableThreads` and `SetMinThreads` are not there.
+The thread pool on CF 3.5 has `QueueUserWorkItem`, `SetMaxThreads`, and `GetMaxThreads`; the audit table above checks the first two, which are the two the library uses. `GetAvailableThreads` and `SetMinThreads` are not there.
 
 ## What the port changes
 
 Five things, and four of them are small.
 
 1. **`AsyncMethodBuilder<T>.AwaitOnCompleted`**: no `ExecutionContext` to capture. Under `#if NETCF` the method is one line, `awaiter.OnCompleted(machine.MoveNext)`. Nothing flows across a park, so a value that must survive one rides in the object, which chapter 5 already tells Kevin to do.
-2. **`FutureAwaiter<T>.OnCompleted`**: no `SynchronizationContext` to capture. The flag `continueOnCapturedContext` becomes a no-op, and `ContinueOnAnyThread()` and `GetAwaiter()` behave the same. A display thread that needs continuations posted to it gets a small interface the library defines, `IPostTarget` or the like, set once per thread by the application; the awaiter captures that instead. This is the one design decision in the port and it goes in the PRD before the code.
+2. **`FutureAwaiter<T>.OnCompleted`**: no `SynchronizationContext` to capture. The flag `continueOnCapturedContext` becomes a no-op, and `ContinueOnAnyThread()` and `GetAwaiter()` behave the same. A display thread that needs continuations posted to it gets a small interface the library defines, `IPostTarget`, set once per thread by the application with `PostTarget.SetForCurrentThread`; the awaiter captures that instead. This was the one design decision in the port; it is built (see item 2 under results).
 3. **`Promise<T>.PreserveStackTrace`**: no `Exception.Data`. Under `#if NETCF` the first stack trace goes nowhere, and the README's known limit 1 says so for that target. An alternative is a wrapper exception, which chapter 9 rejected for the desktop because it changes `catch` behaviour; the same reason holds.
 4. **`Pulser` in the forecourt sample**: `Interlocked.Add` becomes a compare-and-swap loop, and `Thread.VolatileRead` becomes `Interlocked.CompareExchange(ref x, 0, 0)`. Done 2026-11-02, so the sample is clean for both targets now.
 5. **Build**: a `netcf35` target cannot come from the SDK, because there is no reference pack for it on NuGet. The route is a classic `.csproj` built by Visual Studio 2008, or an SDK project with `<TargetFramework>net35</TargetFramework>`, `NoStandardLib`, and explicit `<Reference>` items pointing at the CF assemblies by path, with `NETCF` defined. The second route builds on a modern machine and is the one to try first.
@@ -78,10 +78,10 @@ The build:
 
 ```
 pwsh tools/netcf-build.ps1
-   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  20,992 bytes
-   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,240 bytes
-Passed!  - Failed: 0, Passed: 71, Skipped: 4, Total: 75   (against the CF binaries, on the net48 CLR)
-Passed!  - Failed: 0, Passed: 73, Skipped: 2, Total: 75   (control: the desktop net35 binary)
+   src\MMP.AsyncProxy.NetCF\bin\Release\net35\MMP.AsyncProxy.dll  21,504 bytes
+   samples\MMP.AsyncProxy.Forecourt.NetCF\bin\Release\net35\MMP.AsyncProxy.Forecourt.dll  10,752 bytes
+Passed!  - Failed: 0, Passed: 112, Skipped: 7, Total: 119   (against the CF binaries, on the net48 CLR; 2026-11-03, 0.4.0)
+Passed!  - Failed: 0, Passed: 117, Skipped: 2, Total: 119   (control: the desktop net35 binary)
 ```
 
 The four skips on the CF run are the facts that need `ExecutionContext`, `SynchronizationContext` (two), and `Exception.Data`, each marked `[DesktopFact("<what it needs>")]`. The two skips on the control are the CF-only facts. `CompactFrameworkTests` is the anchor: it reads the loaded assembly's `mscorlib` reference and checks the public key token (`969db8053d3322ac` for CF, `b77a5c561934e089` for desktop) against `BuildInfo.Target`, so a mislabeled build fails there.
@@ -94,7 +94,7 @@ Footprint, from `FootprintTests` on the net48 CLR (64-bit, so an upper bound for
 |---|---|
 | one parked iterator worker (machine, builder, promise, pending future, observe wrapper) | 1,152 |
 | the same after one wake-up | 1,360 |
-| 1,000 parked workers | 1,168,200, no thread held by any of them |
+| 1,000 parked workers | 1,168,200, and the process thread count does not grow with them (`FootprintTests` asserts it) |
 
 Against the 64 MB board in `docs/ce-budget.md` of MMP.GasPumpSimulator: the island's one worker is about a kilobyte, the library is 21 KB on disk, and a thousand workers would be about 1.2 MB. The pool's stacks, 25 at 128 KB, are the first real line item, and they are the runtime's, not the library's.
 

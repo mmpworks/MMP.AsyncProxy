@@ -14,7 +14,7 @@ using Microsoft.CodeAnalysis;
 [assembly: AssemblyCompany("MMPWorks LLC")]
 [assembly: AssemblyConfiguration("Release")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0+78bc8b5be030f4ab22c80442379e745015a55861")]
+[assembly: AssemblyInformationalVersion("1.0.0+9b93a14bbde3e9e15d1dd18dd2fe2a064dc04348")]
 [assembly: AssemblyProduct("MMP.AsyncProxy.CompilerReference")]
 [assembly: AssemblyTitle("MMP.AsyncProxy.CompilerReference")]
 [assembly: AssemblyMetadata("RepositoryUrl", "https://github.com/mmpworks/MMP.AsyncProxy")]

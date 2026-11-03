@@ -20,7 +20,7 @@ Kevin looked at the check, looked at the screen, and looked at the napkin that s
 
 Kevin wrote the word *waiting* on the napkin and underlined it. "He'll want to know what it's bad at."
 
-"Three things, and they're in the README. 
+"Three things. Two are in the README; the second is the C# iterator rule. 
 - One, you can't catch a failed step inside an iterator body. You wrap it in `Observe` and look. 
 - Two, `yield` can't sit in a `try` with a `catch`. 
 - Three, continuations normally run on the finishing thread. For the serial reply, ask the promise to queue them to the pool. That keeps the UART reader's callback from also running your sale logic. A display update still needs its own thread."
@@ -51,7 +51,7 @@ The table names each pattern, shows its file, and explains the job it does. The 
 | **Facade** | `Futures`, `AsyncProxy` | Two static classes with short names in front of the machinery. Most callers never see a builder or an awaiter. | The front counter: a short menu in front of a big kitchen |
 | **Protocol, duck-typed** | `Core/IAwaiter.cs` | The awaiter provides `IsCompleted`, `OnCompleted`, and `GetResult`. C# 5 also requires an accessible `GetAwaiter` method on the awaited value; its awaiter must meet the compiler's completion rules. This library puts its three calls behind `IAwaiter` so C# 3 code can use them. | A job posting with three requirements: anyone who can do all three gets the job |
 | **Null Object** | `CancelToken.None`, `EmptyDisposable`, `VoidResult`, `Futures.Completed` | A value that is safe to use and does nothing. Callers skip the null checks. | `CancelToken.None` can be passed when no cancellation is needed |
-| **Registration handle** | `CancelSource.Register` returns `IDisposable` | Subscribe, get a handle, dispose the handle to unsubscribe. The .NET idiom for "undo a registration", from `IObservable` to event-to-token bridges. | Returning the pager ends notifications; the table request can still finish |
+| **Registration handle** | `CancelToken.Register` returns `IDisposable` | Subscribe, get a handle, dispose the handle to unsubscribe. The .NET idiom for "undo a registration", from `IObservable` to event-to-token bridges. | Returning the pager ends notifications; the table request can still finish |
 | **Wrapper, for the non-generic twin** | `Core/Promise.cs`, `Builder/AsyncMethodBuilder.cs` | The void versions hold a generic one over `VoidResult` and forward. One implementation to get right. | The non-generic promise forwards its calls to a generic promise |
 | **Countdown latch** | `Futures.WhenAll` | N callbacks, one counter, `Interlocked.Decrement`, whoever hits zero finishes the job. No lock, no waiting thread. | Friends splitting a check: when the last one has paid, the table is done |
 | **Ambient context, captured and restored** | `AsyncMethodBuilder<T>.AwaitOnCompleted`, `FutureAwaiter<T>.OnCompleted` | Grab `ExecutionContext` and `SynchronizationContext` at one point, put them back at another. Same move the state machine makes with its locals, applied to the environment. | The backpack that travels with the job |
@@ -111,23 +111,23 @@ Dan North's CUPID is five properties code can have. Not rules. Things that, when
 
 **Predictable means the rules stay consistent.** A pending future ends in success, failure, or cancellation. After that, it keeps that outcome. The first completion wins. By default, the finishing thread calls callbacks saved while pending. `PromiseOptions.RunContinuationsAsynchronously` queues those saved callbacks to the pool instead. Registration after completion can run inline or post through a captured context. A separate future object gives callers a read-only view; it exposes no completion methods.
 
-**Idiomatic.** *In plain words: it feels natural to people who already write .NET.* Names such as `FutureAwaiter` and `AsyncMethodBuilder` resemble their .NET counterparts. The promise option uses the same member name as `TaskCreationOptions.RunContinuationsAsynchronously`. `Begin`/`End` adapts through a method that looks like `Task.Factory.FromAsync`. Registrations return `IDisposable`. The examples often use anonymous delegates, such as `delegate { ... }`. C# 3 also supports lambdas with statement bodies. The delegate spelling keeps these examples close to the older callback APIs.
+**Idiomatic.** *Meaning: it feels natural to people who already write .NET.* Names such as `FutureAwaiter` and `AsyncMethodBuilder` resemble their .NET counterparts. The promise option uses the same member name as `TaskCreationOptions.RunContinuationsAsynchronously`. `Begin`/`End` adapts through a method that looks like `Task.Factory.FromAsync`. Registrations return `IDisposable`. The examples often use anonymous delegates, such as `delegate { ... }`. C# 3 also supports lambdas with statement bodies. The delegate spelling keeps these examples close to the older callback APIs.
 
-**Domain-based.** *In plain words: the code uses the words of the problem, not generic filler.* The domain here is asynchrony, and the words are future, promise, awaiter, continuation, state, cancel. No `Manager`, no `Helper`, no `Util`.
+**Domain-based.** *Meaning: the code uses the words of the problem, not generic filler.* The domain here is asynchrony, and the words are future, promise, awaiter, continuation, state, cancel. No `Manager`, no `Helper`, no `Util`.
 
 ## SOLID
 
 SOLID is older and more prescriptive. CUPID came out of frustration with how SOLID gets applied, so we treat it as a checklist rather than a creed.
 
-**Single responsibility.** *In plain words: each class has one reason to change.* The split between `Promise` (holds the result), `FutureAwaiter` (answers the compiler), and `AsyncMethodBuilder` (drives the machine) is the whole reason the hand-written machine and the iterator machine can share parts. Collapse them into one class and you could not write `IteratorStateMachine` without copying half of `AddAfterDelayMachine`.
+**Single responsibility.** *Meaning: each class has one reason to change.* The split between `Promise` (holds the result), `FutureAwaiter` (answers the compiler), and `AsyncMethodBuilder` (drives the machine) is the whole reason the hand-written machine and the iterator machine can share parts. Collapse them into one class and you could not write `IteratorStateMachine` without copying half of `AddAfterDelayMachine`.
 
-**Open/closed.** *In plain words: you can add new abilities without cutting open the old code.* The driver reads futures through `IFuture` and gets their completion members through `IAwaiter`. A new future implementation can provide those interfaces without changing the driver's loop. `Futures.FromAsync` wraps a compatible Begin/End operation in a future. The caller supplies the delegates, including the matching End call. End collects the result or throws the operation's error; the adapter stores either outcome in the promise. The state machine keeps the same completion protocol.
+**Open/closed.** *Meaning: you can add new abilities without cutting open the old code.* The driver reads futures through `IFuture` and gets their completion members through `IAwaiter`. A new future implementation can provide those interfaces without changing the driver's loop. `Futures.FromAsync` wraps a compatible Begin/End operation in a future. The caller supplies the delegates, including the matching End call. End collects the result or throws the operation's error; the adapter stores either outcome in the promise. The state machine keeps the same completion protocol.
 
-**Liskov substitution.** *In plain words: anywhere the general thing fits, the more specific thing fits too.* `IFuture<T>` is an `IFuture`. Anywhere that takes the base, the generic works. `WhenAll` takes `IFuture[]` and you pass typed futures in without a cast. The `Future<T>` that a promise hands out is an `IFuture<T>` and behaves like one everywhere it is passed as one. (The promise itself is deliberately *not* an `IFuture<T>`; see "where we fell short".)
+**Liskov substitution.** *Meaning: anywhere the general thing fits, the more specific thing fits too.* `IFuture<T>` is an `IFuture`. Anywhere that takes the base, the generic works. `WhenAll` takes `IFuture[]` and you pass typed futures in without a cast. The `Future<T>` that a promise hands out is an `IFuture<T>` and behaves like one everywhere it is passed as one. (The promise itself is deliberately *not* an `IFuture<T>`; see "where we fell short".)
 
-**Interface segregation.** *In plain words: give each caller the members its job needs.* `IAwaiter` exposes the three completion members used by this library's builder and machines. `IAwaiter<T>` also returns a typed result. `IFuture<T>` adds direct outcome inspection and blocking reads. Neither interface exposes setters. Code can complete an operation when it holds the promise; receiving the future alone gives it no such access.
+**Interface segregation.** *Meaning: give each caller the members its job needs.* `IAwaiter` exposes the three completion members used by this library's builder and machines. `IAwaiter<T>` also returns a typed result. `IFuture` adds outcome inspection and blocking waits. `IFuture<T>` adds `Result`. Neither interface exposes setters. Code can complete an operation when it holds the promise; receiving the future alone gives it no such access.
 
-**Dependency inversion.** *In plain words: depend on a plug shape, not on a particular appliance.* The state machine depends on `IAwaiter` and on the builder. It does not know about timers, thread pools, or file handles. `Futures.FromAsync` takes two delegates and never names `FileStream`. Swap the timer for a socket and the machine does not change.
+**Dependency inversion.** *Meaning: depend on a plug shape, not on a particular appliance.* The state machine depends on `IAwaiter` and on the builder. It does not know about timers, thread pools, or file handles. `Futures.FromAsync` takes two delegates and never names `FileStream`. Swap the timer for a socket and the machine does not change.
 
 This review covers a small teaching library. The .NET types provide useful models, but a larger library would need its own review and tests.
 
@@ -140,7 +140,7 @@ DRY stands for "don't repeat yourself." Keep one implementation of a rule when s
 - `Promise` is a shell over `Promise<VoidResult>`. One completion algorithm.
 - `AsyncMethodBuilder` is a shell over `AsyncMethodBuilder<VoidResult>`.
 - `Futures.Run(Action)` calls `Run<VoidResult>`. `Run<T>(work)` calls `Run<T>(work, CancelToken.None)`. `Delay(ms)` calls `Delay(ms, None)`. Every overload funnels to one body.
-- `IAwaiter.GetResult()` on the generic awaiter forwards to the typed one.
+- `IAwaiter.GetResult()` on the generic awaiter and the typed `GetResult()` both forward to `GetResultCore`.
 
 **Waiting.** The registration code, "if pending add to list, else run now, under a lock", appears in `Promise<T>.RegisterContinuation` and in `CancelSource.Register`. Two occurrences. The third would be a `Signal` or a `Latch`, and that is when it becomes a shared `CallbackList` type. Until then, two copies of eight lines are cheaper than a shared abstraction that has to serve both and fit neither.
 

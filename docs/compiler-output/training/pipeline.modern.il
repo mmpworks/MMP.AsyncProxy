@@ -76,7 +76,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2580
+			// Method begins at RVA 0x267c
 			// Header size: 12
 			// Code size: 601 (0x259)
 			.maxstack 3
@@ -367,7 +367,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x2834
+			// Method begins at RVA 0x2930
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -420,7 +420,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2844
+			// Method begins at RVA 0x2940
 			// Header size: 12
 			// Code size: 286 (0x11e)
 			.maxstack 3
@@ -565,7 +565,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x2980
+			// Method begins at RVA 0x2a7c
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -629,7 +629,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2990
+			// Method begins at RVA 0x2a8c
 			// Header size: 12
 			// Code size: 574 (0x23e)
 			.maxstack 3
@@ -904,7 +904,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x2c10
+			// Method begins at RVA 0x2d0c
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -1662,7 +1662,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2c20
+			// Method begins at RVA 0x2d1c
 			// Header size: 12
 			// Code size: 510 (0x1fe)
 			.maxstack 3
@@ -1924,7 +1924,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x2e90
+			// Method begins at RVA 0x2f8c
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -2197,7 +2197,7 @@
 		.method public hidebysig specialname rtspecialname 
 			instance void .ctor () cil managed 
 		{
-			// Method begins at RVA 0x2e9e
+			// Method begins at RVA 0x2f9a
 			// Header size: 1
 			// Code size: 7 (0x7)
 			.maxstack 8
@@ -2215,7 +2215,7 @@
 			.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableContextAttribute::.ctor(uint8) = (
 				01 00 00 00 00
 			)
-			// Method begins at RVA 0x2ea6
+			// Method begins at RVA 0x2fa2
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -2262,7 +2262,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2eb4
+			// Method begins at RVA 0x2fb0
 			// Header size: 12
 			// Code size: 183 (0xb7)
 			.maxstack 3
@@ -2366,7 +2366,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x2f88
+			// Method begins at RVA 0x3084
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -2420,7 +2420,7 @@
 			instance void MoveNext () cil managed 
 		{
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
-			// Method begins at RVA 0x2f98
+			// Method begins at RVA 0x3094
 			// Header size: 12
 			// Code size: 368 (0x170)
 			.maxstack 6
@@ -2622,7 +2622,7 @@
 				01 00 00 00
 			)
 			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
-			// Method begins at RVA 0x3148
+			// Method begins at RVA 0x3244
 			// Header size: 1
 			// Code size: 13 (0xd)
 			.maxstack 8
@@ -2790,6 +2790,656 @@
 	}
 
 } // end of class MMP.AsyncProxy.Training.Modern.FanOut.TaskCourier
+
+.class public auto ansi sealed beforefieldinit MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller
+	extends [System.Runtime]System.Object
+	implements [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.IDeadlineCaller,
+	           [System.Runtime]System.IDisposable
+{
+	.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableContextAttribute::.ctor(uint8) = (
+		01 00 01 00 00
+	)
+	.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+		01 00 00 00 00
+	)
+	.interfaceimpl type [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.IDeadlineCaller
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+
+	.interfaceimpl type [System.Runtime]System.IDisposable
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+
+	// Nested Types
+	.class nested private auto ansi sealed beforefieldinit '<Ask>d__4'
+		extends [System.Runtime]System.ValueType
+		implements [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine
+	{
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute::.ctor() = (
+			01 00 00 00
+		)
+		.interfaceimpl type [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine
+			.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+				01 00 00 00 00
+			)
+
+		// Fields
+		.field public int32 '<>1__state'
+		.field public valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> '<>t__builder'
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+		.field public class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService service
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+		.field public int32 attempt
+		.field private valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string> '<>u__1'
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8[]) = (
+			01 00 02 00 00 00 00 01 00 00
+		)
+		.field private valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter '<>u__2'
+
+		// Methods
+		.method private final hidebysig newslot virtual 
+			instance void MoveNext () cil managed 
+		{
+			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
+			// Method begins at RVA 0x3254
+			// Header size: 12
+			// Code size: 314 (0x13a)
+			.maxstack 3
+			.locals init (
+				[0] int32,
+				[1] string,
+				[2] int32,
+				[3] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string>,
+				[4] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<string>,
+				[5] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter,
+				[6] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable,
+				[7] class [System.Runtime]System.Exception
+			)
+
+			IL_0000: ldarg.0
+			IL_0001: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+			IL_0006: stloc.0
+			.try
+			{
+				IL_0007: ldloc.0
+				IL_0008: brfalse.s IL_006d
+
+				IL_000a: ldloc.0
+				IL_000b: ldc.i4.1
+				IL_000c: beq IL_00d4
+
+				IL_0011: ldarg.0
+				IL_0012: ldfld class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::service
+				IL_0017: ldarg.0
+				IL_0018: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::attempt
+				IL_001d: callvirt instance int32 [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService::DelayFor(int32)
+				IL_0022: stloc.2
+				IL_0023: ldloc.2
+				IL_0024: ldc.i4.0
+				IL_0025: bge.s IL_0093
+
+				IL_0027: newobj instance void class [System.Runtime]System.Threading.Tasks.TaskCompletionSource`1<string>::.ctor()
+				IL_002c: call instance class [System.Runtime]System.Threading.Tasks.Task`1<!0> class [System.Runtime]System.Threading.Tasks.TaskCompletionSource`1<string>::get_Task()
+				IL_0031: ldc.i4.0
+				IL_0032: callvirt instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<!0> class [System.Runtime]System.Threading.Tasks.Task`1<string>::ConfigureAwait(bool)
+				IL_0037: stloc.s 4
+				IL_0039: ldloca.s 4
+				IL_003b: call instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<string>::GetAwaiter()
+				IL_0040: stloc.3
+				IL_0041: ldloca.s 3
+				IL_0043: call instance bool valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string>::get_IsCompleted()
+				IL_0048: brtrue.s IL_0089
+
+				IL_004a: ldarg.0
+				IL_004b: ldc.i4.0
+				IL_004c: dup
+				IL_004d: stloc.0
+				IL_004e: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+				IL_0053: ldarg.0
+				IL_0054: ldloc.3
+				IL_0055: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__1'
+				IL_005a: ldarg.0
+				IL_005b: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+				IL_0060: ldloca.s 3
+				IL_0062: ldarg.0
+				IL_0063: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string>, valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'>(!!0&, !!1&)
+				IL_0068: leave IL_0139
+
+				IL_006d: ldarg.0
+				IL_006e: ldfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__1'
+				IL_0073: stloc.3
+				IL_0074: ldarg.0
+				IL_0075: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__1'
+				IL_007a: initobj valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string>
+				IL_0080: ldarg.0
+				IL_0081: ldc.i4.m1
+				IL_0082: dup
+				IL_0083: stloc.0
+				IL_0084: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+
+				IL_0089: ldloca.s 3
+				IL_008b: call instance !0 valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<string>::GetResult()
+				IL_0090: pop
+				IL_0091: br.s IL_00f8
+
+				IL_0093: ldloc.2
+				IL_0094: call class [System.Runtime]System.Threading.Tasks.Task [System.Runtime]System.Threading.Tasks.Task::Delay(int32)
+				IL_0099: ldc.i4.0
+				IL_009a: callvirt instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable [System.Runtime]System.Threading.Tasks.Task::ConfigureAwait(bool)
+				IL_009f: stloc.s 6
+				IL_00a1: ldloca.s 6
+				IL_00a3: call instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable::GetAwaiter()
+				IL_00a8: stloc.s 5
+				IL_00aa: ldloca.s 5
+				IL_00ac: call instance bool [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter::get_IsCompleted()
+				IL_00b1: brtrue.s IL_00f1
+
+				IL_00b3: ldarg.0
+				IL_00b4: ldc.i4.1
+				IL_00b5: dup
+				IL_00b6: stloc.0
+				IL_00b7: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+				IL_00bc: ldarg.0
+				IL_00bd: ldloc.s 5
+				IL_00bf: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__2'
+				IL_00c4: ldarg.0
+				IL_00c5: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+				IL_00ca: ldloca.s 5
+				IL_00cc: ldarg.0
+				IL_00cd: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter, valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'>(!!0&, !!1&)
+				IL_00d2: leave.s IL_0139
+
+				IL_00d4: ldarg.0
+				IL_00d5: ldfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__2'
+				IL_00da: stloc.s 5
+				IL_00dc: ldarg.0
+				IL_00dd: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>u__2'
+				IL_00e2: initobj [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter
+				IL_00e8: ldarg.0
+				IL_00e9: ldc.i4.m1
+				IL_00ea: dup
+				IL_00eb: stloc.0
+				IL_00ec: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+
+				IL_00f1: ldloca.s 5
+				IL_00f3: call instance void [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable/ConfiguredTaskAwaiter::GetResult()
+
+				IL_00f8: ldarg.0
+				IL_00f9: ldfld class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::service
+				IL_00fe: ldarg.0
+				IL_00ff: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::attempt
+				IL_0104: callvirt instance string [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService::Answer(int32)
+				IL_0109: stloc.1
+				IL_010a: leave.s IL_0125
+			} // end .try
+			catch [System.Runtime]System.Exception
+			{
+				IL_010c: stloc.s 7
+				IL_010e: ldarg.0
+				IL_010f: ldc.i4.s -2
+				IL_0111: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+				IL_0116: ldarg.0
+				IL_0117: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+				IL_011c: ldloc.s 7
+				IL_011e: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::SetException(class [System.Runtime]System.Exception)
+				IL_0123: leave.s IL_0139
+			} // end handler
+
+			IL_0125: ldarg.0
+			IL_0126: ldc.i4.s -2
+			IL_0128: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+			IL_012d: ldarg.0
+			IL_012e: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+			IL_0133: ldloc.1
+			IL_0134: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::SetResult(!0)
+
+			IL_0139: ret
+		} // end of method '<Ask>d__4'::MoveNext
+
+		.method private final hidebysig newslot virtual 
+			instance void SetStateMachine (
+				class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine stateMachine
+			) cil managed 
+		{
+			.custom instance void [System.Runtime]System.Diagnostics.DebuggerHiddenAttribute::.ctor() = (
+				01 00 00 00
+			)
+			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
+			// Method begins at RVA 0x33b8
+			// Header size: 1
+			// Code size: 13 (0xd)
+			.maxstack 8
+
+			IL_0000: ldarg.0
+			IL_0001: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+			IL_0006: ldarg.1
+			IL_0007: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
+			IL_000c: ret
+		} // end of method '<Ask>d__4'::SetStateMachine
+
+	} // end of class <Ask>d__4
+
+	.class nested private auto ansi sealed beforefieldinit '<Attempts>d__3'
+		extends [System.Runtime]System.ValueType
+		implements [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine
+	{
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.CompilerGeneratedAttribute::.ctor() = (
+			01 00 00 00
+		)
+		.interfaceimpl type [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine
+			.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+				01 00 00 00 00
+			)
+
+		// Fields
+		.field public int32 '<>1__state'
+		.field public valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> '<>t__builder'
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+		.field public valuetype [System.Runtime]System.Threading.CancellationToken cord
+		.field public class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService service
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8) = (
+			01 00 00 00 00
+		)
+		.field public int32 timeoutMs
+		.field public int32 maxAttempts
+		.field private int32 '<attempt>5__2'
+		.field private class [System.Runtime]System.Threading.Tasks.Task`1<string> '<answer>5__3'
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8[]) = (
+			01 00 02 00 00 00 00 01 00 00
+		)
+		.field private valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task> '<>u__1'
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.NullableAttribute::.ctor(uint8[]) = (
+			01 00 02 00 00 00 00 01 00 00
+		)
+
+		// Methods
+		.method private final hidebysig newslot virtual 
+			instance void MoveNext () cil managed 
+		{
+			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::MoveNext()
+			// Method begins at RVA 0x33c8
+			// Header size: 12
+			// Code size: 376 (0x178)
+			.maxstack 4
+			.locals init (
+				[0] int32,
+				[1] class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult,
+				[2] class [System.Runtime]System.Threading.Tasks.Task,
+				[3] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task>,
+				[4] valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<class [System.Runtime]System.Threading.Tasks.Task>,
+				[5] int32,
+				[6] class [System.Runtime]System.Exception
+			)
+
+			IL_0000: ldarg.0
+			IL_0001: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+			IL_0006: stloc.0
+			.try
+			{
+				IL_0007: ldloc.0
+				IL_0008: brfalse IL_00aa
+
+				IL_000d: ldarg.0
+				IL_000e: ldc.i4.0
+				IL_000f: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_0014: br IL_0129
+
+				IL_0019: ldarg.0
+				IL_001a: ldflda valuetype [System.Runtime]System.Threading.CancellationToken MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::cord
+				IL_001f: call instance bool [System.Runtime]System.Threading.CancellationToken::get_IsCancellationRequested()
+				IL_0024: brfalse.s IL_0039
+
+				IL_0026: ldc.i4.2
+				IL_0027: ldnull
+				IL_0028: ldarg.0
+				IL_0029: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_002e: newobj instance void [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult::.ctor(valuetype [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallOutcome, string, int32)
+				IL_0033: stloc.1
+				IL_0034: leave IL_0163
+
+				IL_0039: ldarg.0
+				IL_003a: ldarg.0
+				IL_003b: ldfld class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::service
+				IL_0040: ldarg.0
+				IL_0041: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_0046: call class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller::Ask(class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService, int32)
+				IL_004b: stfld class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<answer>5__3'
+				IL_0050: ldarg.0
+				IL_0051: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::timeoutMs
+				IL_0056: ldarg.0
+				IL_0057: ldfld valuetype [System.Runtime]System.Threading.CancellationToken MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::cord
+				IL_005c: call class [System.Runtime]System.Threading.Tasks.Task [System.Runtime]System.Threading.Tasks.Task::Delay(int32, valuetype [System.Runtime]System.Threading.CancellationToken)
+				IL_0061: stloc.2
+				IL_0062: ldarg.0
+				IL_0063: ldfld class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<answer>5__3'
+				IL_0068: ldloc.2
+				IL_0069: call class [System.Runtime]System.Threading.Tasks.Task`1<class [System.Runtime]System.Threading.Tasks.Task> [System.Runtime]System.Threading.Tasks.Task::WhenAny(class [System.Runtime]System.Threading.Tasks.Task, class [System.Runtime]System.Threading.Tasks.Task)
+				IL_006e: ldc.i4.0
+				IL_006f: callvirt instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<!0> class [System.Runtime]System.Threading.Tasks.Task`1<class [System.Runtime]System.Threading.Tasks.Task>::ConfigureAwait(bool)
+				IL_0074: stloc.s 4
+				IL_0076: ldloca.s 4
+				IL_0078: call instance valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1<class [System.Runtime]System.Threading.Tasks.Task>::GetAwaiter()
+				IL_007d: stloc.3
+				IL_007e: ldloca.s 3
+				IL_0080: call instance bool valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task>::get_IsCompleted()
+				IL_0085: brtrue.s IL_00c6
+
+				IL_0087: ldarg.0
+				IL_0088: ldc.i4.0
+				IL_0089: dup
+				IL_008a: stloc.0
+				IL_008b: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+				IL_0090: ldarg.0
+				IL_0091: ldloc.3
+				IL_0092: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>u__1'
+				IL_0097: ldarg.0
+				IL_0098: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+				IL_009d: ldloca.s 3
+				IL_009f: ldarg.0
+				IL_00a0: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::AwaitUnsafeOnCompleted<valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task>, valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'>(!!0&, !!1&)
+				IL_00a5: leave IL_0177
+
+				IL_00aa: ldarg.0
+				IL_00ab: ldfld valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>u__1'
+				IL_00b0: stloc.3
+				IL_00b1: ldarg.0
+				IL_00b2: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>u__1'
+				IL_00b7: initobj valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task>
+				IL_00bd: ldarg.0
+				IL_00be: ldc.i4.m1
+				IL_00bf: dup
+				IL_00c0: stloc.0
+				IL_00c1: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+
+				IL_00c6: ldloca.s 3
+				IL_00c8: call instance !0 valuetype [System.Runtime]System.Runtime.CompilerServices.ConfiguredTaskAwaitable`1/ConfiguredTaskAwaiter<class [System.Runtime]System.Threading.Tasks.Task>::GetResult()
+				IL_00cd: ldarg.0
+				IL_00ce: ldfld class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<answer>5__3'
+				IL_00d3: bne.un.s IL_00f1
+
+				IL_00d5: ldc.i4.0
+				IL_00d6: ldarg.0
+				IL_00d7: ldfld class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<answer>5__3'
+				IL_00dc: callvirt instance !0 class [System.Runtime]System.Threading.Tasks.Task`1<string>::get_Result()
+				IL_00e1: ldarg.0
+				IL_00e2: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_00e7: ldc.i4.1
+				IL_00e8: add
+				IL_00e9: newobj instance void [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult::.ctor(valuetype [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallOutcome, string, int32)
+				IL_00ee: stloc.1
+				IL_00ef: leave.s IL_0163
+
+				IL_00f1: ldarg.0
+				IL_00f2: ldflda valuetype [System.Runtime]System.Threading.CancellationToken MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::cord
+				IL_00f7: call instance bool [System.Runtime]System.Threading.CancellationToken::get_IsCancellationRequested()
+				IL_00fc: brfalse.s IL_0110
+
+				IL_00fe: ldc.i4.2
+				IL_00ff: ldnull
+				IL_0100: ldarg.0
+				IL_0101: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_0106: ldc.i4.1
+				IL_0107: add
+				IL_0108: newobj instance void [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult::.ctor(valuetype [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallOutcome, string, int32)
+				IL_010d: stloc.1
+				IL_010e: leave.s IL_0163
+
+				IL_0110: ldarg.0
+				IL_0111: ldnull
+				IL_0112: stfld class [System.Runtime]System.Threading.Tasks.Task`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<answer>5__3'
+				IL_0117: ldarg.0
+				IL_0118: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_011d: stloc.s 5
+				IL_011f: ldarg.0
+				IL_0120: ldloc.s 5
+				IL_0122: ldc.i4.1
+				IL_0123: add
+				IL_0124: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+
+				IL_0129: ldarg.0
+				IL_012a: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<attempt>5__2'
+				IL_012f: ldarg.0
+				IL_0130: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::maxAttempts
+				IL_0135: blt IL_0019
+
+				IL_013a: ldc.i4.1
+				IL_013b: ldnull
+				IL_013c: ldarg.0
+				IL_013d: ldfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::maxAttempts
+				IL_0142: newobj instance void [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult::.ctor(valuetype [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallOutcome, string, int32)
+				IL_0147: stloc.1
+				IL_0148: leave.s IL_0163
+			} // end .try
+			catch [System.Runtime]System.Exception
+			{
+				IL_014a: stloc.s 6
+				IL_014c: ldarg.0
+				IL_014d: ldc.i4.s -2
+				IL_014f: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+				IL_0154: ldarg.0
+				IL_0155: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+				IL_015a: ldloc.s 6
+				IL_015c: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::SetException(class [System.Runtime]System.Exception)
+				IL_0161: leave.s IL_0177
+			} // end handler
+
+			IL_0163: ldarg.0
+			IL_0164: ldc.i4.s -2
+			IL_0166: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+			IL_016b: ldarg.0
+			IL_016c: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+			IL_0171: ldloc.1
+			IL_0172: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::SetResult(!0)
+
+			IL_0177: ret
+		} // end of method '<Attempts>d__3'::MoveNext
+
+		.method private final hidebysig newslot virtual 
+			instance void SetStateMachine (
+				class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine stateMachine
+			) cil managed 
+		{
+			.custom instance void [System.Runtime]System.Diagnostics.DebuggerHiddenAttribute::.ctor() = (
+				01 00 00 00
+			)
+			.override method instance void [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
+			// Method begins at RVA 0x3568
+			// Header size: 1
+			// Code size: 13 (0xd)
+			.maxstack 8
+
+			IL_0000: ldarg.0
+			IL_0001: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+			IL_0006: ldarg.1
+			IL_0007: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::SetStateMachine(class [System.Runtime]System.Runtime.CompilerServices.IAsyncStateMachine)
+			IL_000c: ret
+		} // end of method '<Attempts>d__3'::SetStateMachine
+
+	} // end of class <Attempts>d__3
+
+
+	// Methods
+	.method public final hidebysig specialname newslot virtual 
+		instance string get_Version () cil managed 
+	{
+		// Method begins at RVA 0x257d
+		// Header size: 1
+		// Code size: 6 (0x6)
+		.maxstack 8
+
+		IL_0000: ldstr "modern"
+		IL_0005: ret
+	} // end of method TaskCaller::get_Version
+
+	.method public final hidebysig newslot virtual 
+		instance class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult Call (
+			class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService service,
+			int32 timeoutMs,
+			int32 maxAttempts,
+			class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.GiveUp giveUp
+		) cil managed 
+	{
+		// Method begins at RVA 0x2584
+		// Header size: 12
+		// Code size: 53 (0x35)
+		.maxstack 4
+		.locals init (
+			[0] class [System.Runtime]System.Threading.CancellationTokenSource,
+			[1] valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>
+		)
+
+		IL_0000: newobj instance void [System.Runtime]System.Threading.CancellationTokenSource::.ctor()
+		IL_0005: stloc.0
+		IL_0006: ldarg.s giveUp
+		IL_0008: ldloc.0
+		IL_0009: ldftn instance void [System.Runtime]System.Threading.CancellationTokenSource::Cancel()
+		IL_000f: newobj instance void [System.Runtime]System.Action::.ctor(object, native int)
+		IL_0014: callvirt instance void [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.GiveUp::OnFired(class [System.Runtime]System.Action)
+		IL_0019: ldarg.1
+		IL_001a: ldarg.2
+		IL_001b: ldarg.3
+		IL_001c: ldloc.0
+		IL_001d: callvirt instance valuetype [System.Runtime]System.Threading.CancellationToken [System.Runtime]System.Threading.CancellationTokenSource::get_Token()
+		IL_0022: call class [System.Runtime]System.Threading.Tasks.Task`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller::Attempts(class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService, int32, int32, valuetype [System.Runtime]System.Threading.CancellationToken)
+		IL_0027: callvirt instance valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<!0> class [System.Runtime]System.Threading.Tasks.Task`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::GetAwaiter()
+		IL_002c: stloc.1
+		IL_002d: ldloca.s 1
+		IL_002f: call instance !0 valuetype [System.Runtime]System.Runtime.CompilerServices.TaskAwaiter`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::GetResult()
+		IL_0034: ret
+	} // end of method TaskCaller::Call
+
+	.method private hidebysig static 
+		class [System.Runtime]System.Threading.Tasks.Task`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> Attempts (
+			class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService service,
+			int32 timeoutMs,
+			int32 maxAttempts,
+			valuetype [System.Runtime]System.Threading.CancellationToken cord
+		) cil managed 
+	{
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.AsyncStateMachineAttribute::.ctor(class [System.Runtime]System.Type) = (
+			01 00 41 4d 4d 50 2e 41 73 79 6e 63 50 72 6f 78
+			79 2e 54 72 61 69 6e 69 6e 67 2e 4d 6f 64 65 72
+			6e 2e 44 65 61 64 6c 69 6e 65 2e 54 61 73 6b 43
+			61 6c 6c 65 72 2b 3c 41 74 74 65 6d 70 74 73 3e
+			64 5f 5f 33 00 00
+		)
+		// Method begins at RVA 0x25c8
+		// Header size: 12
+		// Code size: 79 (0x4f)
+		.maxstack 2
+		.locals init (
+			[0] valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'
+		)
+
+		IL_0000: ldloca.s 0
+		IL_0002: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::Create()
+		IL_0007: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+		IL_000c: ldloca.s 0
+		IL_000e: ldarg.0
+		IL_000f: stfld class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::service
+		IL_0014: ldloca.s 0
+		IL_0016: ldarg.1
+		IL_0017: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::timeoutMs
+		IL_001c: ldloca.s 0
+		IL_001e: ldarg.2
+		IL_001f: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::maxAttempts
+		IL_0024: ldloca.s 0
+		IL_0026: ldarg.3
+		IL_0027: stfld valuetype [System.Runtime]System.Threading.CancellationToken MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::cord
+		IL_002c: ldloca.s 0
+		IL_002e: ldc.i4.m1
+		IL_002f: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>1__state'
+		IL_0034: ldloca.s 0
+		IL_0036: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+		IL_003b: ldloca.s 0
+		IL_003d: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::Start<valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'>(!!0&)
+		IL_0042: ldloca.s 0
+		IL_0044: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Attempts>d__3'::'<>t__builder'
+		IL_0049: call instance class [System.Runtime]System.Threading.Tasks.Task`1<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.CallResult>::get_Task()
+		IL_004e: ret
+	} // end of method TaskCaller::Attempts
+
+	.method private hidebysig static 
+		class [System.Runtime]System.Threading.Tasks.Task`1<string> Ask (
+			class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService service,
+			int32 attempt
+		) cil managed 
+	{
+		.custom instance void [System.Runtime]System.Runtime.CompilerServices.AsyncStateMachineAttribute::.ctor(class [System.Runtime]System.Type) = (
+			01 00 3c 4d 4d 50 2e 41 73 79 6e 63 50 72 6f 78
+			79 2e 54 72 61 69 6e 69 6e 67 2e 4d 6f 64 65 72
+			6e 2e 44 65 61 64 6c 69 6e 65 2e 54 61 73 6b 43
+			61 6c 6c 65 72 2b 3c 41 73 6b 3e 64 5f 5f 34 00 00
+		)
+		// Method begins at RVA 0x2624
+		// Header size: 12
+		// Code size: 63 (0x3f)
+		.maxstack 2
+		.locals init (
+			[0] valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'
+		)
+
+		IL_0000: ldloca.s 0
+		IL_0002: call valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::Create()
+		IL_0007: stfld valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+		IL_000c: ldloca.s 0
+		IL_000e: ldarg.0
+		IL_000f: stfld class [MMP.AsyncProxy.Training]MMP.AsyncProxy.Training.Deadline.FlakyService MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::service
+		IL_0014: ldloca.s 0
+		IL_0016: ldarg.1
+		IL_0017: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::attempt
+		IL_001c: ldloca.s 0
+		IL_001e: ldc.i4.m1
+		IL_001f: stfld int32 MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>1__state'
+		IL_0024: ldloca.s 0
+		IL_0026: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+		IL_002b: ldloca.s 0
+		IL_002d: call instance void valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::Start<valuetype MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'>(!!0&)
+		IL_0032: ldloca.s 0
+		IL_0034: ldflda valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string> MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller/'<Ask>d__4'::'<>t__builder'
+		IL_0039: call instance class [System.Runtime]System.Threading.Tasks.Task`1<!0> valuetype [System.Runtime]System.Runtime.CompilerServices.AsyncTaskMethodBuilder`1<string>::get_Task()
+		IL_003e: ret
+	} // end of method TaskCaller::Ask
+
+	.method public final hidebysig newslot virtual 
+		instance void Dispose () cil managed 
+	{
+		// Method begins at RVA 0x266f
+		// Header size: 1
+		// Code size: 1 (0x1)
+		.maxstack 8
+
+		IL_0000: ret
+	} // end of method TaskCaller::Dispose
+
+	.method public hidebysig specialname rtspecialname 
+		instance void .ctor () cil managed 
+	{
+		// Method begins at RVA 0x2671
+		// Header size: 1
+		// Code size: 7 (0x7)
+		.maxstack 8
+
+		IL_0000: ldarg.0
+		IL_0001: call instance void [System.Runtime]System.Object::.ctor()
+		IL_0006: ret
+	} // end of method TaskCaller::.ctor
+
+	// Properties
+	.property instance string Version()
+	{
+		.get instance string MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller::get_Version()
+	}
+
+} // end of class MMP.AsyncProxy.Training.Modern.Deadline.TaskCaller
 
 You are not using the latest version of the tool, please update.
 Latest version is '11.2.0.10050' (yours is '10.0.1.8346')

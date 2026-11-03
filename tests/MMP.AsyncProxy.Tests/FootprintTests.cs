@@ -41,6 +41,7 @@ namespace MMP.AsyncProxy.Tests
         public void One_thousand_parked_workers_cost_under_two_megabytes_and_no_threads()
         {
             GC.Collect();
+            int threadsBefore = System.Diagnostics.Process.GetCurrentProcess().Threads.Count;
             long before = GC.GetAllocatedBytesForCurrentThread();
             var promises = new List<Promise<int>>(1000);
             var futures = new List<IFuture>(1000);
@@ -51,8 +52,13 @@ namespace MMP.AsyncProxy.Tests
                 futures.Add(Park(p));
             }
             long parked = GC.GetAllocatedBytesForCurrentThread() - before;
-            _out.WriteLine($"[{BuildInfo.Target}] 1000 parked workers: {parked} bytes, {parked / 1000} per worker");
+            int threadsParked = System.Diagnostics.Process.GetCurrentProcess().Threads.Count;
+            _out.WriteLine($"[{BuildInfo.Target}] 1000 parked workers: {parked} bytes, {parked / 1000} per worker; process threads {threadsBefore} before, {threadsParked} parked");
             Assert.InRange(parked, 1, 2 * 1024 * 1024);
+            // The README's "threads held by those 1,000 parked workers: 0". A parked worker is an
+            // object, so the count must not grow with them; a few threads of slack covers the
+            // pool and the runner doing their own thing underneath.
+            Assert.InRange(threadsParked, 0, threadsBefore + 4);
 
             foreach (var p in promises) p.SetResult(1);
             foreach (var f in futures) Assert.True(f.Wait(5000));

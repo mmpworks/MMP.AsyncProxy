@@ -10,6 +10,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- One runtime at a time. The crunch tests time CPU work and one of them runs a crew on
+         every core but one; with net48 and net10.0 in flight together each side's timing
+         lands on the other side's crew (two threads 89 ms vs one 102 ms, once). -->
+    <TestTfmsInParallel>false</TestTfmsInParallel>
   </PropertyGroup>
 
   <ItemGroup>

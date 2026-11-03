@@ -6,7 +6,7 @@ Dee came by as Kevin finished the last wing from the first basket and asked if t
 
 "Show me your host call," Steve said. "The serial one."
 
-Kevin opened the bag. He took out the laptop and turned it so Steve could see. The method was short. He had written it himself, in 2015, after the original one deadlocked a pump in Tulsa.
+Kevin opened the bag. He took out the laptop and turned it so Steve could see. The method was short. He had written it himself, in 2015, after the original one deadlocked a pump in Tulsa. (The repo keeps it, with fewer comments, in `samples/MMP.AsyncProxy.Forecourt/KevinsPump.cs`.)
 
 ```csharp
 public string Authorize(string card, int timeoutMs)
@@ -18,7 +18,7 @@ public string Authorize(string card, int timeoutMs)
     // The method does not coordinate disposal with callbacks still in progress.
     using (AutoResetEvent arrived = new AutoResetEvent(false))
     {
-        // This receiving callback captures reply and arrived. Anonymous
+        // This anonymous receiving callback captures reply and arrived.
         Action<string> onData = delegate(string text)
         {
             reply = text;
@@ -55,7 +55,7 @@ Kevin slid the box over, "Let me show you something with some comments," and sta
 
 "It's not bad. I'm just helping you look at what you built, though," as fingers flew over the keyboard.
 
->The copy below adds restaurant waiting-list comments to the same method. Its blocking wait and cleanup race are still there.
+>The copy below adds restaurant waiting-list comments to the same method from `KevinsPump.cs`. Its blocking wait and cleanup race are still there.
 
 Steve turned the laptop around and nodded toward the people waiting near the entrance. "I'm glad we got in when we did. Look at the crowd at the door." Kevin shifted on the bench to get a view of the entrance. "Imagine the host makes each party stay in that line until a table opens. You're one of many customers. If you leave the line, you lose your place, so you can't do anything else while you wait. Look at the comments I just added."
 
@@ -293,8 +293,8 @@ public IFuture<string> Authorize(string card, int timeoutMs)
 
 "The continuations registered through the future. We registered cleanup first, so it removes the receiving callback's subscription. The sale code can register another continuation that reads the outcome. We chose the queue option to run these saved continuations on the pool."
 
-> **What changed:** `Authorize` now returns a future instead of blocking for a string. `OnCompleted` registers code to call later. `ContinueOnAnyThread` lets that continuation run without returning to a captured display thread; the later context discussion in chapter 5 covers that choice. This version uses ordinary callbacks, without `yield` or a state machine written by the reader.
-The caller must change too. This console example registers the sale's next step and then carries on:
+> **What changed:** `Authorize` now returns a future instead of blocking for a string. `OnCompleted` registers code to call later. `ContinueOnAnyThread` lets that continuation run without returning to a captured display thread; the later context discussion in chapter 5 covers that choice. This version uses ordinary callbacks, without `yield` or a state machine written by the reader. This callback form is a stepping stone; the Forecourt sample's `StevesPump.cs` uses the iterator form from chapter 7.
+The caller must change too. This console example registers the sale's next step and then carries on. Like the callback `Authorize` above, it is a stepping stone that the course's tests run, rather than code from the Forecourt sample:
 
 ```csharp
 // Authorize returns a future without waiting for the bank's reply.
@@ -653,8 +653,8 @@ Promise<string> reply = new Promise<string>();
 
 // Register two observers before completion. These bodies show only the
 // approved path. Real handlers must check the outcome before taking action.
-reply.Future.GetAwaiter().OnCompleted(() => ArmThePump());   // continuation A
-reply.Future.GetAwaiter().OnCompleted(() => ShowApproved()); // continuation B
+reply.Future.GetAwaiter().OnCompleted(delegate { ArmThePump(); });   // continuation A
+reply.Future.GetAwaiter().OnCompleted(delegate { ShowApproved(); }); // continuation B
 
 // Inside the receiving callback on the UART reader's thread:
 // Try to record OK. Complete returns false if another attempt already won.
@@ -706,7 +706,10 @@ Kevin crossed out his heading, *two answers*, and wrote *one outcome*. "So compl
 3. **The default promise calls its stored callbacks on the completing thread.** The direct callback runs before `SetResult` returns. An awaiter may instead post the user's continuation to a captured display context. The console example below assumes there is no such context or registered post target. In the example, `ArmThePump` and `ShowApproved` ran on the UART thread, the one that called `TrySetResult`. You can see it for yourself (in a console program, which has no synchronization context. The context discussion in chapter 5 explains when that matters):
 
    ```csharp
-   reply.Future.GetAwaiter().OnCompleted(() => Console.WriteLine("callback ran on thread " + Thread.CurrentThread.ManagedThreadId));
+   reply.Future.GetAwaiter().OnCompleted(delegate
+   {
+       Console.WriteLine("callback ran on thread " + Thread.CurrentThread.ManagedThreadId);
+   });
    Console.WriteLine("completing on thread " + Thread.CurrentThread.ManagedThreadId);
    reply.SetResult("OK");
    Console.WriteLine("SetResult has returned");
@@ -767,7 +770,10 @@ stateDiagram-v2
 var promise = new Promise<string>();
 IFuture<string> future = promise.Future;
 
-future.GetAwaiter().OnCompleted(() => Console.WriteLine("got " + future.Result));
+future.GetAwaiter().OnCompleted(delegate
+{
+    Console.WriteLine("got " + future.Result);
+});
 Console.WriteLine("registered");
 
 promise.SetResult("hello");       // "got hello" prints here, on this thread
@@ -791,7 +797,7 @@ He added `Authorize` above the flow on napkin two and stacked the three in order
 
 ## Words you just met
 
-| Word | In plain words | The picture |
+| Word | Meaning | The picture |
 |---|---|---|
 | **Receiving callback** | Code the serial link calls when a reply arrives | The host recording a table assignment |
 | **Continuation** | Code registered to run the next part of the work after completion | Returning to the host after the pager buzzes |

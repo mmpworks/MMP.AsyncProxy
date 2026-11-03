@@ -10,7 +10,7 @@ The code is in `MMP.AsyncProxy.Training/Deadline/`. The contract is `IDeadlineCa
 
 ## 2. The thread way
 
-`ThreadPerAttemptCaller` starts a thread per attempt. The thread walks through the blocking door and sets an event when it has the answer. The caller waits on that event, the give-up event, or the clock, whichever comes first.
+`ThreadPerAttemptCaller` starts a thread per attempt. The thread walks through the blocking door and sets an event when it has the answer. The caller waits on that event, the give-up event, or the clock, whichever comes first. This is its loop, shortened:
 
 ```csharp
 for (int attempt = 0; attempt < maxAttempts; attempt++)
@@ -130,6 +130,7 @@ Both attempt loops were compiled in Release and decompiled with ilspycmd 10.0.1,
 
 **The iterator machine, .NET 3.5**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private sealed class <Attempts>d__3 : IEnumerable<IFuture>, IEnumerator<IFuture>, IDisposable
 {
@@ -172,6 +173,7 @@ private sealed class <Attempts>d__3 : IEnumerable<IFuture>, IEnumerator<IFuture>
 
 **The async machine, .NET 10**
 
+<!-- fence: sketch decompiled by ilspycmd 10.0.1 -->
 ```csharp
 private struct <Attempts>d__3 : IAsyncStateMachine
 {
@@ -242,13 +244,13 @@ IL_000b: ldc.i4.1            // state 1
 
 ## 6. Memory and speed
 
-100 calls one after another, each to a service that stays silent on the first attempt and answers in 20 ms on the second, with a 60 ms limit, so every call abandons one attempt. Measured 2026-11-02 on a 24-core Windows 11 machine, Release build, from the same bench run as the other rows. The threaded row runs last in its group, because its abandoned attempts never go away and would raise every later baseline.
+100 calls one after another, each to a service that stays silent on the first attempt and answers in 20 ms on the second, with a 60 ms limit, so every call abandons one attempt. Measured on a 24-core Windows 11 machine, Release build. The net48 rows are from 2026-11-03, after the 0.2.0 fast paths. The net10.0 rows are from 2026-11-02, before them. The threaded row runs last in its group, because its abandoned attempts never go away and would raise every later baseline.
 
 ```
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 project      version      elapsed ms  peak threads  allocated bytes  peak WS bytes    ok
-deadline     asyncproxy         9352            34          720,896    105,893,888   yes
-deadline     threaded           9387           134          999,424    105,893,888   yes
+deadline     asyncproxy         9439            34          655,360    106,258,432   yes
+deadline     threaded           9440           133        1,007,616    106,258,432   yes
 
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 project      version      elapsed ms  peak threads  allocated bytes  peak WS bytes    ok
@@ -260,8 +262,8 @@ deadline     threaded           9438           116          198,488     95,113,2
 How to read it:
 
 - **Elapsed.** All three take about 93 ms per call: a 60 ms limit, a 20 ms answer, and the timer ticks between. The waiting is the same length in every version. What differs is what waits.
-- **Peak threads.** This is the row. One hundred calls, one hundred abandoned attempts. The threaded caller's peak is a hundred above the idle count on .NET Framework (134 against 34) and about seventy-five above on .NET 10 (116 against 42); those are threads parked inside `Ask` that will never return, and they stayed for the rest of the process. The AsyncProxy and modern callers sat at the idle count, because an abandoned attempt is a promise and a promise is not a thread.
-- **Allocated bytes.** About 7 KB per call for AsyncProxy on .NET Framework, 6 KB on .NET 10, against 2.4 KB for the modern caller and 2 KB for the threaded one. Per call: two attempts, each with a service future and its iterator, a `Delay` with its timer and cancel registration, a `WhenAny` with two continuations, and the race's own promise. The modern `Task.WhenAny` and `Task.Delay` share the timer queue and allocate less per step. The improvements table's rows 2, 3, and 6 apply here too.
+- **Peak threads.** This is the row. One hundred calls, one hundred abandoned attempts. The threaded caller's peak is a hundred above the idle count on .NET Framework (133 against 34) and about seventy-five above on .NET 10 (116 against 42); those are threads parked inside `Ask` that will never return, and they stayed for the rest of the process. The AsyncProxy and modern callers sat at the idle count, because an abandoned attempt is a promise and a promise is not a thread.
+- **Allocated bytes.** About 6.5 KB per call for AsyncProxy on .NET Framework, 6 KB on .NET 10, against 2.4 KB for the modern caller and 2 KB for the threaded one on .NET 10. Per call: two attempts, each with a service future and its iterator, a `Delay` wheel entry and cancel registration, a `WhenAny` with two continuations, and the race's own promise. The modern `Task.WhenAny` and `Task.Delay` share the timer queue and allocate less per step. Rows 3 and 6 of the improvements table are now in the code; row 2 still applies here.
 - **Peak working set** is the process's high-water mark across the whole bench run.
 
 ## 7. CUPID, DRY, SOLID
@@ -275,7 +277,7 @@ How to read it:
 ## 8. Run it
 
 ```
-dotnet test training/MMP.AsyncProxy.Training.Tests           # 49 on net48, 73 on net10.0, with the earlier projects
+dotnet test training/MMP.AsyncProxy.Training.Tests --filter "FullyQualifiedName~Deadline"
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net48 -- 1000
 dotnet run --project training/MMP.AsyncProxy.Training.Bench -c Release -f net10.0 -- 1000
 pwsh tools/decompile.ps1                                       # regenerates docs/compiler-output/training/deadline.*

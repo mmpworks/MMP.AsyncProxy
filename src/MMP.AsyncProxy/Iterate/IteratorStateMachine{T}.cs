@@ -53,6 +53,7 @@ namespace MMP.AsyncProxy
                     // Ask the iterator for its next future. No more? The method is done.
                     if (!_steps.MoveNext())
                     {
+                        // The body's finally blocks run here. One that throws is the method's fault.
                         _steps.Dispose();
                         _builder.SetResult(_return.Value);
                         return;
@@ -83,9 +84,23 @@ namespace MMP.AsyncProxy
             }
             catch (Exception ex)
             {
-                _steps.Dispose();
+                // The body's finally blocks run now. If one of them throws too, the first
+                // fault still wins, so the future settles and the caller sees the cause.
+                // Before this guard a throwing finally escaped MoveNext and the future
+                // stayed Pending forever.
+                try { _steps.Dispose(); }
+                catch (Exception disposeFault) { Attach(ex, disposeFault); }
                 _builder.SetException(ex);
             }
+        }
+
+        /// <summary>Keeps the second fault on the first, where a log can find it. The Compact Framework has no Exception.Data.</summary>
+        private static void Attach(Exception first, Exception second)
+        {
+#if !NETCF
+            try { first.Data[AsyncProxy.DisposeFaultKey] = second; }
+            catch (ArgumentException) { }
+#endif
         }
 
         public void SetStateMachine(IAsyncStateMachine stateMachine)

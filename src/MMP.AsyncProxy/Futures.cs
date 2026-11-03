@@ -216,14 +216,17 @@ namespace MMP.AsyncProxy
             }
 
             int[] remaining = new int[] { futures.Length };
-            object faultGate = new object();
-            List<Exception> faults = new List<Exception>();
+            // One slot per input, so the failures come out in input order whatever order
+            // the inputs finished in. The fuzz suite caught the first version, which
+            // appended to a list as each input completed.
+            Exception[] faults = new Exception[futures.Length];
             bool[] anyCanceled = new bool[1];
 
             for (int i = 0; i < futures.Length; i++)
             {
                 IFuture future = futures[i];
                 if (future == null) throw new ArgumentException("A null future was passed to WhenAll.", "futures");
+                int slot = i;
                 // This is library plumbing, so it uses the no-context awaiter. Hopping to
                 // a UI thread here would be wasted work; the caller's own await does that.
                 IAwaiter awaiter = future.ContinueOnAnyThread();
@@ -231,16 +234,24 @@ namespace MMP.AsyncProxy
                 {
                     if (future.IsFaulted)
                     {
-                        lock (faultGate) { faults.Add(future.Exception); }
+                        faults[slot] = future.Exception;
                     }
                     else if (future.IsCanceled)
                     {
                         anyCanceled[0] = true;
                     }
 
+                    // The decrement is a full fence, so the last one in sees every slot.
                     if (Interlocked.Decrement(ref remaining[0]) != 0) return;
 
-                    if (faults.Count > 0) promise.TrySetException(new AggregateFutureException(faults));
+                    List<Exception> inOrder = null;
+                    for (int j = 0; j < faults.Length; j++)
+                    {
+                        if (faults[j] == null) continue;
+                        if (inOrder == null) inOrder = new List<Exception>();
+                        inOrder.Add(faults[j]);
+                    }
+                    if (inOrder != null) promise.TrySetException(new AggregateFutureException(inOrder));
                     else if (anyCanceled[0]) promise.TrySetCanceled();
                     else promise.TrySetResult();
                 });

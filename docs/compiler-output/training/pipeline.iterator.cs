@@ -70,6 +70,8 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 
 			private bool MoveNext()
 			{
+				int item;
+				int item2;
 				switch (<>1__state)
 				{
 				default:
@@ -81,34 +83,44 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 					<>1__state = -1;
 					if (!<next>5__2.IsCanceled)
 					{
-						int item;
-						try
-						{
-							item = Stages.Enrich(<next>5__2.Result);
-						}
-						catch (InvalidOperationException)
-						{
-							dropped.Add(<next>5__2.Result);
-							meter.Left();
-							goto IL_0022;
-						}
-						<>2__current = ahead.PutAsync(item);
-						<>1__state = 2;
-						return true;
+						item = <next>5__2.Result;
+						<next>5__2 = null;
+						goto IL_0084;
 					}
 					ahead.Close();
 					return false;
 				case 2:
 					{
 						<>1__state = -1;
-						<next>5__2 = null;
 						goto IL_0022;
 					}
+					IL_0084:
+					try
+					{
+						item2 = Stages.Enrich(item);
+					}
+					catch (InvalidOperationException)
+					{
+						dropped.Add(item);
+						meter.Left();
+						goto IL_0022;
+					}
+					if (!ahead.TryPut(item2))
+					{
+						<>2__current = ahead.PutAsync(item2);
+						<>1__state = 2;
+						return true;
+					}
+					goto IL_0022;
 					IL_0022:
-					<next>5__2 = behind.TakeAsync();
-					<>2__current = Futures.Observe(<next>5__2);
-					<>1__state = 1;
-					return true;
+					if (!behind.TryTake(out item))
+					{
+						<next>5__2 = behind.TakeAsync();
+						<>2__current = Futures.Observe(<next>5__2);
+						<>1__state = 1;
+						return true;
+					}
+					goto IL_0084;
 				}
 			}
 
@@ -210,28 +222,36 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 
 			private bool MoveNext()
 			{
-				switch (<>1__state)
+				int num = <>1__state;
+				if (num != 0)
 				{
-				default:
-					return false;
-				case 0:
+					if (num != 1)
+					{
+						return false;
+					}
 					<>1__state = -1;
-					<>7__wrap1 = inputs;
-					<>7__wrap2 = 0;
-					break;
-				case 1:
-					<>1__state = -1;
-					<>7__wrap2++;
-					break;
+					goto IL_007a;
 				}
+				<>1__state = -1;
+				<>7__wrap1 = inputs;
+				<>7__wrap2 = 0;
+				goto IL_0088;
+				IL_007a:
+				<>7__wrap2++;
+				goto IL_0088;
+				IL_0088:
 				if (<>7__wrap2 < <>7__wrap1.Length)
 				{
 					int x = <>7__wrap1[<>7__wrap2];
 					meter.Entered();
-					IFuture<bool> future = ahead.PutAsync(Stages.Parse(x));
-					<>2__current = future;
-					<>1__state = 1;
-					return true;
+					int item = Stages.Parse(x);
+					if (!ahead.TryPut(item))
+					{
+						<>2__current = ahead.PutAsync(item);
+						<>1__state = 1;
+						return true;
+					}
+					goto IL_007a;
 				}
 				<>7__wrap1 = null;
 				ahead.Close();
@@ -301,7 +321,9 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 
 			public InFlightMeter <>3__meter;
 
-			private IFuture<int> <next>5__2;
+			private int <x>5__2;
+
+			private IFuture<int> <next>5__3;
 
 			IFuture IEnumerator<IFuture>.Current
 			{
@@ -331,7 +353,7 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 			[DebuggerHidden]
 			void IDisposable.Dispose()
 			{
-				<next>5__2 = null;
+				<next>5__3 = null;
 				<>1__state = -2;
 			}
 
@@ -346,32 +368,39 @@ namespace MMP.AsyncProxy.Training.Pipeline.Async
 					goto IL_0022;
 				case 1:
 					<>1__state = -1;
-					if (!<next>5__2.IsCanceled)
+					if (!<next>5__3.IsCanceled)
 					{
-						if (writeDelayMs > 0)
-						{
-							<>2__current = Futures.Delay(writeDelayMs);
-							<>1__state = 2;
-							return true;
-						}
-						goto IL_008b;
+						<x>5__2 = <next>5__3.Result;
+						<next>5__3 = null;
+						goto IL_008c;
 					}
 					return false;
 				case 2:
 					{
 						<>1__state = -1;
-						goto IL_008b;
+						goto IL_00b6;
 					}
-					IL_008b:
-					outputs.Add(<next>5__2.Result);
-					meter.Left();
-					<next>5__2 = null;
-					goto IL_0022;
+					IL_008c:
+					if (writeDelayMs > 0)
+					{
+						<>2__current = Futures.Delay(writeDelayMs);
+						<>1__state = 2;
+						return true;
+					}
+					goto IL_00b6;
 					IL_0022:
-					<next>5__2 = behind.TakeAsync();
-					<>2__current = Futures.Observe(<next>5__2);
-					<>1__state = 1;
-					return true;
+					if (!behind.TryTake(out <x>5__2))
+					{
+						<next>5__3 = behind.TakeAsync();
+						<>2__current = Futures.Observe(<next>5__3);
+						<>1__state = 1;
+						return true;
+					}
+					goto IL_008c;
+					IL_00b6:
+					outputs.Add(<x>5__2);
+					meter.Left();
+					goto IL_0022;
 				}
 			}
 

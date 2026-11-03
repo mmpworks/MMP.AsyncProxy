@@ -35,6 +35,6 @@ pwsh tools/decompile.ps1          # regenerates docs/compiler-output/, needs ils
 
 ## How to read a project
 
-Each project folder has one README with the same eight sections: the job, the thread way, the AsyncProxy way, thread model against async model, the same machine in IL, memory and speed, CUPID and DRY and SOLID, and how to run it. The code is in the training assembly under the project's folder. The decompiled machines are under `docs/compiler-output/training/`.
+Each project folder has one README. Projects 1 to 4 have the same eight sections: the job, the thread way, the AsyncProxy way, thread model against async model, the same machine in IL, memory and speed, CUPID and DRY and SOLID, and how to run it. The code is in the training assembly under the project's folder. The decompiled machines are under `docs/compiler-output/training/`.
 
 The plan, the decisions, and the acceptance list are in `docs/prd-training.md`.
