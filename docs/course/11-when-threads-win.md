@@ -14,9 +14,9 @@ Kevin had a new napkin flat on the table, smoothed with the side of his hand. It
 
 "Good news first," he said. "The serial thread is gone. The pulser thread is gone. I turned both of them into machines like you showed me. The display hasn't frozen once. Dale walked past my desk and said the pump *felt* faster. Dale does not say things like that."
 
-"That's great, bro."
+"That's great, buddy."
 
-"It is great. And then Dale came back an hour later." Kevin tapped the napkin. "The certification people want a new thing. At the end of every day, the station settles. Every sale gets *sealed*. You take the sale and you run it through a hash, SHA-256, three hundred times in a row, so that nobody can cheaply forge a day's log. On a busy station that's twenty thousand sales. And it has to run at midnight, while the pumps are still on, because pumps don't close."
+"It is great. And then Dale came back an hour later." Kevin tapped the napkin. "The certification people want a new thing. At the end of every day, the station settles. Every sale gets *sealed*. You take the sale and you run it through a hash, SHA-256, three hundred times in a row. That gives our example enough CPU work to measure. On a busy station that's twenty thousand sales. And it has to run at midnight, while the pumps are still on, because pumps don't close."
 
 "Okay."
 
@@ -54,7 +54,7 @@ What follows is that table, and then a second one for the thing Dale added after
 
 ## Waiting and working
 
-Every job a program does falls into one of three kinds. Knowing which kind you have is most of the answer.
+These examples separate three needs. A real job can combine them: it may use CPU, wait for a reply, and then update a device on its owner thread.
 
 | The job mostly… | Example from the pump | What it needs |
 |---|---|---|
@@ -89,9 +89,11 @@ public static ulong Seal(SHA256 sha, SaleRecord sale, int rounds)
 }
 ```
 
-**Read it like this.** Start with 32 bytes built from the sale. Hash them. Hash the result. Hash that. Do it `rounds` times and keep the first eight bytes of the last hash as the seal. There is no `await` in it, no wait, no disk. It is a core, busy, until it is done.
+**Walkthrough.** Make a 32-byte array. Copy the sale ID at byte 0 and the amount in cents at byte 4. The remaining bytes start at zero. Each loop pass hashes the entire array and replaces `h` with the result. With `rounds = 300`, that happens 300 times. Return the first eight bytes as a number. The CPU performs each pass; the code has no timer, network call, or other outside wait.
 
-The answer a version returns is the money (total, and per grade) and one checksum made by XOR-ing every record's seal. XOR doesn't care about order, so four threads that finish in any order still agree with one thread. That is what lets the test say "every version gets the same answer as one plain loop."
+Here, "seal" names a test result. Repeated hashing by itself provides no proof of who wrote a sale. This example measures CPU work.
+
+The answer a version returns is the money (total, and per grade) and one checksum made by XOR-ing every record's seal. XOR combines numbers by comparing their bits: a result bit is 1 when the input bits differ. Reordering the inputs gives the same final result, so four threads that finish in any order still agree with one thread. That is what lets the test say "every version gets the same answer as one plain loop."
 
 And while the settlement runs, a **heartbeat** stands in for Kevin's pulser. It has to tick every 20 ms. (The real pulser polls every 50 ms. The bench ticks faster so that lateness is easy to see.) It waits on a timer, not on a thread, which is just what chapter 7 taught, so it needs a worker for a few microseconds per tick. After each tick it records how late the tick was.
 
@@ -110,9 +112,15 @@ for (int t = 0; t < _crew; t++)
 }
 ```
 
-**Read it like this.** Make `_crew` threads. Thread number `me` takes records `me`, `me + crew`, `me + 2 × crew`, and so on, so every thread gets a fair share without any of them touching another's records. Each one keeps its own running totals in `parts[me]`, so no two threads ever write the same variable and no lock is needed. When all the threads are done (the `Join` calls), the totals are merged. By default the crew is **one smaller than the number of cores**, which leaves a core free. And every crew thread has `BelowNormal` priority, which says to the operating system: if anything more urgent wants this core, take it from me.
+**Walkthrough.** Make `_crew` threads. Thread number `me` takes records `me`, `me + crew`, `me + 2 × crew`, and so on, so every thread gets a fair share without any of them touching another's records.
 
-Where did the threads come from? From `new Thread`. Not the pool. Nothing in this version ever touches the pool's job board.
+Each one keeps its own running totals in `parts[me]`, so no two threads ever write the same variable and no lock is needed. When all the threads are done (the `Join` calls), the totals are merged.
+
+For example, with three threads, thread 0 handles records 0, 3, 6; thread 1 handles 1, 4, 7; thread 2 handles 2, 5, 8.
+
+By default the crew is one smaller than the number of cores, with a minimum of one thread. On four cores, three sealing threads leave room for other work. The operating system chooses which core runs each thread. And every crew thread has `BelowNormal` priority, which says to the operating system: if anything more urgent wants this core, take it from me.
+
+Where did the threads come from? From `new Thread`. Not the pool. The sealing work stays off the shared pool. It still shares CPU time with the rest of the program.
 
 ### Version 2: the loop (`async-loop`)
 
@@ -128,9 +136,9 @@ for (int start = 0; start < sales.Length; start += ChunkSize)
 }
 ```
 
-**Read it like this.** Cut the day into chunks of 500. For each chunk, hand the work to the pool (`Futures.Run`), then `yield return` it, which is this library's `await`: park, and get called back when the chunk is done. Then do the next chunk.
+**Walkthrough.** Cut the day into chunks of 500. For each chunk, hand the work to the pool (`Futures.Run`), then `yield return` it, which is this library's `await`: park, and get called back when the chunk is done. Then do the next chunk.
 
-It never holds a thread while it waits. It also never has more than one chunk running, so it never gets more than one core. One chunk, then the next, then the next. The machine gave us nothing here, because there was no waiting to avoid.
+It never holds a thread while it waits. It also never has more than one chunk running, so it never gets more than one core. One chunk, then the next, then the next. The caller can wait without holding a thread, but a pool thread still does each chunk's calculations. Running the chunks one at a time adds no CPU parallelism.
 
 ### Version 3: the fan-out (`async-pool`)
 
@@ -145,7 +153,9 @@ for (int c = 0; c < _chunks; c++)
 yield return Futures.WhenAll(chunks);          // park once; every chunk runs on a borrowed worker
 ```
 
-**Read it like this.** What a person does after finding out that version 2 is slow: cut the day into one chunk per core, pin every chunk to the pool's job board at once, and park until all of them are done. In modern C# this is `Task.Run` in a loop, or `Parallel.For`. It uses every core.
+**Walkthrough.** The loop starts `_chunks` pool jobs before it waits for any result. Each job processes a different set of sales. Then `WhenAll(chunks)` returns a future that completes after every job finishes.
+
+The previous version waited for chunk 1 before starting chunk 2. This version lets chunks run at the same time on several cores. Modern C# can schedule similar work with `Task.Run` or `Parallel.For`.
 
 ### The numbers
 
@@ -191,12 +201,12 @@ sequenceDiagram
 
 1. The heartbeat asks the shared timer to wake it in 20 ms, and then holds no thread. Nothing is wrong yet.
 2. The pool's four workers are all busy sealing sales. This is not the parked-car problem from chapter 6. Nobody is waiting. They are working as hard as they can.
-3. The timer goes off on time and pins a ticket on the job board: "run the heartbeat's next step."
+3. When the timer becomes due, its callback needs pool time. The diagram shows that wait as a ticket on the board. The elapsed-time measurement does not tell us the exact instant that ticket was queued.
 4. There is no free worker to take it. The ticket sits on the board while the workers finish what they are doing.
 5. The workers finish a chunk, and one of them takes the next ticket. That ticket is the heartbeat's.
 6. The heartbeat runs, 885 ms later than it should have, and records the lateness.
 
-**Why it matters:** the pool is shared. When you fill it with long CPU work, you fill it for everyone. The timer buzzes on time and no one answers the pager. Both this and the parked-car problem end the same way, with tickets waiting for a free worker. The difference is why the workers are busy. There, they were parked. Here, they are working.
+The pool is shared. Long CPU jobs can occupy workers that timer callbacks also need. Those callbacks may wait for a free worker. Sleeping jobs and CPU jobs can both delay queued work, though they occupy their workers for different reasons.
 
 ```mermaid
 gantt
@@ -221,20 +231,20 @@ gantt
 1. The top block is `async-pool`. All four cores are sealing for about 1,030 ms, so the job finishes first.
 2. The red bar is the heartbeat. It was due at 20 ms but had no worker until about 905 ms.
 3. The bottom block is `threaded`. Three cores run the crew for about 1,360 ms, which is longer.
-4. The fourth core has nothing on it for the whole run. That is the room the pool's timer needed. The heartbeat finds a worker at once.
-5. So `async-pool` finishes about a quarter sooner, and `threaded` is the only one that keeps the pulser on time.
+4. The diagram leaves one row open to show spare CPU capacity. The threads are not pinned to specific cores. The measured 3 ms delay shows better response in this run; the diagram is a teaching sketch, rather than a trace of core assignments.
+5. So `async-pool` finishes about a quarter sooner, and `threaded` has the smaller worst heartbeat delay in these runs.
 
-**Why it matters:** speed isn't the only number. A plan that uses every core is fast for itself and slow for everything that shares the machine.
+Compare both elapsed time and heartbeat delay. This run finished sooner with pool fan-out, while the dedicated crew gave the heartbeat more CPU time.
 
 ### What if you only have one core?
 
 Kevin's board has one ARM core, and this is the part that surprised him. A crew of `max(1, cores - 1)` is a crew of one thread. It cannot leave a core free, because there is no second core. So what keeps the pulser on time?
 
-**Priority.** The settlement thread runs at `BelowNormal`. The pulser's pool worker runs at the normal level. Windows CE keeps the highest-priority ready thread running, and the moment the timer fires and the pulser's worker is ready, the settlement thread is pushed aside. The pulser takes a few microseconds, gets off the core, and the settlement thread picks up where it stopped.
+**Priority can help.** The crew requests `BelowNormal` priority. On systems that honor that request, a higher-priority ready thread can interrupt the settlement work. This gives the pulser a chance to run sooner. The exact delay depends on the operating system, driver, and other running work. A Windows CE device needs its own timing test and priority setup.
 
-A pool job has no such knob. Every ticket on the job board is equal. You cannot pin a ticket that says "I am less important." The pool has no way to say that, and a thread has it built in.
+`Futures.Run` provides no priority argument for one queued job. A dedicated thread exposes `Thread.Priority`, so the program can request a lower priority for settlement work.
 
-One honest note about the measurement. The container here is Linux, which mostly ignores `ThreadPriority` for normal programs, so the numbers above come from leaving a core free, not from priority. The priority part is what the Windows CE argument depends on. It is not measured here.
+The measurement has a limit. The container here is Linux, which mostly ignores `ThreadPriority` for normal programs, so the numbers above come from leaving a core free, not from priority. These runs provide no Windows CE priority measurement.
 
 ## Case 2: the thread that owns the printer
 
@@ -265,7 +275,7 @@ public void PrintLine(string line)
 }
 ```
 
-**Read it like this.** `Open` writes down which thread called it. `PrintLine` checks: is the caller that same thread? If not, count a rejection and throw. A real driver might not throw. It might quietly scribble over its own memory. This one tells you.
+**Walkthrough.** `Open` writes down which thread called it. `PrintLine` checks: is the caller that same thread? If not, count a rejection and throw. A real driver might not throw. It might quietly scribble over its own memory. This one tells you.
 
 A receipt job prints some receipts, and after each one the paper has to advance, which takes `feedMs`. The paper feed is a wait. Remember that the chapters before this one are about waits.
 
@@ -286,7 +296,7 @@ _owner.Invoke(delegate
 });
 ```
 
-**Read it like this.** The whole job is one block, run on the owner thread. After each line, the owner thread sleeps while the paper advances. For all that time, it is the only thread that can touch the printer, and it is asleep. A second job has to stand in line until the first one is completely done.
+**Walkthrough.** The whole job is one block, run on the owner thread. After each line, the owner thread sleeps while the paper advances. For all that time, it is the only thread that can touch the printer, and it is asleep. A second job has to stand in line until the first one is completely done.
 
 ### Version 2: the mistake (`async-naive`)
 
@@ -300,7 +310,7 @@ printed++;
 yield return Futures.Delay(feedMs);
 ```
 
-**Read it like this.** The printer was opened on the owner thread. This machine did not start there, and it never goes back there. The first `PrintLine` comes from the caller's thread. After the first `yield return`, the machine resumes on a pool thread, and so does every line after it. Every one of them is on the wrong thread.
+**Walkthrough.** The printer was opened on the owner thread. This machine did not start there, and it never goes back there. The first `PrintLine` comes from the caller's thread. After the first `yield return`, the machine resumes on a pool thread, and so does every line after it. Every one of them is on the wrong thread.
 
 ### Version 3: post back to the owner (`async-postback`)
 
@@ -325,9 +335,9 @@ private IEnumerable<IFuture> Body(string[] receipts, int feedMs, Return<PrintRep
 }
 ```
 
-**Read it like this.** The machine is *started* on the owner thread, inside the `Invoke`. That matters because of chapter 5. When the machine parks at the `yield return`, the awaiter captures the `SynchronizationContext` that is current: the `OwnerThread` is one. When the timer fires, the library does not run the next step on whichever pool thread is free. It **posts** it back to the owner thread's line. The owner thread picks it up and calls `PrintLine`, on the right thread. (The Compact Framework has no `SynchronizationContext`. There the library's `IPostTarget` plays the same part: a thread registers itself once, and the awaiter posts back to it.)
+**Walkthrough.** The machine is *started* on the owner thread, inside the `Invoke`. That matters because of chapter 5. When the machine parks at the `yield return`, the awaiter captures the `SynchronizationContext` that is current: the `OwnerThread` installs one for its queue. When the timer fires, the library does not run the next step on whichever pool thread is free. It **posts** it back to the owner thread's line. The owner thread picks it up and calls `PrintLine`, on the right thread. (The Compact Framework has no `SynchronizationContext`. There the library's `IPostTarget` plays the same part: a thread registers itself once, and the awaiter posts back to it.)
 
-And while the machine waits for the timer, the owner thread is not asleep. It is back at its line, free to print a receipt for some other job.
+While the machine waits for the timer, the owner thread can take another queued job. This fake printer allows jobs to overlap their feed delays. A real printer may need each receipt to stay together, or may reject calls while paper moves. Those device rules must also be enforced.
 
 ```mermaid
 flowchart LR
@@ -368,7 +378,7 @@ async-naive             203        0         40              13
 2. **`async-postback`** printed all 40 lines, correctly, on one thread, in 215 ms, which is about one job's time. The eight jobs overlapped their waits on the owner thread.
 3. **`async-naive`** finished in 203 ms and printed **nothing**. The driver refused all 40 calls, and 13 different threads tried. It was the fastest, and it did not work.
 
-This one is a case where async wins, but only if it keeps the thread rule. That is the point of the case. **The wrong async is worse than threads. It's broken.** A plain thread has one advantage over async here: it can't forget which thread it is on.
+The postback version preserves the driver's thread rule while overlapping the fake feed waits. The naive version breaks that rule. Elapsed time is useful only after the printed and rejected counts show that the job worked.
 
 A note on how this bench got fixed. The first draft of the printer bench ran its eight callers with `Task.Run`, and `async-postback` took 4,558 ms. Each caller blocked waiting for its job, so each one parked a pool worker, and the timers the machine needs to wake up queued behind them. That is the parked-car problem from chapter 6, in the bench that was written to *show* a different point. The fix was to give each caller a thread of its own (`TaskCreationOptions.LongRunning`). The lesson is the same one: blocking jobs belong on their own threads, not on the shared board.
 
@@ -399,30 +409,30 @@ flowchart TD
 2. If it is mostly waiting for something else, use async. That is chapters 1 to 10.
 3. If it is mostly burning CPU, ask a second question: does anything else in the program need to stay on time?
 4. If yes, give the work threads of its own, one fewer than the cores if you can, at a lower priority, and keep it off the pool. That is the crew.
-5. If nothing else cares, a pool fan-out is fine and it is the fastest way to use every core.
+5. Pool fan-out can run independent jobs on several cores. Limit the number of jobs to suit the workload.
 6. If the job is tied to one thread, make that thread the owner, and let async methods post back to it.
 7. If the only API you have blocks, give that call its own thread.
 
-**Why it matters:** async is a tool for one kind of job. The rest of the program is full of the other kinds, and picking the wrong tool is how you get a pump that pours late.
+Check all three needs before following the diagram's waiting branch. A printer can both wait and require one owner thread. A blocking API can perform network I/O while still holding its calling thread. Choose a worker arrangement that meets each need.
 
 ## What to take from it
 
 1. **Async and threads solve different problems.** Async stops a *wait* from holding a thread. It cannot make CPU work go faster, and it cannot remove a thread that a device needs.
 2. **The pool is shared.** Long CPU work on it makes every other ticket wait, and so do blocking calls. Both end with tickets on the board and no one free to take them.
-3. **A thread is the way to say how many cores, and how important.** A pool job can't say either.
+3. **Dedicated threads let you set a crew size and request priorities.** The operating system still chooses core assignments and scheduling. You can also limit the number of jobs submitted to a pool.
 4. **Wrong-thread async fails loudly if you are lucky.** The printer driver here threw an exception. A real one might not.
 
 ## Words you just met
 
-| Term | Plain meaning | The picture |
+| Term | Plain meaning | Example or comparison |
 |---|---|---|
 | **CPU-bound** | Speed is set by the CPU, not by waiting on anything | Chopping onions: more cooks, not more waiters |
-| **Core** | One worker inside the CPU; it runs one thread at a time | One cook at one cutting board |
+| **Core** | A part of the CPU that runs instructions; hardware threading can let it share execution resources between threads | One cook at one cutting board |
 | **Dedicated thread** | A thread you make and own for a job, not borrowed from the pool | A cook hired just for this job |
 | **Priority / preempt** | A number that says who goes first; a higher one pushes a lower one aside | The head cook can pull a helper off a task |
 | **Busy crew** | The pool's workers are all working, so new tickets wait | Every cook is chopping; the pager buzzes and no one answers |
-| **Thread affinity** | A device or object that only one thread may touch | A key that only fits one hand |
-| **Owner thread** | The one thread that holds such a device and does nothing else | The one person with the key |
+| **Thread affinity** | Calls for an object must run on a particular thread | The printer checks the calling thread's ID |
+| **Owner thread** | The thread assigned to run calls for an object | It can run other queued work between printer calls |
 | **Post back** | Hand the rest of a method to the owner thread instead of running it anywhere | "Send the rest of this order back to counter 3" |
 
 ## Try it

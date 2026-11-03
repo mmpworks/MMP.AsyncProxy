@@ -10,19 +10,19 @@ Kevin was on napkin number four. Napkin one was the four threads. Number two was
 
 "Okay," Kevin said. "I get the pickup window. The promise fills, and the window buzzes the next guy. Fine. But the next guy is the middle of a method. My pulser loop is a `while` with a sleep in it. If the thread leaves at the sleep, the loop's gone. The ceiling's gone. It's a local."
 
-"That's the right question, bro. That's the whole chapter."
+"We have to save the local before the thread leaves, buddy."
 
-"The thread walks off. The local was on the thread's stack. The stack goes with it."
+"The method returns. What happens to the locals on its stack?"
 
 "Right. You know what a stack is, in plain words?"
 
 "It's where the locals live. While the method runs."
 
-"It's your hands," Steve said. He held both of his up, a wing in one of them. "Whatever you're holding right now is on the stack. The ceiling, the pulser, where you are in the loop. You're holding it. The second you leave the room, your hands are empty. The method is over, as far as the stack knows. So here's what the C# 5 compiler does. Before the thread leaves, it takes everything out of your hands and puts it in a labeled box and sets the box on a shelf."
+"When a method call returns, its stack space can be reused," Steve said. He set his wing down. "So anything needed after the wait must be saved elsewhere. The compiler makes an object with fields for those values and a number for the next step."
 
-"A box."
+"An object?"
 
-"An object. On the heap. The heap is the shelf. It stays there as long as somebody has a reference to it, even after the thread's gone." Steve licked sauce off his thumb. "So the parameters go in the box. Every local that has to live past the wait goes in the box. And one more thing goes in: a note that says where you were. An `int`. Step one, step two. A bookmark."
+"An object on the heap. It stays available while something holds a reference to it, even after the original method call returns." Steve licked sauce off his thumb. "So the parameters go in the box. Every local that has to live past the wait goes in the box. And one more thing goes in: a note that says where you were. An `int`. Step one, step two. A bookmark."
 
 "A bookmark in what?"
 
@@ -34,7 +34,7 @@ Kevin was on napkin number four. Napkin one was the four threads. Number two was
 
 Kevin grabbed the napkin and pulled the pen out of his shirt pocket. "That sounds awful to write."
 
-"It's awful to write. I wrote one so you can see it. Sixty lines for a method that's four lines with `await`. You're never going to write one by hand, and neither am I. Chapter 7 is the cheat. But if you don't see one of these once, bro, the cheat is magic. And I don't ship magic to a pump."
+"It's awful to write. I wrote one so you can see it. Sixty lines for a method that's four lines with `await`. You're never going to write one by hand, and neither am I. Chapter 7 is the cheat. But if you don't see one of these once, buddy, the cheat is magic. And I don't ship magic to a pump."
 
 "Dale would have a stroke if I told him it was magic."
 
@@ -44,21 +44,21 @@ Kevin drew a box. He wrote three things in it: `ceiling`, `pulser`, `state`. He 
 
 "So my pulser loop turns into this. A little box with three things in it. And somebody calls `MoveNext` on it every fifty milliseconds."
 
-"The timer does. And between calls, the box sits on the shelf. Forty bytes or so. Nobody's standing near it. No thread, nothing running."
+"The delay's callback does. Between calls, the box sits on the shelf. Its size depends on the fields we save. The method keeps that box while the thread does other work."
 
-"Forty bytes."
+"Just the box."
 
-"Versus a 64K stack, a kernel object, and a line on the manager's roll-call sheet. Yeah."
+"Versus a 64K stack, a kernel object, and the work of waking that thread. Yeah."
 
 "I'm not gonna lie," Kevin said, "that's a good trade."
 
 "It's the best trade in the building." Steve slid the sauce cup out of the way. "Okay. Open the sample. We're going to read the box together, line by line."
 
-This is the chapter. If you only read one, read this one with `samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs` open beside it.
+Open `samples/MMP.AsyncProxy.Samples/AddAfterDelay.cs` beside this chapter. It contains the hand-written state machine we will follow.
 
 ## The method we want
 
-Here is a small `async` method. It is the one we will take apart.
+This is the method we want to express. It shows the idea using `async` and `await`, which Kevin's C# 3 compiler cannot compile. The hand-written class below performs these steps without those keywords.
 
 ```csharp
 async IFuture<int> AddAfterDelayAsync(int a, int b)
@@ -70,13 +70,15 @@ async IFuture<int> AddAfterDelayAsync(int a, int b)
 }
 ```
 
-**Read it like this.** Wait ten milliseconds. Add `a` and `b` and remember the answer. Wait ten milliseconds again. Hand back double the answer. There are two `await` lines. One variable (`sum`) has to survive across the second wait. One `return`. That is small enough to hold in your head, so we can see the whole trick.
+**Read it like this.** With `a = 3` and `b = 4`, wait at least ten milliseconds, then compute `sum = 7`. Wait again, then return `14`. The method must save `a` and `b` through the first wait, and `sum` through the second. In the hand-written version, `DelayMs` sets both waits; use `10` to match this example. The source file also rejects a negative `a` after the first wait; the excerpts here leave out that check.
 
 ## The problem the compiler solves
 
-When a method hits `await` and the thing it is waiting for is not ready, the method has to **return**. That is the point of `await`: give the thread back so it can do something else. But returning destroys the **stack frame**. A stack frame is the method's private workspace: its parameters, its locals, and "I was on line 4". It lives on the thread's stack, which is your hands in the story above. When the method returns, the frame is gone, and `a`, `b`, `sum`, and the bookmark go with it.
+When an awaited operation is pending, this method saves its next step, registers a callback, and returns. The caller's thread can then do other work.
 
-So the compiler moves everything that has to survive off the stack and into a **heap object**. The heap is a big shared area of memory where objects live until nothing refers to them anymore. An object there stays put after the thread leaves. The compiler's move has a name: it **hoists** the variables. To hoist a variable is to lift it out of the method's workspace and make it a field on the box.
+A **stack frame** is the space a method call uses on a thread's stack. It tracks that call and its local data. Returning releases the frame. To continue later, the method needs to save its data somewhere that outlives this call.
+
+Our state machine saves that data in an object on the **heap**, the memory area used for objects. The object remains available while the callback holds a reference to it. Saving a local as a field is called **hoisting**. For example, the local `sum` becomes the field `_sum`.
 
 - Parameters become fields.
 - Locals that cross an `await` become fields.
@@ -90,7 +92,7 @@ The box has a name: the **state machine**. It is a machine because it moves from
 ```mermaid
 flowchart LR
     subgraph T1["1. Running on the test thread"]
-        S1["Thread stack (your hands)<br/>a = 3, b = 4<br/>on line 1 of the method"]
+        S1["Thread stack (active calls)<br/>a = 3, b = 4<br/>on line 1 of the method"]
     end
     subgraph T2["2. Parked, no thread inside"]
         H2["Heap box (the shelf)<br/>A = 3, B = 4<br/>State = 0<br/>_awaiter = the 10 ms delay"]
@@ -106,15 +108,14 @@ flowchart LR
 
 **In words:**
 
-1. The method starts on the caller's thread. `a` and `b` are on that thread's stack, which is your hands. It runs down to the first `await`.
+1. `RunAsync` starts on the caller's thread. It copies `a` and `b` into the machine's fields before calling `MoveNext`. The drawing shows the general save-and-resume idea; our hand-written class creates its saved fields at the start.
 2. The delay is not done yet, so the method has to leave. Before it does, everything it needs is already sitting in fields on the heap box: `A`, `B`, and the delay's awaiter. `State` is set to 0, the bookmark that says "I am parked at the first `await`".
-3. The method returns. The thread's stack frame is gone. The box stays on the heap. At this moment no thread is inside the method. Nothing is running and nothing is blocked.
-4. Ten milliseconds later a timer fires. A pool thread (one of the crew's worker threads from the shared thread pool) calls `MoveNext` on the box. This is a different thread, with its own empty stack.
+3. `MoveNext` returns while the delay is pending. Its stack frame is released, and the machine stays on the heap. Other code can run on the thread during this wait.
+4. Once the delay is due, a pool thread calls `MoveNext` again in this console example. The thread has its own active calls on its stack. It may be a different thread from the first call. A display context can change where resumption runs; chapter 5 covers that.
 5. `MoveNext` reads `State`, sees 0, and jumps to the line after the first `await`. It finds `A` and `B` in the box, right where it left them.
 
-**Why it matters:** the stack is where the variables live while a thread is inside the method. The heap box is where they live while no thread is. The state machine is the trick that moves them from one place to the other and back.
 
-## The shape
+## The saved fields
 
 Here is the box. It is a class with fields. This one is hand-written, the way the compiler would write it.
 
@@ -142,7 +143,7 @@ public static IFuture<int> RunAsync(int a, int b, int delayMs)
 }
 ```
 
-**Read it like this.** Line one builds the box and sets `State = -1`, "running". Line two asks the builder to make the future, the pickup window. Line three calls `MoveNext` once, right now, on the caller's thread. Line four hands the caller the window. If the method had to park, the caller gets a window that is still empty and can go do other things. We will meet the builder properly in chapter 4.
+**Read it like this.** `RunAsync(3, 4, 10)` creates a machine with `A = 3`, `B = 4`, and `DelayMs = 10`. It sets `State = -1` for the first entry. The builder creates the future that will hold the final result. `Start` calls `MoveNext` on the caller's thread. After that call returns, `RunAsync` hands back the future, which may still be pending. Chapter 4 explains the builder.
 
 ## MoveNext, one await at a time
 
@@ -172,7 +173,6 @@ flowchart TD
 5. After the first wait finishes, the method computes `_sum = A + B`, then does the same dance for the second delay: either park again with `State = 1`, or fall through.
 6. After the second wait finishes, it computes `sum * 2`, sets `State = -2`, and hands the answer to the builder, which fills the pickup window.
 
-**Why it matters:** there is only one method, and it can be entered at three different places. The `switch` at the top is how it picks the right one.
 
 Now the same thing as code, one piece at a time.
 
@@ -208,16 +208,14 @@ public void MoveNext()
 
 **Read it like this.**
 
-1. `Futures.Delay(DelayMs)` starts a ten-millisecond timer and gives back a future. `.GetAwaiter()` asks that future for its awaiter, which is the thing that can say "am I done?".
+1. `Futures.Delay(DelayMs)` schedules a delay and returns a future. With `DelayMs = 10`, it becomes due after ten milliseconds; scheduling may make the callback run later. `GetAwaiter()` returns a helper that can check completion and register the next step.
 2. `if (!awaiter.IsCompleted)`: is the delay still running? If so, we have to park.
 3. `State = 0` writes the bookmark. `_awaiter = awaiter` writes on the sticky note what we are waiting for.
 4. `Builder.AwaitOnCompleted(...)` says "when this awaiter finishes, call `MoveNext` on me". It is the pager: leave your number, we will buzz you.
-5. `return` is the thread walking away. The method is still "running" in the sense that the box exists on the heap with `State = 0`. But no thread is inside it. Nothing is blocked.
+5. `return` ends this call to `MoveNext`. The operation remains pending with `State = 0`. The saved fields and callback keep the machine ready to resume. This delay holds no thread blocked.
 6. `Resume0:` is the label we jump to when we come back. `awaiter.GetResult()` reads the answer. For a delay there is no answer, but if the delay had failed, this is the line that would throw.
 
-Read that `return` slowly. That is the thread walking away.
-
-Ten milliseconds later a timer fires. A pool thread calls `MoveNext()`. `State` is 0, so we jump to `Resume0`, call `GetResult()` on the awaiter we stashed, and carry on with the next line of the original method as if nothing happened.
+When the first delay completes, the callback calls `MoveNext()` again. `State` is `0`, so the switch restores the saved awaiter and jumps to `Resume0`. `GetResult()` checks whether the delay succeeded. Then the machine can compute the sum.
 
 ```csharp
         _sum = A + B;
@@ -233,7 +231,7 @@ Ten milliseconds later a timer fires. A pool thread calls `MoveNext()`. `State` 
 
 **Read it like this.** `_sum = A + B` is the line `int sum = a + b;` from the original method. It writes into a field instead of a local. The second delay is the same park-and-resume dance with `State = 1` and the label `Resume1`. After it, `result = _sum * 2` is the original `return sum * 2;`.
 
-Same dance for the second await. `sum` went into `_sum` because the thread that computed it and the thread that reads it may be different threads with different stacks. A local on one thread's stack is invisible to the other thread. A field on the shared box is visible to both.
+With `A = 3` and `B = 4`, `_sum` now holds `7`. The second wait saves `State = 1`. On the next call, the switch jumps to `Resume1`, and the saved `_sum` produces `14`. A field is needed even if the same thread resumes: the earlier call's local workspace was released when it returned.
 
 ## The two exits
 
@@ -251,13 +249,13 @@ Same dance for the second await. `sum` went into `_sum` because the thread that 
 
 **Read it like this.** There are two ways out. If anything above threw, we land in `catch`, set `State = -2` ("finished"), and put the exception in the pickup window with `SetException`. If everything went fine, we set `State = -2` and put the answer in the window with `SetResult`. Either way the future gets completed, and whoever is holding it finds out.
 
-Nothing escapes `MoveNext`. A throw anywhere in the body, in any state, lands in the `catch` and becomes the future's fault. The caller sees it when they call `GetResult` on their own awaiter. That is why an exception thrown inside an `async` method shows up at the `await` in the caller and not at the call.
+The `try` covers the method's work across both resume points. If that work throws, `catch` stores the error in the result future. The caller then receives that error when it reads the completed future through `GetResult`. This describes errors in the method body; errors from setup or user completion callbacks are separate.
 
 ## The fast path
 
 Look at `if (!awaiter.IsCompleted)` again. When the awaited thing is already done, we skip the whole park-and-return and fall straight through to `Resume0` on the same thread. No pager, no thread hop. Think of ordering a coffee that is already sitting on the counter: you grab it, you do not take a number.
 
-An `async` method that never hits a pending `await` runs fully synchronously, start to finish, on the caller's thread. That is why `await Task.FromResult(x)` costs almost nothing. It is also why a delay of zero milliseconds completes before `MoveNext` even returns.
+If each awaited operation is already complete, this method runs to the end on the caller's thread. With `DelayMs = 0`, both delays are complete when checked, so `RunAsync(3, 4, 0)` returns a future already holding `14`.
 
 ## State diagram
 
@@ -282,25 +280,24 @@ stateDiagram-v2
 5. The same happens at the second `await`, with **Parked1** and `State = 1`.
 6. When the method finishes, or throws, the machine goes to **Done**. `State = -2`, and the future is completed.
 
-**Why it matters:** the machine is either Running (a thread is inside) or Parked (no thread at all), and the arrows between them are the only ways it can change. There is no state where it is "waiting on a thread".
 
 ## What the real compiler does differently
 
-Three things, and none of them change the idea.
+The compiler uses the same save-and-resume approach, with these differences.
 
 1. It makes the machine a **`struct`** in Release, to avoid an allocation when the method completes synchronously. (A `struct` lives inside whatever holds it. A `class`, like ours, gets its own box on the heap.) On the first real suspend it boxes the struct, and `SetStateMachine` is how the builder learns which box to call back. Ours is a class, so `SetStateMachine` is empty. Toub discusses the trade at 63:11.
 2. It generates ugly names: `<>1__state`, `<>t__builder`, `<a>5__1`. Decompile any async method with ilspycmd and you will see the same fields with worse names. The number the compiler adds to a name just keeps names from colliding.
 3. It handles `await` inside `try`/`finally`, inside loops, inside `using`. The transform is the same; the goto targets get more interesting.
 
-Decompile one and diff it against our sample. The shapes line up field for field. That is the whole claim of this repo.
+To compare the two, decompile a small `async` method and find its state field, saved locals, builder, and `MoveNext`. The exact fields and generated names depend on the compiler and the method.
 
 ## Words you just met
 
-| Term | Plain meaning | The picture |
+| Term | Plain meaning | Example or comparison |
 |------|---------------|-------------|
-| **stack** | The thread's private workspace for a running method: parameters, locals, where it is. Gone when the method returns. | Your hands |
+| **stack** | Memory used by active method calls and their local data. A returning call releases its part of the stack. | The thread reuses that space for later calls |
 | **heap** | Shared memory where objects stay until nothing refers to them. | The shelf |
-| **hoist** | Lift a variable off the stack and make it a field on a heap object. | Moving what's in your hands into a labeled box |
+| **hoist** | Store a local variable as a field so it survives a returning call. | The local `sum` becomes the field `_sum` |
 | **state machine** | The heap object the compiler builds from an `async` method. It holds the hoisted variables and a `MoveNext`. | A recipe with a bookmark and a sticky note |
 | **`State`** | An `int` field that records which step the method is parked at. `-1` running, `-2` done, `0` and up parked. | The bookmark |
 | **`MoveNext`** | The one method on the box. It reads `State`, jumps to the right line, and runs to the next pause. | "Open the book at the bookmark and do the next piece" |

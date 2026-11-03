@@ -12,11 +12,11 @@ Kevin was on napkin number six. He had stopped drawing boxes and started drawing
 
 "No. Plain static, with a lock."
 
-"Then you're fine. One static, and the lock is doing its job." Steve took a fry. "Picture a whiteboard in the break room. Everybody in the building can walk up and read it. The lock is one marker on a string. Only the person holding the marker can write. That's a plain static with a lock. It doesn't care who you are or what desk you sit at."
+"One static means one shared value," Steve said, taking a fry. "The lock makes threads take turns in the protected code. Every read and write that needs that protection must use the same lock. Changing threads does not change which static value you read."
 
 "Okay."
 
-"The one that bites is `[ThreadStatic]`. That's not a whiteboard. That's a sticky note taped to your own desk. Only you see it. Only that desk has it. People love it because it's a cheap per-request bag: the request starts, you tape the tenant name to your desk, and everything you call can read it. No arguments to pass. It's great, right up until the job leaves your desk."
+"With `[ThreadStatic]`, each thread has its own copy of the value. Picture a sticky note taped to each thread's desk. Only you see it. Only that desk has it. People love it because it's a cheap per-request bag: the request starts, you tape the tenant name to your desk, and everything you call can read it. No arguments to pass. It's great, right up until the job leaves your desk."
 
 Kevin stopped with a fry halfway to his mouth. "Leaves."
 
@@ -24,7 +24,7 @@ Kevin stopped with a fry halfway to his mouth. "Leaves."
 
 "We don't do that."
 
-"You don't do that *yet*." Steve said it gently. "The guy before you didn't have pool threads to tempt him. Here's the rule, and it's older than `await`: once your code can wake up on any thread, anything tied to a thread is a bug. No exceptions, no 'but it works on my desk'."
+"You don't do that *yet*." Steve said it gently. "The guy before you didn't have pool threads to tempt him. Here's the rule, and it's older than `await`: once your code can wake up on another thread, job data stored on the old thread can be missing or wrong."
 
 "So how do I carry it?"
 
@@ -32,7 +32,7 @@ Kevin stopped with a fry halfway to his mouth. "Leaves."
 
 "Does CE have the backpack?"
 
-Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pulled the 3.5 assemblies and looked. So on your box, the backpack is off the table, and you do the first fix. Which is the better fix anyway, bro. A value you can see in the argument list is a value you can't forget about."
+Steve shook his head. "Compact Framework doesn't ship `ExecutionContext`. I pulled the 3.5 assemblies and looked. So on your box, the backpack is off the table, and you do the first fix. Which is the better fix anyway, buddy. A value you can see in the argument list is a value you can't forget about."
 
 "And the display thread? That's the one thread I'm keeping. It owns the LCD."
 
@@ -58,7 +58,7 @@ Say a web request sets a tenant id in a **thread-static** before it starts work.
 [ThreadStatic] static string CurrentTenant;
 ```
 
-Then the request awaits something, and the continuation runs on pool thread 7. (A pool thread is one of the crew's worker threads from the shared thread pool.) Thread 7's `CurrentTenant` is whatever the last request that used thread 7 left there. You are now reading another customer's account number. Toub shows this bug live at 15:55.
+Then the request awaits something, and the continuation runs on pool thread 7. (A pool thread is one of the crew's worker threads from the shared thread pool.) Thread 7 reads its own `CurrentTenant`. That value may be empty, or a previous request may have left another tenant's name there. The continuation can therefore select the wrong customer's data. Toub shows this bug live at 15:55.
 
 Here is that story as a sketch. It is not in the repo. It only shows the mistake:
 
@@ -75,11 +75,11 @@ async IFuture<string> Handle(string tenant)
 
 **Read it like this.** The first line tapes the customer's name to the desk the job is sitting at. `await` makes the job leave that desk, and the desk gets reused. When the job comes back, it may sit at a different desk, and the last line reads whatever note is taped there. It might be empty. It might be someone else's.
 
-Thread-static is the wrong tool once the thread is not yours.
+Keep per-request data with the request when work can move between threads.
 
 ## ExecutionContext: the bag that travels
 
-.NET has had the fix since 2.0. **`ExecutionContext`** is a bag of ambient state, things like the current tenant, the culture, and security information that code reads without being handed them as arguments. The bag is **captured** (photographed and packed) as an object and **restored** (unpacked) later, on any thread. `CallContext.LogicalSetData` writes into it. Security context and culture ride in it too. In .NET 4.6 `AsyncLocal<T>` is the friendly front door; in 3.5 you use `CallContext` directly.
+**`ExecutionContext`** carries supported ambient data across a thread change. Ambient data is information code can read without receiving it as an argument. On desktop .NET 3.5, `CallContext.LogicalSetData` stores logical call data, such as a tenant name. The builder captures that data before suspension and restores it when the method resumes. Newer .NET versions also offer `AsyncLocal<T>`. The details of which other values flow, including culture, depend on the runtime version.
 
 The builder does the carrying:
 
@@ -105,11 +105,11 @@ public void AwaitOnCompleted<TAwaiter, TStateMachine>(ref TAwaiter awaiter, ref 
 1. `ExecutionContext.Capture()` packs the backpack. It runs right here, at the `await`, on the thread that is about to leave. Whatever the code set with `CallContext.LogicalSetData` is in the bag now.
 2. `awaiter.OnCompleted(delegate { ... })` is the pager from chapter 4. We hand over a piece of code to run when the thing finishes.
 3. If `Capture()` gives back `null`, the code that set things up turned flow off (`ExecutionContext.SuppressFlow()`), so there is no backpack to carry and the continuation is just `MoveNext`. (On the Compact Framework build this whole method is that one line, `awaiter.OnCompleted(machine.MoveNext)`, because that platform has no `ExecutionContext` at all.)
-4. Inside the other branch's code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. So the method wakes up with its bag in its hands.
+4. Inside the other branch's code, `ExecutionContext.Run(captured, ...)` unpacks the backpack on whatever thread is running it, and only then calls `machine.MoveNext()`. The resumed method can then read the captured values.
 
 Capture at the await. Restore right before `MoveNext`. Whatever thread runs the continuation, the method sees the same logical values it saw before it suspended. The test `ExecutionContext_flows_across_the_await` proves it: set a value, await a timer, read it back on the pool thread, same value.
 
-Toub spends 13:44 to 20:27 on this and it is worth the time. The key sentence: ExecutionContext is captured at queue time and restored at run time, which is why the data follows the work and never the thread.
+Toub covers context capture and restore from 13:44 to 20:27. In this library, the builder captures context when it registers the continuation. It restores that context when the continuation runs.
 
 ## The backpack, as a timeline
 
@@ -144,13 +144,12 @@ sequenceDiagram
 6. Before touching the machine, thread B calls `ExecutionContext.Run(captured)`, which unpacks the backpack.
 7. Now `MoveNext` runs, reads the tenant, and sees `acme`. The data followed the job, not the thread.
 
-**Why it matters:** the backpack is packed once, at the pause, and unpacked once, at the restart. Between those two moments nobody cares which thread or which desk is involved.
 
 ## SynchronizationContext: the thread that matters
 
 There is one case where you do want to go back to a specific thread. UI frameworks. WinForms and WPF have one thread that owns the controls, and touching a control from any other thread throws.
 
-That thread has a **`SynchronizationContext.Current`**. A synchronization context is an object that knows how to run a piece of code on one particular thread. Its **`Post`** method says "run this on my thread, when you get to it." Our awaiter captures it:
+That thread has a **`SynchronizationContext.Current`**. A synchronization context decides where posted code runs. A UI context sends it to the UI thread. Its **`Post`** method says "run this on my thread, when you get to it." Our awaiter captures it:
 
 ```csharp
 public void OnCompleted(Action continuation)
@@ -175,9 +174,9 @@ public void OnCompleted(Action continuation)
 
 1. The first block (not compiled on the Compact Framework) looks at the current thread's synchronization context: "is there a sign saying return to counter three?" It only looks if `_continueOnCapturedContext` is true. If the flag is false, it uses `null`, which means "no sign".
 2. If there is a sign, register a continuation that, instead of running the code, calls `context.Post(...)`. That drops the code in counter three's in-tray. The one thread that owns the screen runs it when it gets to it. Then stop.
-3. If there is no `SynchronizationContext`, the awaiter asks for a **post target** (`IPostTarget`), which is the same idea without the .NET class. It is a registry the thread filled in earlier, and it is described just below. If there is none of those either, register the continuation as-is. Whoever finishes the work will run it, on their own thread.
+3. If there is no `SynchronizationContext`, the awaiter asks for a **post target** (`IPostTarget`), which is the same idea without the .NET class. It is a registry the thread filled in earlier, and it is described just below. If there is none of those either, register the continuation as-is. The promise runs it on the finishing thread by default. A promise created with `RunContinuationsAsynchronously` queues it to the thread pool.
 
-On a UI thread, the continuation gets posted back to the UI thread. On a pool thread or a console, `Current` is null and the continuation runs wherever the completion happened.
+A captured UI context posts the continuation back to the UI thread. Without a captured context or post target, the promise's completion option decides whether to run it inline or queue it.
 
 ### The same sign on the Compact Framework: `IPostTarget`
 
@@ -204,15 +203,14 @@ flowchart TD
 
 1. Some thread finishes the work. Maybe it is a timer's pool thread.
 2. The awaiter remembers whether, back when `OnCompleted` was called, there was a context to go back to.
-3. If there was not, the continuation runs on the finishing thread, right away. No hop.
+3. Without a captured context, a default promise runs its registered continuation on the finishing thread. The asynchronous-continuations option queues it instead.
 4. If there was, the awaiter does not run it. It posts it to the context, like dropping a note in the in-tray of the one person allowed to touch the screen.
 5. That person, the UI thread, picks the note up when it is ready and runs `MoveNext`.
 
-**Why it matters:** the sign decides where the rest of your method runs. A sign is useful for a screen. It is a waste for a job that only compares two numbers.
 
 ## ConfigureAwait(false), under its real name
 
-That `_continueOnCapturedContext` flag is the whole of `ConfigureAwait(false)`. We named ours `ContinueOnAnyThread()` because that is what it does: take the sign off, run wherever. Library code should use it. A library has no business bouncing back to the UI thread for work the UI never sees, and doing so is how you deadlock a `.Result` call on a UI thread.
+Setting `_continueOnCapturedContext` to false skips the return to a captured context. Our `ContinueOnAnyThread()` serves that purpose here, similar to `ConfigureAwait(false)` on a task. It permits any completion thread; it does not force a new thread. The builder still carries `ExecutionContext`. Library code should use it. A library has no business bouncing back to the UI thread for work the UI never sees, and doing so is how you deadlock a `.Result` call on a UI thread.
 
 `Futures.WhenAll` uses it internally for that reason. The caller's own await on the result decides whether to go back to the UI.
 
@@ -227,7 +225,7 @@ That `_continueOnCapturedContext` flag is the whole of `ConfigureAwait(false)`. 
 | Real name | same | `ConfigureAwait(false)` |
 | The picture | the backpack that travels with the job | the sign that says "return to counter three" |
 
-Both ride along by default. Both can be switched off. Neither one is magic; both are a capture at one point and a restore at another, which is the same move the state machine makes with its locals.
+On desktop builds, the builder captures execution context by default. The awaiter also captures a synchronization context or post target when one is present. On Compact Framework, only the post-target path is available.
 
 ## The picture
 
@@ -255,15 +253,14 @@ flowchart TB
 1. On the left, thread A is at the `await`. It holds two things: the tenant in the ambient state, and a sync context (the UI sign).
 2. The builder and the awaiter each capture one of them: the builder takes `ExecutionContext.Capture()`, the awaiter takes `SynchronizationContext.Current`.
 3. The dotted arrow is time passing. Thread A has left.
-4. On the right, thread B is the pool thread the timer woke up. It first runs `ExecutionContext.Run`, which unpacks the backpack.
-5. Then `ctx.Post` sends the continuation to the UI thread.
-6. `MoveNext` runs there, and it sees the tenant, `acme`, because the backpack came along.
+4. Thread B handles the completion. The diagram groups the two context operations together; the actual callback order is important.
+5. The awaiter first calls `ctx.Post` to queue the builder's continuation on the UI thread.
+6. On the UI thread, that continuation calls `ExecutionContext.Run`. It restores the captured tenant, then calls `MoveNext`. The method reads `acme` there.
 
-**Why it matters:** two different things ride across the gap, and they are handled by two different pieces. The builder carries the data. The awaiter carries the "which thread" instruction.
 
 ## The lesson that survives the course
 
-Thread-static state is tied to a thread. Once your code can wake up on any thread, that tie is a bug. Either carry the value in the request object itself, or put it in the bag that travels. We have fixed a tenant leak in a logging pipeline this way: resolve the value on the producer side and carry it in the queued item. Same principle, any repo.
+Thread-static state belongs to one thread. Per-request data can be lost or mixed up when the request resumes on another thread. Either carry the value in the request object itself, or put it in the bag that travels. We have fixed a tenant leak in a logging pipeline this way: resolve the value on the producer side and carry it in the queued item. Same principle, any repo.
 
 ## Words you just met
 

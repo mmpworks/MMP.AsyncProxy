@@ -32,7 +32,7 @@ Kevin wrote them down on the napkin, small, under the circle: *done? buzz me. an
 
 "And `AwaitOnCompleted`," Kevin said slowly, "that's the line where the timer finds out about my box."
 
-"It's one line of idea. `awaiter.OnCompleted(machine.MoveNext)`. When you're done, call this. That's `await`, bro. That's the whole word. Every other line in that method is about carrying stuff across the gap, and that's next chapter."
+"It's one line of idea. `awaiter.OnCompleted(machine.MoveNext)`. When you're done, call this. That's `await`, buddy. That's the whole word. Every other line in that method is about carrying stuff across the gap, and that's next chapter."
 
 Kevin sat back. For a second he didn't say anything. Then: "On CE. Is `System.Threading.Timer` even there?"
 
@@ -40,7 +40,7 @@ Kevin sat back. For a second he didn't say anything. Then: "On CE. Is `System.Th
 
 "So the pool thread is the only thread in the whole thing."
 
-"The pool thread is the only thread in the whole thing, and it's shared with everything else, and it's busy for microseconds per wake-up." Steve turned the laptop around. "Watch the arrows."
+"A pool thread runs each timer callback. It is shared with the rest of the program. Between callbacks, your loop holds no thread." Steve turned the laptop around. "Watch the arrows."
 
 Dee came by with the tea pitcher, glanced at the screen, saw a diagram with seven columns and about two dozen arrows, and decided not to ask.
 
@@ -48,7 +48,7 @@ Chapter 3 had two calls we hand-waved: `GetAwaiter()` and `Builder.AwaitOnComple
 
 ## The awaiter: three questions
 
-An **awaiter** is the thing an `await` talks to. It is a small helper that sits in front of whatever you are waiting for and answers questions about it. The compiler only needs three answers from it, and that is the entire contract:
+An **awaiter** connects the state machine to an operation, such as a delay. It checks completion, accepts a callback, and reads the result. This library groups those members in an interface:
 
 ```csharp
 public interface IAwaiter
@@ -61,7 +61,7 @@ public interface IAwaiter
 
 **Read it like this.** `IsCompleted` is "is the burger ready right now?" It answers yes or no and does not wait. `OnCompleted` is "here is my pager, buzz me". The `Action continuation` is the pager: it is a piece of code that means "the rest of my method", and it will be run when the thing finishes. `GetResult` is "hand me the burger". If the thing failed, `GetResult` throws instead, which is how a failure travels back to your method.
 
-The order of the questions matters. You never ask for the answer first. Here is how the machine uses them:
+The machine checks completion before reading the result. Calling this library's `GetResult` too early throws an exception. Here is how the machine uses them:
 
 ```mermaid
 flowchart TD
@@ -80,11 +80,10 @@ flowchart TD
 4. The machine returns. The thread leaves. Nothing is blocked.
 5. Later the thing finishes and runs the stored continuation. That calls `MoveNext`, and the first thing `MoveNext` does is question three: `GetResult`.
 
-**Why it matters:** the machine never waits inside any of the three questions. They are all quick. Waiting is replaced by "leave a pager and go".
 
-This is why you can `await` anything in C# 5, not only `Task`. If your type has a `GetAwaiter()` that returns something with those three members, the compiler is happy. `Task.Yield()`, `Task.Delay`, `HttpClient` responses, your own types: all of them are this interface wearing different clothes.
+C# 5 uses an awaiter pattern, so custom types can support `await` too. The type supplies `GetAwaiter()`. Its awaiter supplies `IsCompleted` and `GetResult`, plus the required completion interface. Our `IAwaiter` is a teaching version of that pattern. `Task.Delay` and `Task.Yield()` both return awaitable objects. An `HttpClient` async call returns a task that can be awaited.
 
-Our `FutureAwaiter<T>` is a struct that wraps a `Promise<T>`. `IsCompleted` asks the promise. `GetResult` asks the promise. `OnCompleted` is where the interesting bit lives, and we get to it in chapter 5.
+Our `FutureAwaiter<T>` is a struct that wraps a `Promise<T>`. `IsCompleted` reads the promise's status. `GetResult` reads its value or throws its error. `OnCompleted` registers the callback that will resume the machine. Chapter 5 explains how it chooses where that callback runs.
 
 ## The builder: four calls
 
@@ -99,7 +98,7 @@ The **builder** is the compiler's helper. It owns the result future (the pickup 
 
 **Read it like this.** `Create` builds the empty pickup window. `Start` is "begin cooking". `AwaitOnCompleted` is "I have to park, so take this pager number and buzz it when you are ready". `SetResult` or `SetException` is "I'm finished, put the answer, or the failure, in the window".
 
-The real one is `AsyncTaskMethodBuilder<T>`. Same four calls, same order.
+The .NET task builder is `AsyncTaskMethodBuilder<T>`. It has these same jobs, plus runtime details that this teaching builder leaves out.
 
 `AwaitOnCompleted` is one line of idea:
 
@@ -138,7 +137,6 @@ flowchart LR
 8. That pool thread calls `MoveNext` on the machine. The machine runs the next piece.
 9. When the machine finishes, it tells the builder `SetResult`, and the pickup window fills.
 
-**Why it matters:** the timer never touches the machine. The only link between them is the pager the builder gave to the awaiter in step 6. That is why the timer, the machine and the awaiter can all be written without knowing about each other.
 
 ## The whole round trip
 
@@ -187,12 +185,11 @@ sequenceDiagram
 2. **First question.** `MoveNext` asks for a ten-millisecond delay's awaiter and asks `IsCompleted`. No.
 3. **Park.** `MoveNext` tells the builder `AwaitOnCompleted`. The builder hands the awaiter the pager: `OnCompleted(MoveNext)`. `MoveNext` returns.
 4. **Free.** The stub hands the caller a pending future. The caller's thread is free and goes on with its life.
-5. **First ding.** Ten milliseconds later the timer fires and queues a callback. A pool thread calls `MoveNext`. It calls `GetResult` on the saved awaiter and computes `_sum = A + B`.
+5. **First ding.** Once the delay expires, the timer callback runs. Timer and thread scheduling can make this later than ten milliseconds. A pool thread calls `MoveNext`. It calls `GetResult` on the saved awaiter and computes `_sum = A + B`.
 6. **Second wait.** The machine asks for the second delay, which is not done, so it parks again with `AwaitOnCompleted` and returns. The pool thread is free.
 7. **Second ding.** The timer fires again. A pool thread calls `MoveNext`, calls `GetResult`, and the method reaches its `return`.
-8. **Finish.** The machine calls `SetResult(14)` on the builder. The future completes, and whoever was waiting on it gets their continuation run.
+8. **Finish.** With `A = 3` and `B = 4`, `_sum` is 7. The final calculation doubles it to 14. `SetResult(14)` completes the future. Registered continuations can then run. They return to the caller's thread only if a captured context sends them there.
 
-**Why it matters:** count the arrows that go to the caller thread after the first return. Zero, until the very end. The caller handed us a thread for a few microseconds, got a future back, and left. Two pool threads each borrowed a few more microseconds later. In between, nothing was running and nothing was blocked.
 
 ## Why `ref`
 
@@ -204,9 +201,9 @@ We use classes, so we never get the photocopy problem and the `ref` is only for 
 
 ## Try it
 
-Put a breakpoint on `MoveNext` in the sample. Run the test `Hand_written_machine_suspends_then_returns_the_value`. You will hit the breakpoint three times. Look at the thread ID in the debugger each time. First hit: the test thread. Second and third: pool threads, and probably different ones. Look at `State` each time: -1, then 0, then 1.
+Put a breakpoint on `MoveNext` in the sample. Run the test `Hand_written_machine_suspends_then_returns_the_value`. You will hit the breakpoint three times. Look at the thread ID in the debugger each time. First hit: the test thread. Second and third: pool threads. A worker may be reused, so those two IDs can match. Look at `State` each time: -1, then 0, then 1.
 
-If the thread IDs surprise you, good. That is the point of the chapter. The method is one method, and three different threads ran pieces of it. The machine did not care which.
+The first call starts the method. The next two calls resume it after the saved delays. The machine's fields preserve the calculation across those calls, even when the thread changes.
 
 ## Words you just met
 

@@ -10,7 +10,7 @@ The empty wing baskets were stacked three high at the end of the booth. Dee had 
 
 "Chapter three. The switch, the state field, the hoisted locals. I'm not doing it. Not for the pulser, not for the serial call, not for anything that goes in a pump." He pushed his plate away. "I've got Dale on Monday. I tell Dale I hand-wrote a state machine for the fuel dispenser, he's going to ask me who's going to maintain it, and the answer is *me*, and I'm forty-one."
 
-"Nobody's asking you to," Steve said. "Nobody writes those. The compiler writes those. Here's the cheat, bro, and it's the part that makes the whole thing work on your compiler."
+"Nobody's asking you to," Steve said. "Nobody writes those. The compiler writes those. Here's the cheat, buddy, and it's the part that makes the whole thing work on your compiler."
 
 He typed for a minute. Kevin watched him do it, the way you watch a guy about to pull a coin out of your ear.
 
@@ -64,7 +64,7 @@ Kevin read them side by side for a long time. A man at the bar cheered at someth
 
 "That's the same loop."
 
-"It's the same loop. `yield return` where `Sleep` was. `yield break` where `return` was. And between polls there's no thread. There's a little object about forty bytes big with a one in its state field. The valve still closes at the ceiling. Nothing about the pump changed. Only the waiting."
+"It's the same loop. `yield return` where `Sleep` was. `yield break` where `return` was. Between polls, an object holds the saved fields and the next step. Its size depends on those fields. The valve check stays in the loop. The wait releases the thread, and we still need to test the timing on your pump."
 
 "And the serial call?" Kevin's eyes went to the napkin from chapter two, the one with his own `Authorize` method written on it in ballpoint. "That's the one that scares me."
 
@@ -155,12 +155,12 @@ public void MoveNext()
 2. `if (!_steps.MoveNext()) ...` Ask the iterator for its next step. If there is none, the whole method is done: put the final value in the window with `SetResult` and stop.
 3. `IFuture step = _steps.Current;` The step is a future. (A null here is a bug in the iterator, so it throws a clear message.)
 4. `if (step.IsCompleted && !step.IsFaulted && !step.IsCanceled) continue;` If the step is *already* done and went fine, cross it off and go to the next one. No waiting, and no awaiter needed. This is the fast path, and it is the common case, so it should cost almost nothing. (If the step is done but failed or was canceled, we fall through, ask for its awaiter, and `GetResult` throws so the failure is not lost.)
-5. Otherwise the step is still running. Ask it for its awaiter, the little object that can answer "are you done?" and "buzz me when you are." Remember the awaiter in `_pending`, call `AwaitOnCompleted` to leave the pager ("call `MoveNext` on me when this finishes"), and `return`. The clerk walks away. No thread is holding anything.
+5. If the awaiter also reports incomplete, the step is still running. Ask it for its awaiter, the little object that can answer "are you done?" and "buzz me when you are." Remember the awaiter in `_pending`, call `AwaitOnCompleted` to leave the pager ("call `MoveNext` on me when this finishes"), and `return`. The clerk walks away. The driver holds the awaiter in a field, so the thread can return to other work.
 6. `catch (Exception ex) ...` If anything throws, the failure goes into the result with `SetException`, so the caller sees it at their own `await`.
 
 Compare it to the hand-written machine from chapter 3. Same builder. Same `AwaitOnCompleted`. Same `IsCompleted` fast path. Same `GetResult` on resume. Same try/catch into `SetException`. The only difference is that instead of a `switch` on our own state, we call the iterator's `MoveNext()` and let the compiler's switch do the jumping.
 
-The iterator yields futures. We await them. `yield return` is `await`.
+The iterator yields a future. The driver waits through a callback, then asks the iterator to continue. Together they provide an await-like flow on the older compiler.
 
 ## Writing one
 
@@ -179,7 +179,7 @@ private static IEnumerable<IFuture> Body(int a, int b, Return<int> ret)
 }
 ```
 
-Six lines of body for the method that took sixty by hand. The `Return<int>` box is there because an iterator method cannot `return` a value; you set `ret.Value` before the iterator ends. Think of it as a tray on the pickup window: the iterator sets the finished dish on the tray, and `AsyncProxy.Run` carries the tray out when the iterator is done.
+With `a = 3` and `b = 4`, `Body` waits once, saves `sum = 7`, waits again, and sets `ret.Value = 14`. The `Return<int>` box is there because an iterator method cannot `return` a value; you set `ret.Value` before the iterator ends. Think of it as a tray on the pickup window: the iterator sets the finished dish on the tray, and `AsyncProxy.Run` carries the tray out when the iterator is done.
 
 Reading a typed result after a yield works the same way. You hold the future, yield it, then read `.Result`. It is complete, so `.Result` does not block:
 
@@ -227,13 +227,13 @@ yield return first;
 ret.Value = first.Result == reply.Future ? reply.Future.Result : "TIMEOUT";
 ```
 
-**Read the winner.** When the card comes off the shelf, one of the two has finished. If the reply won, hand back its text. If the timer won, hand back `"TIMEOUT"`.
+**Read the winner.** `first.Result` is a future, because `WhenAny` returns the winning input. The `==` compares that input with `reply.Future`. If they match, `reply.Future.Result` supplies the reply text. Otherwise, `ret.Value` becomes `"TIMEOUT"`. For example, a reply at two seconds beats a thirty-second delay. If no reply arrives, the delay wins.
 
 ```csharp
 finally { _link.DataReceived -= onData; }
 ```
 
-**Take the note back.** Whichever way we left, stop listening, so a late reply does not fire a handler for a call that is already over.
+**Take the note back.** `finally` removes this call's event handler when the iterator ends or is disposed. A callback already running can still finish. `TrySetResult` safely handles an extra attempt to fill the reply promise.
 
 ```mermaid
 sequenceDiagram
@@ -268,7 +268,6 @@ sequenceDiagram
 4. **If the timer rings first:** the window stays empty. The timer finishes the race instead, which buzzes the pager, and a pool worker opens the card, sees that the timer won, and hands back `"TIMEOUT"`.
 5. Either way, the last thing the card does is the `finally` line: it takes its note off the serial link.
 
-**Why it matters:** the two branches show why this cannot hang the way Kevin's original could. There is always a timer in the race, so one of the two always finishes. Nobody waits for a controller that never answers.
 
 ## What you give up
 
@@ -282,7 +281,7 @@ if (risky.IsFaulted) { /* handle it */ }
 else { use(risky.Result); }
 ```
 
-**Read it like this.** `Observe` is a padded envelope. Whatever happens to the step inside, good or bad, the envelope arrives safely. Then *you* open it and look at `IsFaulted` yourself, instead of the driver blowing up on your behalf.
+**Read it like this.** `Observe(risky)` completes successfully after `risky` finishes, even if `risky` failed or was canceled. The driver therefore resumes the body. The body checks `risky.IsFaulted` before reading its result. If cancellation is possible, check `risky.IsCanceled` too; the shown `else` branch handles success only.
 
 Open `Futures.Observe` in `Futures.cs`. It is a few lines. The test `Observe_never_throws_and_lets_the_body_inspect_the_step` shows a body recovering from a failed step.
 
@@ -312,11 +311,10 @@ flowchart LR
 5. The dotted arrow: later, when the future completes, the pager buzzes and the callback calls the driver's `MoveNext`. The driver goes back to `GetResult`, then on around the loop.
 6. When the iterator has no more steps (`MoveNext` says false), the driver puts the final value in the window with `SetResult`. That is the exit on the right.
 
-**Why it matters:** one loop does the whole job. The compiler's state machine sits inside it and ours sits outside it, and the builder sits under both. Nothing here waits on a thread, ever.
 
 ## Words you just met
 
-| Word | Plain meaning | The picture |
+| Word | Plain meaning | Example or comparison |
 |---|---|---|
 | **Iterator** | A method with `yield return` that can stop in the middle and be asked to go on | A recipe with a bookmark; the compiler writes the bookmark |
 | **`yield return`** | "Hand this out, then stop here" | Putting the recipe card on the shelf |
@@ -325,4 +323,4 @@ flowchart LR
 | **`Return<T>`** | A tray an iterator uses to hand back a final value, since it cannot `return` one | The tray on the pickup window |
 | **`PromiseOptions.RunContinuationsAsynchronously`** | When this promise finishes, pin the waiting code to the pool's job board instead of running it on the finishing thread | The kitchen does not carry the pizza out; it hangs a ticket and a driver does |
 | **`WhenAny`** | A future that finishes when the first of several does | A race between two runners |
-| **`Observe`** | A wrapper that always succeeds so a failure can be looked at instead of thrown | A padded envelope |
+| **`Observe`** | A wrapper that always succeeds so a failure can be looked at instead of thrown | The wrapper completes successfully; inspect the original future for its result or error |

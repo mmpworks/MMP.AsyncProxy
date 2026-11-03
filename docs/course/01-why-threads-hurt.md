@@ -2,7 +2,7 @@
 
 ## At the table
 
-The wings were not even halfway to gone. Kevin had finished the first hot one and was making the face of a man who says it's fine. Dee topped off his tea and filled Steve's coffee without being asked, and then she looked at the napkin on the table with the four boxes on it and said, "Is that a bomb?" and Steve said, "It's a gas pump," and she said, "Same thing, at your age," and left.
+The wings were not even halfway to gone. Kevin had finished his third hot one and was making the face of a man who says it's fine. Dee topped off his tea and filled Steve's coffee without being asked, and then she looked at the napkin on the table with the four boxes on it and said, "Is that a bomb?" and Steve said, "It's a gas pump," and she said, "Same thing, at your age," and left.
 
 "Four threads," Steve said, tapping the napkin. "Tell me what each one is doing right now. Not what it's *for*. What it's doing, this second."
 
@@ -16,51 +16,60 @@ The wings were not even halfway to gone. Kevin had finished the first hot one an
 
 Kevin thought about it. "The stack. CE gives you sixty-four K by default." He saw Steve's eyebrow. "K as in kilobytes. We bumped the serial thread to 256 because it blew up once."
 
-"So a quarter of a meg of memory for a thread whose whole job is to sit in a read call. Plus the kernel's record of it. Plus the boss's roll-call sheet: every time the scheduler goes around the room, it reads that thread's line, decides it's still asleep, and moves on. Four threads, fine. You said you're adding a second nozzle, a printer, loyalty. That's eight threads. Ten. And the guy who wrote it in 2009 made a new thread for every job, because that's how you did it in 2009."
+"So a quarter of a meg of memory for a thread whose whole job is to sit in a read call. Plus the kernel's record of it. The scheduler puts a blocked thread aside until it can run again. The stack and the kernel record stay allocated. Four threads, fine. You said you're adding a second nozzle, a printer, loyalty. That's eight threads. Ten. And the guy who wrote it in 2009 made a new thread for every job, because that's how you did it in 2009."
 
 "That's how you did it in 2009."
 
-"It's how I did it in 1989. Different problem, same mistake." Steve ate a wing, wiped his fingers, and slid the napkin around so it faced Kevin. "Here's what I want you to see. The thread isn't doing the waiting. The UART is doing the waiting. The timer chip is doing the waiting. Your thread is standing next to the hardware doing nothing useful in between so it can be the one who *notices* when it's done."
+"It's how I did it in 1989. Different problem, same mistake." Steve ate a wing, wiped his fingers, and slid the napkin around so it faced Kevin. "Here's what I want you to see. The UART receives bytes from the wire. A timer tracks elapsed time. Your blocked thread runs no code while it waits for either one. If the driver supports a callback, we can save the next step and return instead. We still need to check how your serial driver delivers those bytes."
 
-"Somebody's got to notice, bro."
+"Somebody's got to notice, buddy."
 
 "Does it have to be a thread? Think about a restaurant. You can wait for your food two ways. One, you stand at the counter and stare at the cook until the plate comes up. You can't do anything else. You can't sit down, you can't answer your phone, you're just a person-shaped waiting machine. Two, they give you one of those pagers. You go sit. Your hands are free. When the food's ready, it buzzes, and *then* you get up."
 
 Kevin looked at his tea. "My serial thread is the guy at the counter."
 
-"Your serial thread is the guy at the counter with a stool nobody offered him, holding a whole desk and a file at HR. What if the thread left, and something else noticed?"
+"Your serial thread keeps its stack and operating-system record while it waits. What if we saved the next step and let a free thread run it when the reply arrives?"
 
 "Something else like what."
 
-"Like a **callback**. That's the pager. The hardware finishes, it raises a signal, and a pool thread runs one small piece of code: pick up where that method left off. On whatever thread is free. The method doesn't care which."
+"Like a **callback**. That's the pager. It is code we register to run when the operation finishes. A timer can run it on a pool thread. Other operations may call it on the thread that delivers the result. We'll choose where our next piece runs."
 
-"Pool thread. On CE."
+"Pool thread? Like from a pool of threads? On CE?"
 
-"The Compact Framework has a thread pool. Twenty-five threads, 128 K stacks, if the 2.0 docs still hold for your 3.5. Three megs of stack for the whole pool, worst case." Steve counted on his fingers, then gave up and just said it. "It's small because the work is small. A pool thread runs your code for the microseconds it takes to compare a pulse count to a ceiling, and then goes back to the break room."
+"The Compact Framework has a thread pool. We need to check its limits and memory use on your board." Steve counted on his fingers, then gave up and just said it. "A pool thread runs a queued job, then becomes available for another one. Comparing a pulse count to a ceiling is a short job. Waiting for the next pulse would occupy that worker."
 
-"The break room."
+Steve turned the laptop around. "First, look at what a waiting thread keeps in memory. Then I'll show you what goes on the pool's job board."
 
-"I'll explain the break room. No joke, it's the most useful picture in this whole chapter. Hang on." He turned the laptop around. "Here's the shape of what you have, and the shape of what you're going to have."
-
-So here is the thing nobody tells you when you learn threads. A thread is a great tool for doing work. It is a terrible tool for waiting.
 
 ## What a thread costs
 
-Go back to the worker with a desk. Every thread you make gets:
+A thread costs CPU scheduling time, memory, and CPU processing to complete a task.
 
-- **A stack.** This is the thread's own private memory for its notes while it works: its local variables, and the list of "I was in this method, which was called from that method." Picture the desk and the filing cabinet. On Windows, a .NET thread reserves about one megabyte for it by default. "Reserved" means it is set aside, even if the worker never writes a single note. It is more about *addresses* than about memory: the thread claims a stretch of the program's address space, the numbered "street addresses" a program is allowed to use. A 32-bit program only has about 4 GB of addresses in total. Make 2,000 threads and you have reserved 2 GB of them. That process will not start.
-- **A kernel object.** The kernel is the core of the operating system. It keeps a record for every thread so it can schedule it, pause it, and switch into it. Picture the worker's file at HR.
-- **A line on the roll-call sheet.** The **scheduler** is the part of the operating system that decides which thread runs on which CPU core, and for how long. It keeps a list of threads and walks it. The more threads, the more time the OS spends deciding who runs, and the less time anything actually runs.
+A waiting thread keeps memory allocated even while another thread uses the CPU. Kevin wants to release those threads during long waits. The idea is noble and good, but manipulating threads is expensive in time and memory.
 
-Now the sad part. When a thread is sitting in `Thread.Sleep`, or blocked on a socket read, it is still paying for all three. The desk is still reserved. The file is still open. The line is still on the sheet. The thread is paying rent to do nothing. That is the waste.
+Each thread needs memory and operating-system support:
+
+- **A stack.** A thread uses its stack to track active method calls and their local data. On desktop Windows, a managed thread often reserves about 1 MB of stack address space by default. The Compact Framework uses smaller defaults. Reserved space means a range of memory addresses is set aside; physical memory is supplied as needed. At 1 MB per stack, 2,000 threads would reserve about 2 GB of addresses. A 32-bit process has a limited address space, and its code and other data need room too.
+- **A kernel object.** The kernel is the core of the operating system. It keeps a control record for each thread. That record includes the thread's ID, priority, and state: running, ready to run, or waiting. The record stays in memory while the thread waits.
+- **Scheduling work.** The **scheduler** chooses which ready thread runs on each CPU core. A core is a processor's execution unit. Waking a thread and switching between ready threads takes work. A blocked thread stays off the ready list until its wait ends.
+
+During `Thread.Sleep` or a blocking read, the thread keeps its stack and kernel record. It uses no CPU time while blocked. More waiting threads therefore increase memory use even when the CPU is idle.
 
 **Blocked** is the word for it. A blocked thread is not running any of your code. It has been put to sleep by the operating system, and will be woken up when the thing it is waiting for happens. It is the person at the counter staring at the cook.
 
-## The thread pool was the first fix
+## A thread pool is the first fix for thread problems
 
 By the time .NET 1.0 shipped, people had noticed this. The fix was: "Stop making a new thread for every job. Keep a few threads around, put the jobs in a line, and let the threads pick jobs off the line." That is the **thread pool**, and it is worth getting this word right, because the name is a little misleading.
 
-**What it is.** A thread pool is a small crew of worker threads that the whole program shares, plus a job board. The job board is a queue: a line of tickets waiting to be picked up. Each ticket is a small piece of code to run. The official name for a ticket is a **work item**. You do not hand the pool a thread. You pin a ticket to the board, with `ThreadPool.QueueUserWorkItem`. When a crew worker is free, they take the next ticket, do the job, and go back to the break room to wait for the next one. A crew worker is called a **pool thread**.
+**What it is.** A thread pool is a shared set of reusable threads. The **job board** is our name for the pool's queue of **work items**. A work item tells a pool thread which method to call and gives it access to any data that method needs.
+
+### What goes on the job board
+
+Kevin pointed at the screen. "What can I put on that board? A method? My whole pulser loop?"
+
+"Start with one pulse-count check," Steve said. "The method reads the count, compares it to the fuel limit, and returns. To queue that method, you give the pool a **delegate**. A delegate identifies code to call. It can also give that code access to the data it needs."
+
+Steve typed:
 
 ```csharp
 ThreadPool.QueueUserWorkItem(delegate
@@ -70,18 +79,58 @@ ThreadPool.QueueUserWorkItem(delegate
 });
 ```
 
-**Read it like this.** `ThreadPool` is the shared crew. `QueueUserWorkItem` means "pin this ticket on the board." The `delegate { ... }` is the ticket: a little piece of code with no name. Notice what you did *not* do: you did not make a thread, you did not start a thread, and you never get a thread back. You gave over a job and walked away.
+"The `delegate` block is the callback," Steve said. "It calls `CompareCountToCeiling`. `QueueUserWorkItem` puts a work item on the board so a pool thread can call that block. It queues the work without waiting for the check to finish."
 
-Here is the shape of it.
+"So the board holds the instruction to call my method?"
+
+"Right. A free worker takes that item and calls your code. The worker stays occupied while the code runs. When your check returns, the worker can take another item. The pool chooses the thread, so your next check may run on a different one."
+
+"What if I give it my whole loop, with the fifty-millisecond sleep?"
+
+"It will accept that callback too. The API requires a callback instead of `null`, but it doesn't inspect the method for sleeps or long calculations. Your loop would keep a worker occupied through every sleep. Instead, let a timer arrange the next check when fifty milliseconds have passed. That leaves the worker free between checks."
+
+"Is the timer using the pool because the callback might be a lot of computation?"
+
+"The pool is useful for small jobs too," Steve said. "Your count check can be brief. It still needs a thread to run them. A timer can reuse a pool worker when the check is due, instead of keeping a thread asleep for every check. Long calculations keep that worker busy longer and can delay other queued jobs."
+
+"And `QueueUserWorkItem` is for the same kind of short job?"
+
+"Yes. It queues a callback now, whether that callback is small or large. You choose work that can share the pool without holding up other jobs. Queuing code asks the pool to choose a thread for it. The code still needs CPU time."
+
+"Does the timer call `QueueUserWorkItem` to set up my callback?"
+
+"When you create a `System.Threading.Timer`, you give it the callback, any data it needs, and when to run. The timer arranges for a pool thread to call that callback when it's due. You normally don't need to queue it again inside the callback."
+
+"The timer schedules the callback for a due time. `QueueUserWorkItem` queues the callback to run when a pool worker is available, with no delay setting. Both use pool workers. We'll cover timer setup when we refactor the pulser."
+
+"So setting the timer and running the callback are two different steps?"
+
+"Right. Setup records what to call and when. Later, the callback runs on a pool worker. The runtime handles that scheduling, and its internal calls can vary between versions."
+
+Steve pointed to the diagram. "These arrows show three ways work reaches the board. Your call queues code directly. A timer arranges for its callback to run when it's due. The third arrow is a promise arranging for the waiting sale code to continue."
+
+"And that delegate is tied to the promise component in that picture?"
+
+"A delegate can be queued on its own, as we just did. For the bank request, there are two separate pieces of code. The **receiving callback** runs when the serial link delivers the reply. Its job is to store that reply in the **promise**. The promise holds the operation's outcome so the sale code can read it."
+
+"How does the sale code know the reply is there?"
+
+"Before the reply arrives, the sale code registers a **continuation** with the promise. A continuation is a callback that runs the next part of the sale when the operation ends. While the promise is pending, it stores that continuation until the outcome is available. Then the serial link calls the receiving callback, which stores `OK` in the promise. Completing the promise makes the sale continuation ready to run. That continuation reads `OK` and decides what to do next."
+
+"So one callback puts the reply in, and the continuation reads it back?"
+
+"Right. If we created this library's promise with `RunContinuationsAsynchronously`, completing it queues code that calls the registered continuations. A free pool worker then runs the sale continuation. With the default option, the thread storing the reply calls the continuations directly. Either way, the promise keeps the outcome. If the request ends with an error or cancellation, the sale continuation must handle that before approving fuel."
+
+The diagram shows the three routes Steve described. Chapter 2 takes apart the promise.
 
 ```mermaid
 flowchart LR
     subgraph Senders["Who pins tickets"]
         A["Your code calls QueueUserWorkItem"]
-        B["A timer fires"]
-        C["A promise finishes, if it was built to use the pool"]
+        B["A timer becomes due:<br/>run its callback"]
+        C["Our promise completes with the queue option:<br/>run its registered continuations"]
     end
-    A --> Q["The job board: the pool's queue of work items"]
+    A --> Q["The job board:<br/>callbacks ready to run"]
     B --> Q
     C --> Q
     Q --> W1["Pool thread 1"]
@@ -94,49 +143,50 @@ flowchart LR
 
 **In words:**
 
-1. Three kinds of things put tickets on the board: your own code, a timer when it goes off, and a promise that finished and was told to hand its waiting code to the pool. (Chapter 2 explains promises.)
-2. All the tickets land in one place: the job board, which is the pool's queue.
-3. A small, fixed crew of pool threads (three are drawn here) takes tickets off the board one at a time.
-4. A pool thread runs the ticket's code. That should take microseconds or milliseconds.
-5. When it is done, the dotted arrow shows it going back to the board for the next ticket. It is the same thread, every time. No new thread was made.
-6. If every crew worker is busy and the board is backed up, tickets wait. The pool will hire more workers, but slowly.
+1. Your code can queue a callback directly. A timer also arranges for its callback to run on a pool thread when it becomes due.
+2. Our promise queues code to run its registered continuations when it completes with the queue option enabled. Those continuations stay with the pending promise until completion.
+3. The board holds work ready to be called. It does not wait for each promise or timer to become ready. The drawing uses one board to keep scheduling easy to follow. Actual runtimes can use several queues, and execution order can vary.
+4. A free worker takes a work item and calls its callback. Different work items can run at the same time on different workers.
+5. Once that callback finishes, the worker can run another item. The diagram shows three workers; the actual number can change.
+6. When workers are occupied, queued callbacks wait. The pool may add threads within its limits, but it cannot guarantee an immediate start.
 
-**Why it matters:** making a thread is expensive, and the pool pays that cost a few times instead of thousands of times. The crew is shared by everybody in the program, so every ticket needs to be short.
+In this library, continuations registered after a promise has already completed run during registration, even with the queue option. The diagram shows continuations registered while the promise was pending. A captured display context can also send the next step to the display thread; chapter 5 covers that path.
 
-**About the name.** `ThreadPool` is Microsoft's name. It has been in every .NET book and every stack trace for over twenty years, and we are not going to rename it. This course keeps the real name. But the name misleads two ways.
+### Three ways to schedule a callback
 
-1. It sounds like a bag of thread objects that you reach into and take one. You don't. You never hold a pool thread. You hold nothing. You pin a ticket and the pool decides which worker runs it.
-2. "Pool" sounds like somewhere you park things, like a parking lot. It is the opposite. A better picture is a **motor pool**, like the cars a company keeps for short trips. You borrow one, make a short run, and give it right back. Nobody keeps a motor-pool car for a week.
+| Route | What you supply | When work reaches a pool worker |
+|---|---|---|
+| `QueueUserWorkItem` | A callback and optional data | Once queued, it can run as soon as a worker is available |
+| `System.Threading.Timer` | A callback, data, and a due time | When the timer becomes due, scheduling makes its callback available to a pool worker |
+| Our promise with the queue option | A continuation registered while the promise is pending | Completion queues code that invokes the registered continuations |
 
-**What everybody else calls it.** The same machine (a few shared threads pulling jobs off one queue) turns up in every language, and the usual names are **worker pool** and **executor**. Java hands your jobs to an `Executor`, and the threads inside it are called *worker threads*. Go programmers talk about a *worker pool*. So the idiomatic name for what this course calls a **pool thread** is a **worker thread**, and the idiomatic name for the whole crew-plus-board is a **worker pool**. When you see "worker" in another language's docs, it is this crew. This course says "pool thread" because .NET's own docs and stack traces say "thread pool thread", and you will meet that phrase.
+The receiving callback writes the bank reply, such as `"OK"`, into the promise. The sale continuation reads that reply and acts on it. The promise connects the writer to the waiting reader. The queued work item calls the continuation; the promise itself remains a result holder.
 
-**Where Microsoft muddied it.** In fairness, "pool" is the industry word and Microsoft did not invent it. The mud is in how .NET dresses it up:
+**The extra queue in this library.** `DelayWheel` uses one `System.Threading.Timer` for many delays. Its `Fire` callback already runs on a pool thread. It collects the delays that are due, then calls `QueueUserWorkItem(CompleteOne, entry)` for each one. Here, `CompleteOne` identifies the completion method, and `entry` supplies that delay's data. Each completion becomes a separate work item, so one slow completion does not make `Fire` run the rest in sequence. Pool capacity still limits how many can run together.
 
-1. `ThreadPool` is a *static class*. There is exactly one pool in your whole program. You can't make a second one, hand one to a method, or size one differently for a different kind of job. The name sounds like a thing you can have several of. It is really one global setting.
-2. `QueueUserWorkItem` is the name of a Windows 2000-era Win32 call, carried over as it was. The word "User" in the middle says nothing a reader needs.
-3. `Task` sounds like a job to do. A lot of `Task`s are just a place to wait for an answer: the read-only pickup window from chapter 2. A `TaskCompletionSource` makes `Task`s that have no work behind them at all. And .NET has three different classes named `Timer`, in three different namespaces.
+That extra queue is a choice made by this library. A timer callback that only checks one count can do that work directly on the pool thread it already has.
 
-None of it is fatal. It is just why a newcomer reads `ThreadPool` and pictures a bag of threads.
+Here, "timer" means `System.Threading.Timer`. Other timer types can have different thread rules. Check the timer's contract before assuming its callback runs on the pool. Microsoft's references describe the [timer callback](https://learn.microsoft.com/en-us/dotnet/api/system.threading.timer) and [direct work-item queuing](https://learn.microsoft.com/en-us/dotnet/api/system.threading.threadpool.queueuserworkitem).
 
-If it were up to me I would have called it `SharedWorkerCrew`. We are stuck with `ThreadPool`, so read it that way in your head.
+**The names in the code.** `ThreadPool` is the shared crew. A **pool thread**, also called a **worker thread**, is one member of that crew. A **work item** is one queued job. Other libraries may call the same arrangement a **worker pool** or an **executor**.
 
-In this course, we will say **the thread pool** for the whole thing (the crew plus the board), **a pool thread** (the idiomatic name is a *worker thread*) for one crew worker, **a work item** for one ticket, and **the job board** (or "the pool's queue") for the line of tickets.
+`ThreadPool` is a static class: your code calls its methods without creating a `ThreadPool` object. The runtime manages the shared threads. This is separate from a `Task`, which can represent a result that will arrive later. Chapter 2 explains that result holder.
 
 **The rules for using it:**
 
-- Give it short jobs.
-- Never make a job wait inside it.
-- The crew starts small, about one worker per CPU core. When the board is backed up, the manager hires one extra worker only every so often, on the order of one per half second. That is on purpose: a sudden burst of work should not make a thousand threads.
+- Prefer short callbacks that return promptly.
+- Use asynchronous waits instead of sleeping or blocking inside a pool job.
+- Expect queued jobs to wait when the crew is busy. Worker limits and growth rates depend on the runtime. A desktop measurement does not establish the Compact Framework's behavior.
 
-That second rule is the one people break. Put a `Thread.Sleep` inside a work item and you have taken one of the few crew workers and parked them. Put sixty-four of those on the board and the crew is stuck while the tickets pile up, and the pool adds new workers slowly. Stephen Toub walks through this at 50:18 in his "Writing async/await from scratch" talk. We measure it, with a pizza shop to help picture it, in chapter 6.
+That second rule is the one people break. Put a `Thread.Sleep` inside a work item and you have taken one of the few crew workers and parked them. Put sixty-four of those on the board and the crew is stuck while the tickets pile up, and the pool adds new workers slowly. Stephen Toub walks through this at 50:18 in his "Writing async/await from scratch" talk. Chapter 6 traces four workers handling 64 queued jobs and measures the delay.
 
-## The real fix: stop waiting on a thread at all
+## A callback for the serial reply
 
-Think about what is really going on when you read from a network socket. Your thread is not doing the reading. The network card is. When you wait 200 ms, your thread is not doing the waiting. A hardware timer is. The thread is just standing there so it can be the one to notice when the work is done.
+For Kevin's serial request, the next step is to handle the controller's reply. If his serial API supports a callback, the program can register the receiving callback, send the request, and return. When bytes arrive, the serial API calls that callback. The callback can store the reply in a promise, allowing the sale continuation to run.
 
-So the question becomes: what if the thread left, and something else noticed?
+The serial API determines which thread delivers the reply. It may still need a dedicated reader thread. Putting a blocking read inside `QueueUserWorkItem` simply moves that wait onto a pool worker. We must check the driver's capabilities before claiming a thread saving.
 
-That "something else" is a callback. The operating system or the timer finishes, raises a signal, and a pool thread picks up a small piece of work: "run the rest of that method." The method continues. The thread it continues on may be a different one. The method does not care.
+The diagram below compares a blocking read with a callback-based version that queues reply handling to the pool. Chapter 5 covers code that must return to a particular thread, such as the display thread.
 
 ```mermaid
 sequenceDiagram
@@ -145,26 +195,25 @@ sequenceDiagram
     participant P as Pool thread
     Note over T,U: Version 1: the thread stands next to the hardware
     T->>U: send the request
-    Note over T: blocked, still holding its desk, its HR file, its roll-call line
+    Note over T: blocked, stack and OS thread record remain allocated
     U-->>T: the reply arrives, the thread wakes up
     T->>T: handle the reply
     Note over T,P: Version 2: the thread leaves, a callback notices
     T->>U: send the request, and leave a callback
     Note over T: the thread goes back to other work, holding nothing for this job
     U-->>P: the reply arrives, the callback is queued on the pool
-    P->>P: handle the reply, in microseconds, then back to the break room
+    P->>P: handle the reply, then return
 ```
 
 **In words:**
 
 1. In Version 1, the serial thread sends the request out the wire through the UART.
-2. Then it sits blocked. No code of yours is running, but its desk, its file, and its roll-call line are all still taken.
+2. Then it sits blocked. It runs no code, but its stack and operating-system record remain allocated.
 3. The reply arrives. The operating system wakes the thread, and the thread finally handles the reply.
 4. In Version 2, the thread sends the same request, but also leaves a callback: a note that says "when the reply comes, run this."
-5. The thread is now free. It can go and do something else, or go away completely. Nothing is being held for this job.
-6. When the reply arrives, the callback is pinned on the pool's job board. A pool thread that is already awake runs it, takes a few microseconds, and goes back to the break room.
+5. The thread is free to do other work. The operation keeps enough data to call the callback later.
+6. In this diagram, reply handling is queued to the pool. A free worker runs it, then becomes available for another job. A real serial link still needs a way to receive the bytes.
 
-**Why it matters:** the work done is the same in both versions. What changed is what gets held while you wait. Version 1 holds a whole worker. Version 2 holds a note.
 
 ## The picture, at scale
 
@@ -187,14 +236,13 @@ flowchart LR
 
 **In words:**
 
-1. On the left, three requests (and "N" more, because it could be thousands) each get a whole thread.
+1. On the left, each request gets a thread. `N` means the total number of requests; the diagram shows three to save space.
 2. Each thread goes to sleep for 200 ms, and then wakes up to do the tiny job of adding two numbers.
-3. That is N desks, N files at HR, N lines on the roll-call sheet, and every one of them is asleep.
-4. On the right, each request is a **state machine**: a small object that remembers where it stopped. (Chapter 3 builds one.) It costs a few hundred bytes and no thread.
-5. One shared timer does all the counting. When time is up, the timer fires, and the pool thread runs the callbacks one at a time.
-6. The pool thread is busy only for microseconds per request, then goes back to the break room.
+3. That is N stacks and N operating-system thread records, all kept in memory while the requests wait.
+4. On the right, each request keeps a **state machine**: an object that saves its data and its next step. Chapter 3 builds one. Its size depends on the fields it holds. It needs a thread only while code runs.
+5. One shared timer tracks the delays. The library's `DelayWheel` stores each request's due time. When a delay is due, it queues that request's completion to the thread pool.
+6. A pool thread runs each due completion and its callbacks. How long it stays occupied depends on the code those callbacks run.
 
-**Why it matters:** left side, cost grows with the number of requests. Right side, cost grows with the amount of real work, and waiting is nearly free.
 
 ## What this chapter sets up
 
@@ -209,15 +257,17 @@ Then we run the numbers in chapter 6 and cheat with iterators in chapter 7.
 
 ## Words you just met
 
-| Word | In plain words | The picture |
+| Word | In plain words | Example or comparison |
 |---|---|---|
-| **Stack** | A thread's private memory for its notes and its place in the code | The desk and the filing cabinet |
-| **Address space** | The numbered "street addresses" a program may use | A city's street map; each thread reserves a block |
-| **Kernel object** | The operating system's record of a thread | The worker's file at HR |
-| **Scheduler** | Decides which thread runs on which core | The boss with the roll-call sheet |
+| **Stack** | Memory used to track active method calls and their local data | Each thread reserves its own stack space |
+| **Address space** | The range of memory addresses a process can use | Stack reservations take up part of this range |
+| **Kernel object** | The operating system's control record for a thread | Holds the thread ID, priority, and state |
+| **Scheduler** | Chooses a ready thread to run on a CPU core | A waiting thread becomes eligible when its wait ends |
 | **Blocked** | A thread asleep, waiting for something | The person staring at the cook |
 | **Callback** | Code you hand over to be run when something finishes | The restaurant pager |
-| **Thread pool** | A shared crew of reusable worker threads plus a job board | A motor pool, not a parking lot |
-| **Work item** | One small job (a piece of code) waiting on the job board | A ticket on the board |
+| **Thread pool** | A shared crew of reusable worker threads plus a job board | A shared crew and its job board |
+| **Work item** | A callback queued for a pool thread to call, with access to its required data | A ticket saying which code to run |
+| **Promise** | Stores an operation's outcome and arranges for registered continuations to run when it completes | The receiving callback stores the bank reply here |
+| **Continuation** | A callback registered to run the next part of the work after an operation ends | The sale continuation reads the bank reply |
 | **Pool thread** (idiomatic: *worker thread*) | One of the crew that takes tickets | A worker from the break room |
 | **Worker pool / executor** | What other languages call the thread pool | The same crew and job board, under another name |

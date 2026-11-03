@@ -12,74 +12,109 @@ Kevin opened the bag after all. He took out the laptop and turned it so Steve co
 public string Authorize(string card, int timeoutMs)
 {
     string reply = null;
+
+    // A reply callback can outlive this block, but using disposes arrived on exit.
+    // The method does not coordinate disposal with callbacks still in progress.
     using (AutoResetEvent arrived = new AutoResetEvent(false))
     {
-        Action<string> onData = delegate(string text) { reply = text; arrived.Set(); };
+        // This receiving callback captures reply and arrived.
+        Action<string> onData = delegate(string text)
+        {
+            reply = text;
+            // A late callback can reach this line after arrived has been disposed.
+            arrived.Set();
+        };
         _link.DataReceived += onData;
         try
         {
             _link.Send("AUTH " + card);
-            if (!arrived.WaitOne(timeoutMs, false)) return "TIMEOUT";   // the thread is parked here
+
+            // The callback receives the reply, but the caller still blocks here.
+            // Timing out ends this wait; the controller's request can still finish.
+            if (!arrived.WaitOne(timeoutMs, false)) return "TIMEOUT";
             return reply;
         }
-        finally { _link.DataReceived -= onData; }
+        finally
+        {
+            // Unsubscribe, but a callback already in progress can keep running.
+            // It may still call arrived.Set() after this method leaves using.
+            _link.DataReceived -= onData;
+        }
     }
 }
 ```
 
-"That's not bad," Steve said again.
+"That's not bad," Steve said again. Waving a hand to pass over the laptop to himself,
+Steve said, "Let me show you something with some comments," and started typing away.
 
-"You keep saying that."
+"You keep saying my code isn't bad, but you want to comment it?"
 
-"It's not bad. Look at what you built, though." Steve picked up the salt shaker and the sugar caddy and set them in front of Kevin. "Pretend the bank is a bakery in the back, and you've put in an order for a cake. Your variable `reply` is a shelf by the register. One spot, and when the cake is done, the baker sets it there. That's all `reply` is: a place to set the answer down."
+"It's not bad. I'm just helping you look at what you built, though," as fingers flew over the keyboard.
 
-He pushed the sugar caddy forward. "`arrived` is the doorbell on the counter. The baker sets the cake on the shelf, then rings the bell, so you know it's there. Shelf says *what* the answer is. Bell says *that* it's ready. Those are two different jobs, and you got them both right."
+The copy below adds bakery labels to the same method. Its blocking wait and cleanup race are still there.
 
-"Okay. So what's the problem."
+When he finished, Steve turned the laptop around and placed a salt shaker and the sugar caddy in front of Kevin. "Pretend the bank is a bakery in the back, and you've put in an order for a cake. Your variable `reply` is a shelf by the register. One spot, and when the cake is done, the baker sets it there. That's all `reply` is: a place to set the answer down."
 
-"The third thing you built. Where's your thread?"
+He pushed the sugar caddy forward. "`arrived` is the pickup bell on the counter. The baker puts the cake on the shelf, then rings the bell. The shelf holds the answer. The bell signals that it's ready. In your code, the receiving callback does both jobs: it stores `reply`, then calls `arrived.Set()`."
 
-Kevin looked at the line with the comment on it. "On the doorbell. Sitting there."
+"One difference from a real bell," Steve added. "This signal is remembered until a waiting thread consumes it. If the reply arrives before `WaitOne`, the thread can still collect the signal."
 
-"On a stool. Right next to the bell, with its eyes on the bell. For up to thirty seconds. Doing nothing, with a whole desk and a file at HR and a line on the roll-call sheet. If you had a hundred customers, you'd hire a hundred people to sit on a hundred stools next to a hundred doorbells." Steve took a wing. "The shelf and the bell are the right idea. The person on the stool is the problem."
+```csharp
+public string Authorize(string card, int timeoutMs)
+{
+    // The empty pickup shelf: this variable will hold the bank's reply.
+    string reply = null;
 
-"Somebody has to be at the bell, bro. It has to ring *someone*."
+    // The pickup bell is a ready signal, separate from the reply itself.
+    // false means no reply has been signaled yet.
+    // 'using' disposes the ready signal when this block exits.
+    // It does not control the delegate's lifetime or wait for callbacks to finish.
+    using (AutoResetEvent arrived = new AutoResetEvent(false))
+    {
+        // Define the receiving callback now. The link calls it when a reply arrives.
+        Action<string> onData = delegate(string text)
+        {
+            reply = text;   // Put the delivered answer on the pickup shelf.
+            arrived.Set();  // Signal that the answer is ready, after storing it.
+        };
 
-"Does it? Let's ask what the thread does when the bell rings."
+        // Register the receiving callback before sending the request.
+        // Otherwise, a fast reply could arrive before anyone is listening.
+        _link.DataReceived += onData;
+        try
+        {
+            // Place the order: ask the controller to authorize this card.
+            _link.Send("AUTH " + card);
 
-"It... returns `reply`."
+            // The calling thread waits at the counter until signaled or timed out.
+            // The link calls onData when a reply arrives. WaitOne does not call it.
+            // If Set ran first, the event remembers it; WaitOne consumes that signal.
+            if (!arrived.WaitOne(timeoutMs, false)) return "TIMEOUT";
 
-"To who?"
-
-"To the sale state machine. Which decides whether to arm the pump."
-
-"So the thread's whole job, after the bell, is to hand a string to the next guy. That's it. Now what if the shelf could hand the string to the next guy *itself*? Say you leave your pager on the shelf: you put your pager number on a list taped to it. The baker sets the cake down, the shelf sees the list, and it buzzes everybody on it. Nobody is on a stool. Nobody is staring at a bell. There's just a list of people to call."
-
-Kevin looked at it. "That's a callback."
-
-"That's a callback with a box around it. The box does two things. You can only put the answer on the shelf once. And the people waiting for the answer are not allowed to put one there themselves. Picture a pickup window at a restaurant. The kitchen can put food in the window. The customer can look in the window, and ask to be buzzed. The customer can't reach in and put a fake order in. In this library the kitchen's half is called a `Promise`, and the customer's half is called a `Future`. In .NET 4 and up they're `TaskCompletionSource` and `Task`. Same split. Your `reply` and your `arrived` are two halves of a promise, and you built them by hand without knowing it."
-
-"And the thread?"
-
-"Gone. The next guy gets called when the shelf fills. We'll get to who does the calling. First, the shelf."
-
-"Dale is going to love 'the shelf,'" Kevin said.
-
-"Dale doesn't have to love it. Dale has to sign it."
-
-Open `src/MMP.AsyncProxy/Core/Promise{T}.cs`. That file is the whole chapter.
+            // Collect the answer the receiving callback left on the shelf.
+            return reply;
+        }
+        finally
+        {
+            // Remove the callback subscription on success, timeout, or error.
+            // This does not cancel the request already sent to the controller.
+            _link.DataReceived -= onData;
+        }
+    }   // using releases the event's operating-system resources as we leave.
+}
+```
 
 ## Kevin's method, one line at a time
 
-Before we throw it away, let's read what Kevin wrote in plain words. It is a good method, and it is easier to see what is wrong with it once you can see what each line does.
+Kevin's method sends a request, waits for a reply, then returns a string. The thread that calls it stays inside `WaitOne` during the wait. This shortened example shows that wait; production code also needs to handle late replies and cleanup races.
 
 1. `string reply = null;` The shelf. A variable that starts empty. The answer will be set here.
 2. `new AutoResetEvent(false)` The doorbell. An **event** is a signal that one thread can sleep on until another thread rings it. `false` means "starts un-rung." `using` means "throw the doorbell away when we are done," because a doorbell like this is a real object the operating system has to keep track of.
-3. `onData = delegate(string text) { reply = text; arrived.Set(); }` The note. "When something arrives, put it on the shelf, then ring the bell." This code does not run now. It is waiting for the data to show up, and it runs on whatever thread the serial hardware delivers it on.
+3. `onData = delegate(string text) { reply = text; arrived.Set(); }` defines a callback. When the link raises its data event, this code stores the text in `reply`, then signals `arrived`. The link decides which thread calls it.
 4. `_link.DataReceived += onData;` Hand the note to the serial line so it knows who to tell. `+=` means "add me to the list of people who want to hear about this."
 5. `_link.Send("AUTH " + card);` Send the question out the wire. This does not wait for an answer.
 6. `arrived.WaitOne(timeoutMs, false)` Sit on the stool. The thread sleeps here until the bell rings or time runs out. It gives back `true` if the bell rang, and `false` if it timed out. (The `false` argument is an old setting you can ignore.)
-7. `finally { _link.DataReceived -= onData; }` Take the note down no matter how we leave. If we forgot, a late reply would ring a doorbell that has already been thrown away.
+7. `finally { _link.DataReceived -= onData; }` removes the event handler on success, timeout, or error. Removing it stops future notifications. A handler already running may still finish, so real code must coordinate that handler with disposal of `arrived`.
 
 Here is the same story as a picture, with the caller on the left, the serial link in the middle, and the answer coming back. Look for where the thread is when nothing is happening.
 
@@ -103,7 +138,140 @@ sequenceDiagram
 4. The reply arrives. The note runs, sets the shelf, and rings the bell. The thread wakes.
 5. `Authorize` returns the reply to the sale machine.
 
-**Why it matters:** the only time anything useful happens in this whole picture is steps 2 and 4. Step 3, the long one, is a worker on a stool, doing nothing, for up to the timeout.
+
+## Let the receiving callback supply the answer
+
+Kevin traced the long wait in the diagram. "The receiving callback already has the reply. Why does my method need a thread waiting for it?"
+
+"Because `Authorize` promises to return a string," Steve said. "It can't return that string until the reply arrives or the timeout expires. Change the return type to `IFuture<string>`. Then it can hand back a way to read the answer later."
+
+"The pickup ticket instead of the cake?"
+
+"Right. We keep a promise for the reply and give the caller its future. The receiving callback puts the reply in the promise. The sale code registers a continuation to read it. The calling thread can do other work while the reply is pending."
+
+"And the bell?"
+
+"We can remove the event and `WaitOne`. The promise holds the result and arranges for continuations to run. There's no event to dispose while a late receiving callback is still using it. We still unsubscribe that callback when the operation ends."
+
+Steve moved the sugar caddy aside and typed another version.
+
+```csharp
+public IFuture<string> Authorize(string card, int timeoutMs)
+{
+    // Keep the answer on the shelf, without an event for a thread to wait on.
+    Promise<string> reply = new Promise<string>(
+        PromiseOptions.RunContinuationsAsynchronously);
+
+    // The receiving callback stores the bank's reply. It does not wait.
+    Action<string> onData = delegate(string text)
+    {
+        reply.TrySetResult(text);
+    };
+    _link.DataReceived += onData;
+
+    // Register cleanup before sending: the reply could arrive during Send.
+    reply.Future.ContinueOnAnyThread().OnCompleted(delegate
+    {
+        _link.DataReceived -= onData;
+    });
+
+    try
+    {
+        _link.Send("AUTH " + card);
+
+        // A timer competes with the reply. No worker sleeps through this delay.
+        IFuture timeout = Futures.Delay(timeoutMs);
+        timeout.ContinueOnAnyThread().OnCompleted(delegate
+        {
+            reply.TrySetResult("TIMEOUT");
+        });
+    }
+    catch (Exception error)
+    {
+        // A send or timer-setup error also completes the future.
+        reply.TrySetException(error);
+    }
+
+    // Hand back the pickup ticket now. The result may still be pending.
+    return reply.Future;
+}
+```
+
+"There are two callbacks that can finish this promise," Steve said. "The receiving callback tries to store the reply. The timeout callback tries to store `TIMEOUT`. `TrySetResult` lets the first completion win. The other call returns `false` and leaves the answer alone."
+
+"What runs when one of them wins?"
+
+"The continuations registered through the future. We registered cleanup first, so it removes the receiving callback's subscription. The sale code can register another continuation that reads the outcome. We chose the queue option to run these saved continuations on the pool."
+
+**What changed:** `Authorize` now returns a future instead of blocking for a string. `OnCompleted` registers code to call later. `ContinueOnAnyThread` lets that continuation run without returning to a captured display thread; chapter 5 covers that choice. This version uses ordinary callbacks, without `yield` or a state machine written by the reader.
+
+The caller must change too. This console example registers the sale's next step and then carries on:
+
+```csharp
+IFuture<string> authorization = Authorize(card, 30000);
+authorization.ContinueOnAnyThread().OnCompleted(delegate
+{
+    if (authorization.IsFaulted)
+    {
+        Console.WriteLine("Authorization failed: " + authorization.Exception.Message);
+        return;
+    }
+    // Completion has happened, so reading Result here does not wait.
+    Console.WriteLine("Authorization reply: " + authorization.Result);
+});
+Console.WriteLine("The caller can do other work while the reply is pending.");
+```
+
+A fast reply can complete before the caller registers its continuation. In this library, registration then calls the continuation immediately. Otherwise, it runs after completion. The caller must allow either order. Calling `authorization.Result` before completion would block the caller again.
+
+This example expects a finite, nonnegative timeout supported by `Futures.Delay`. As in Kevin's version, that timeout starts after `Send` returns. `Send` itself still needs to return promptly. A successful reply leaves the timeout scheduled; its later completion attempt is harmless because `TrySetResult` refuses a second answer.
+
+Unsubscribing still cannot stop a receiving callback already in progress. That callback can safely try to complete this promise: there is no disposed event to signal. Timeout does not cancel the bank request. The example assumes the serial link delivers the reply for this one request. A real link must also match replies to requests before allowing another authorization to start.
+
+### The same request, without a blocked caller
+
+The diagram follows a reply that arrives after the caller registers its continuation. The timer is the competing completion path described in the code.
+
+```mermaid
+sequenceDiagram
+    participant C as Calling sale code
+    participant A as Authorize
+    participant L as Serial link
+    participant R as Receiving callback
+    participant PR as Promise and Future
+    participant P as Pool worker
+    C->>A: Authorize(card, 30000)
+    A->>PR: create promise
+    A->>L: subscribe onData
+    A->>PR: register cleanup
+    A->>L: send AUTH
+    A->>A: arrange timeout callback
+    A-->>C: return the future
+    C->>PR: register sale continuation
+    Note over C,PR: caller can do other work while the reply is pending
+    L->>R: deliver reply OK
+    R->>PR: TrySetResult stores OK
+    PR->>P: queue registered continuations
+    P->>L: cleanup removes onData subscription
+    P->>PR: sale continuation reads completed result
+    P->>P: continue the sale
+```
+
+**In words:**
+
+1. `Authorize` creates the promise, registers cleanup, sends the request, and sets up the timeout callback.
+2. It returns the future without waiting for the reply. The caller registers its sale continuation and can do other work.
+3. The serial link delivers the reply to the receiving callback, which stores it in the promise.
+4. Completing the promise queues its registered continuations. A pool worker runs cleanup, then the sale continuation reads the result.
+5. If the timeout wins instead, the same continuations run, but the sale reads `TIMEOUT`.
+
+The caller no longer holds a thread waiting for this reply. The serial link may still need its own reader thread to receive bytes. Continuations also need a thread while they run.
+
+"So I still have code running when the answer comes," Kevin said. "I just don't keep the calling thread asleep until then."
+
+"Right. Now let's look inside the promise that makes that work."
+
+Open `src/MMP.AsyncProxy/Core/Promise{T}.cs` to follow the promise code.
 
 ## Two halves of one object
 
@@ -129,15 +297,14 @@ flowchart LR
 4. The customer can look at the future, wait on it, or leave a pager (a callback) on it.
 5. The customer cannot get from the future back to the promise's setters. There is no cast that does it.
 
-**Why it matters:** only the code that does the work can say the work is done. That protects you from somebody else deciding the answer for you.
 
-A word about "no cast": a **cast** is how C# lets you say "treat this object as a different type." The `Future` property hands out the same `Future<T>` object every time. It is a different object from the promise, and `Promise<T>` does not implement `IFuture<T>` at all, so there is no cast that gets a caller from the view back to the setters. The compiler refuses `future is Promise<T>` outright. One extra allocation per promise buys that.
+A **cast** asks C# to treat an object as another type. The future and promise are separate objects. Casting the future cannot turn it into the promise that created it. The future's public methods let the caller read or wait for the result; they provide no setter. This separation costs one extra object per promise.
 
-Why bother? Because the moment a caller can complete your work, your work is no longer yours. Someone, somewhere, will "fix" a timeout by calling `SetResult` on a future they did not own, and the real result will arrive later into a promise that is already closed. This is the `Task` and `TaskCompletionSource` split in .NET 4, and it is there for the same reason. Toub makes the point at 27:05.
+This keeps the decision about completion with the code doing the work. A caller waiting for authorization can observe the answer, but it cannot approve its own sale by setting that answer. `TaskCompletionSource` and `Task` use the same split in .NET 4.
 
 ## The one thing a promise does
 
-Strip away the getters and it does one thing: it keeps a list of pagers (callbacks), and buzzes them all when the answer is set.
+A pending promise stores callbacks in a list. Completing the promise makes those callbacks ready to run. This shortened excerpt shows registration; the source also creates the list on its first use.
 
 ```csharp
 internal void RegisterContinuation(Action continuation)
@@ -159,9 +326,9 @@ internal void RegisterContinuation(Action continuation)
 - *The answer isn't on the shelf yet* (`Pending`). Write the callback on the list, and leave. It will be called later.
 - *The answer is already there.* Don't bother with the list. Run the callback right now.
 
-Notice what this method does *not* do. It does not take anything off the list and put it back. The callback is **handed in** by the caller, and the method makes one decision about that one callback: put it on the list, or run it now. A callback goes on the list once and stays there. The list is emptied later, once, by a different method (`Complete`, below), which takes the whole list and runs everything on it. Programmers call this pattern **check, then act** (look at the state, then do something based on what you saw), and the job of "subscribe, but run me right away if the event already happened" is **register or run immediately**. The observer pattern in chapter 9 is the same idea.
+Suppose Kevin registers a callback before the reply arrives. `RegisterContinuation` adds it to the list and returns. Later, `Complete` takes that list and calls the callback. If the reply arrived first, registration calls the callback immediately instead. Both orders must work: a fast reply can arrive before the caller registers.
 
-A **lock** is a rule that only lets one thread into a piece of code at a time, like a bathroom with one key. The `lock (_gate)` makes sure that "is it still pending?" and "add it to the list" happen as one move, with nobody sneaking in between them.
+A **lock** lets one thread at a time enter code guarded by the same lock object. Both registration and completion use `_gate`. While registration checks the status and adds a callback, completion must wait. That closes the gap shown below.
 
 ```mermaid
 flowchart TD
@@ -177,10 +344,9 @@ flowchart TD
 1. Someone gives the promise a callback.
 2. The promise takes its lock so nobody else can change its state for a moment.
 3. It checks: is the answer on the shelf yet?
-4. If not yet, the callback goes on the list and the promise lets go of the lock. That is the whole job for now.
+4. If the promise is pending, it stores the callback, releases the lock, and returns.
 5. If the answer is already there, the promise lets go of the lock and runs the callback on the spot.
 
-**Why it matters:** both cases end with the callback running exactly once. Without the lock, a completion could land between "is it pending?" and "add to the list," and that callback would never run. That is the kind of bug that shows up once a week in production and never in a test.
 
 ### The race the lock prevents
 
@@ -206,7 +372,6 @@ sequenceDiagram
 
 **With the lock,** A takes the lock before step 1 and keeps it until its callback is on the list. B's `SetResult` can't start until A is done, so B finds the callback on the list and runs it. Or B goes first, and then A finds the promise already finished and runs its own callback right away. Either order, the callback runs exactly once.
 
-**Why it matters:** the check ("is it pending?") and the act ("add it") have to be one move. The lock is what makes them one move.
 
 ## Completion, in order
 
@@ -225,11 +390,11 @@ private bool Complete(FutureStatus status, T result, Exception exception)
 }
 ```
 
-**Read it like this.** Inside the lock, check that nobody finished it first. If not, write down the result, take the whole callback list, and empty the promise's own list. Then let go of the lock and call every callback on the list.
+**Read it like this.** `Complete` takes `_gate` and checks `_status`. If another call already finished the promise, it returns `false`. Otherwise it stores the final status, value, and error. It moves the callback list into `toRun` and clears `_continuations`. After releasing the lock, it calls the saved callbacks. This excerpt shows the default behavior; the full source also wakes blocking waiters and supports queuing callbacks to the pool.
 
 ### An example, one step at a time
 
-Take Kevin's serial reply. Two pieces of code are waiting for it. The sale machine wants to arm the pump when the answer is "OK". The display wants to show "Approved". Each one handed the promise a callback, so the promise's list holds both. The bank's answer is about to arrive on the UART thread, and at nearly the same moment the 30-second timer runs out.
+Take Kevin's serial reply. Two pieces of code are waiting for it. The sale machine wants to arm the pump when the answer is "OK". The display wants to show "Approved". Each one handed the promise a callback, so the promise's list holds both. Suppose the link delivers the bank's answer just as the 30-second timeout expires. The next example shows which completion wins. Its callbacks are placeholders for approved-result handling, rather than safe pump-control code. A real callback must read the completed result and handle cancellation or failure before it enables fuel or displays approval.
 
 ```csharp
 Promise<string> reply = new Promise<string>();
@@ -254,11 +419,9 @@ Here is what the promise looks like at each moment. Read down the table, one row
 | Timer thread enters `Complete` | Succeeded | "OK" | empty | It takes the lock and sees the status is not Pending. It returns `false` and changes nothing. `second` is `false`. |
 | UART thread runs `toRun` | Succeeded | "OK" | empty | A runs (`ArmThePump`), then B runs (`ShowApproved`). Then `Complete` returns `true`. `first` is `true`. |
 
-Two things to see in that table. The timer thread lost the race, so the promise ended with the answer "OK", and nothing about the timeout was recorded. And the callbacks ran last, after the lock was released and with the answer already on the shelf. When `ArmThePump` reads the result, it finds "OK" waiting.
+In this ordering, the reply wins. The timeout call returns `false` because the promise already holds "OK". If cancellation took the lock first, the promise would stay canceled and both callbacks would still be called. Completion means the operation ended; the callback must check how it ended.
 
-Three things to notice.
-
-1. **First completion wins.** In the example, `TrySetResult` came back `true` and `TrySetCanceled` came back `false`. That is the "ask politely" version: it tells you whether you won. Its louder sibling, `SetResult`, throws an `InvalidOperationException` ("The promise was already completed.") if you lose, because ordinary code that loses this race has a bug. Think of a window with one cake: the first baker to set it down wins, and a second baker is told it's already there. Code that is *supposed* to race, like a reply against a timeout, uses the `Try` versions.
+1. **First completion wins.** `TrySetResult` returns `true` when it changes the promise from pending to complete. A later `TrySetCanceled` returns `false` and leaves that result alone. The `SetResult` version throws `InvalidOperationException` if the promise already completed. Use the `Try` methods when two expected events, such as a reply and timeout, compete to finish one promise.
 2. **The callbacks run outside the lock.** A callback might complete another promise, which takes another lock. Hold yours while that happens and you have built a deadlock kit. (A **deadlock** is when two things each wait for the other forever.) Here is how it would go if `Complete` ran the callbacks *inside* the lock. Say callback A, running under promise `reply`'s lock, finishes a second promise `other`, and `other`'s own callback tries to finish `reply`:
 
    | Thread 1 | Thread 2 |
@@ -267,8 +430,8 @@ Three things to notice.
    | A tries to finish `other`: needs `other`'s lock, waits | the callback tries to finish `reply`: needs `reply`'s lock, waits |
    | both are waiting for a lock the other one holds, and neither lets go | |
 
-   Releasing the lock before running the callbacks removes the problem: nobody holds a lock while someone else's code runs.
-3. **The callbacks run on the completing thread.** Whoever calls `SetResult` runs every waiting callback right there, before `SetResult` returns. That is how `TaskCompletionSource` works by default too. In the example, `ArmThePump` and `ShowApproved` ran on the UART thread, the one that called `TrySetResult`. You can see it for yourself (in a console program, which has no synchronization context. Chapter 5 explains when that matters):
+   Releasing `_gate` before calling user code prevents this lock cycle inside the promise. A caller may still hold some other lock when it completes a promise, so its callbacks need care too.
+3. **The default promise calls its stored callbacks on the completing thread.** The direct callback runs before `SetResult` returns. An awaiter may instead post the user's continuation to a captured display context. The console example below assumes there is no such context or registered post target. In the example, `ArmThePump` and `ShowApproved` ran on the UART thread, the one that called `TrySetResult`. You can see it for yourself (in a console program, which has no synchronization context. Chapter 5 explains when that matters):
 
    ```csharp
    reply.Future.GetAwaiter().OnCompleted(() => Console.WriteLine("callback ran on thread " + Thread.CurrentThread.ManagedThreadId));
@@ -281,19 +444,21 @@ Three things to notice.
    //   SetResult has returned
    ```
 
-   A long chain of synchronous completions makes the call stack grow. We live with that for now; it is on the plan.
+   A callback may complete another promise, which calls another callback before returning. A long chain like that grows the call stack. Also, this implementation lets a callback exception escape the completion call, which can prevent later callbacks in the saved list from running. The examples assume callbacks finish normally.
 
-That third one has an off switch. If the code that sets the result should not run other people's code (it holds a lock, or it is a hardware interrupt), build the promise like this:
+That third one has an off switch. When the completing thread needs to return quickly or may hold another lock, create the promise with this option:
 
 ```csharp
 Promise<string> reply = new Promise<string>(PromiseOptions.RunContinuationsAsynchronously);
 ```
 
-**Read it like this.** This promise, when it finishes, does not run the waiting code itself. It pins the callbacks on the thread pool's job board and returns right away. A pool thread picks them up a moment later. Chapter 7 uses it for the serial reply, because you do not want the UART's interrupt running your sale logic. (The thread pool is explained in chapter 1, if you skipped it: a shared crew of workers and a job board.)
+**Read it like this.** On completion, the promise queues its saved callbacks to the thread pool. A free worker calls them. This keeps that work off the serial reader's thread. A managed serial callback is different from the hardware interrupt that first receives the bytes.
+
+The option applies to callbacks saved before completion. A callback registered after completion runs immediately on the registering thread. A captured context may then post the user's code elsewhere. Chapter 5 explains that step.
 
 ## Wait, for when you must
 
-`Wait()` makes a `ManualResetEvent` the first time you call it and sleeps on it. (That is a doorbell again, one that stays rung once it is rung.) It is there for the top of a console program and for tests. Every time you call it from inside async code, you have put a thread back on the stool, and chapter 1 happens again.
+`Wait()` blocks the calling thread until the future completes. If the future is pending, the first wait creates a `ManualResetEvent`, a signal that stays set after completion. A completed future returns from `Wait()` immediately. Blocking can be useful at the end of a console program or in a test. Inside asynchronous code, it ties up the thread again.
 
 ## State diagram
 
@@ -320,38 +485,9 @@ stateDiagram-v2
 1. Every promise starts at the black dot and is `Pending`: the shelf is empty.
 2. While it is pending, callbacks that arrive are added to the list. This is what the note on `Pending` means.
 3. Exactly one of three things then happens: `SetResult` (it worked: `Succeeded`), `SetException` (it broke: `Faulted`), or `SetCanceled` (somebody gave up: `Canceled`).
-4. When that happens, the callbacks run on whichever thread made the call. That is the note on `Succeeded`, and it is the same for the other two.
+4. By default, completion calls saved callbacks on the completing thread. The note shows that default for `Succeeded`; it also applies to failure and cancellation. The asynchronous option described above queues them instead.
 5. Each of the three end states goes to the black dot on the right. That is the end. There are no arrows leading out of an end state.
 
-**Why it matters:** one move, never back. That is what makes it safe to read the status without a lock after you have seen it complete once.
-
-Now the same story with a promise in place of Kevin's shelf and bell. Compare it with the picture of Kevin's method above and look at where the thread went.
-
-```mermaid
-sequenceDiagram
-    participant C as Sale machine (the caller)
-    participant A as Authorize, the new version
-    participant PR as Promise and Future
-    participant L as Serial link
-    C->>A: Authorize(card)
-    A->>PR: make a Promise to hold the answer
-    A->>L: subscribe a note that sets the Promise, send AUTH
-    A-->>C: here is the Future, your pickup ticket
-    Note over C,A: no thread is waiting for the answer
-    C->>PR: leave a callback on the Future
-    L-->>PR: the reply arrives, TrySetResult
-    PR-->>C: runs the callback, the sale machine carries on
-```
-
-**In words:**
-
-1. The sale machine calls `Authorize` as before.
-2. This version makes a promise, and gives the serial link a note that fills it in. It sends the question.
-3. It hands the sale machine the future, which is a pickup ticket, and returns at once. No thread waits anywhere.
-4. The sale machine leaves a callback on the future: "buzz me."
-5. Later the reply arrives and the note sets the promise. The promise buzzes the sale machine's callback.
-
-**Why it matters:** the shelf and the bell are still there, but they live inside one object, and the stool is gone.
 
 ## Try it
 
@@ -373,7 +509,7 @@ That prints `registered`, then `got hello`. Now shuffle the lines and predict th
 | Register, `SetResult`, print `registered` (swap the last two lines) | `got hello`, then `registered` | The callback is on the list, and `SetResult` runs it right there before the next line. |
 | `SetResult`, register, print `registered` | `got hello`, then `registered` | The answer was already on the shelf, so the callback runs at the moment you register it. |
 
-The first two rows are the same callback, run at different times. The third row is the other case from the `RegisterContinuation` picture. Same code, same result, different thread timing. That is the property `await` depends on.
+These rows all run on one thread. What changes is when the callback runs: during completion in the first two rows, during registration in the last. The caller must handle either order.
 
 ## Words you just met
 

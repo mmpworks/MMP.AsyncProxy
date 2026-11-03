@@ -24,7 +24,7 @@ Kevin looked up from the napkin. "I *what*?"
 
 Kevin scrolled. "Where are the answers?"
 
-"There aren't any, bro. On purpose. The tests are the answers. If you change a line and a test goes red, that's the repo telling you what the line was for. That's better than me telling you. You'd forget what I said by Friday. You won't forget a red test you caused."
+"There aren't any, buddy. On purpose. The tests are the answers. If you change a line and a test goes red, that's the repo telling you what the line was for. That's better than me telling you. You'd forget what I said by Friday. You won't forget a red test you caused."
 
 "Hm." Kevin picked up a fresh napkin, wrote *1 to 10* across the top, and underlined it twice. "Do I do them in order?"
 
@@ -38,7 +38,7 @@ Each one is a small change to the repo. Build, run the tests, see what moved. An
 
 ## How to work these
 
-- **Make a branch first** (`git switch -c exercises`). Then every exercise ends with `git restore .`, and the repo is clean again. Break things freely.
+- **Make a branch first** (`git switch -c exercises`). Start with a clean working tree. After each exercise, review your diff and restore only the files you changed for that exercise. Keep any unrelated work.
 - **Run the tests** with `dotnet test tests/MMP.AsyncProxy.Tests`. That project runs on .NET Framework 4.8, so it runs directly on Windows. On Linux or macOS it needs Mono installed.
 - **Predict before you run.** Write down on a napkin what you think will happen. The learning is in the gap between your guess and the result.
 - Under each exercise you will find a **Hint** (a nudge in plain words, not the answer) and **What you should see** (the symptom, so you know you reproduced it).
@@ -78,10 +78,9 @@ flowchart LR
 3. Exercises 3 and 4 work on the promise from chapter 2: take the lock out, then run callbacks while holding it.
 4. Exercise 5 goes back to chapter 6: rebuild the parked-car problem on purpose.
 5. Exercise 6 is chapter 5: replace the traveling backpack with a note taped to one desk.
-6. Exercises 7 and 8 are chapter 7: write the race yourself, then remove the padded envelope.
+6. Exercises 7 and 8 are chapter 7: write `WhenAny` yourself, then remove the `Observe` wrapper.
 7. Exercises 9 and 10 compare your machine with the one the real compiler writes.
 
-**Why it matters:** the exercises are grouped by idea, so if one of them confuses you, its frame tells you which chapter to reread.
 
 ## 1. Add a third await
 
@@ -93,11 +92,11 @@ Take `AddAfterDelayMachine` and add a third `Futures.Delay` before the return. Y
 
 ## 2. Break the fast path
 
-In `AddAfterDelayMachine.MoveNext`, delete the `if (!awaiter.IsCompleted)` check and always park. Run `Hand_written_machine_with_zero_delay_completes_synchronously`. It fails. Work out why the zero-delay case now completes on a different thread than the caller, and what a UI program would notice.
+In `AddAfterDelayMachine.MoveNext`, delete the `if (!awaiter.IsCompleted)` check and always park. Run `Hand_written_machine_with_zero_delay_completes_synchronously` and record the result. Check whether it still completes on the caller's thread. Trace `Promise<T>.RegisterContinuation` when the promise is already complete. Does it call the continuation inline or queue it?
 
-**Hint.** With the check gone, the machine *always* puts the card on the shelf, even when the wait is already over. Something has to take the card down again, and it is not the thread that called the method.
+**Hint.** Removing the fast path forces callback registration even for a completed promise. Read the final `continuation()` call in `RegisterContinuation`. It can resume the machine before registration returns.
 
-**What you should see.** A red test: the future is not yet complete when the test checks it, because the finish now happens a moment later on another thread. In a UI program that means code that used to run immediately now runs "sometime soon," after other things have happened.
+**What you should see.** With the current default promise, the zero-delay test can still pass: registration invokes the callback inline. The added cost is callback registration and nested calls instead of direct progress. A captured UI context can post the callback for later. The promise's queue option applies to callbacks saved before completion. Record the path you observed.
 
 ## 3. Lose the lock
 
@@ -109,17 +108,17 @@ In `Promise<T>.RegisterContinuation`, remove the `lock`. Write a test that compl
 
 ## 4. Run continuations inside the lock
 
-In `Promise<T>.Complete`, move the `foreach (toRun)` inside the `lock`. Write a continuation that completes a second promise whose continuation completes the first promise's sibling. Find the deadlock. Move it back out.
+In `Promise<T>.Complete`, move the loop that invokes `toRun` callbacks inside the `lock`. Write a continuation that completes a second promise whose continuation completes the first promise's sibling. Use a short test timeout so a deadlock becomes a failed test. Restore the callback loop after the experiment.
 
 **Hint.** A deadlock needs two parties, each holding one thing and waiting for the thing the other holds. Here the "things" are the two promises' locks. Set up two threads that finish the two promises at the same time, each one's callback touching the other promise.
 
-**What you should see.** When the timing lines up, the test does not fail. It *hangs*, forever, and you have to stop it. A hang is the signature of a deadlock. This is why `Complete` runs the callbacks outside the lock.
+**What you should see.** Two threads can each hold one promise lock while requesting the other lock. Neither can continue. Your test timeout should report this hang. A callback on one thread can take the same C# lock again, so one thread alone will not demonstrate this deadlock.
 
 ## 5. Make a Delay that starves
 
 Replace `Futures.Delay` with a version that does `Futures.Run(() => Thread.Sleep(ms))`. Run the comparison console. Row 3 now behaves like row 2. Explain, in one sentence, where the thread went.
 
-**Hint.** Look back at the pizza shop in chapter 6. Who is sitting in the parked car now?
+**Hint.** Look back at the 64 queued jobs in chapter 6. Which worker stays occupied during each delay?
 
 **What you should see.** Row 3 slows to the shape of row 2: jobs start in waves, and the total time climbs from about 200 ms to seconds. The `waves` mode of the console (`-- waves 64`) shows it clearly.
 
@@ -149,25 +148,25 @@ Cover `Futures.WhenAny` in `Futures.cs` with your hand. Write your own that comp
 
 ## 9. Read the compiler's output
 
-`docs/compiler-vs-handwritten.md` has the real compiler's state machine beside ours with a mapping table. Take the table away and build it yourself from `docs/compiler-output/AddAfterDelayReal.decompiled.cs` and `AddAfterDelay.cs`. Then add a third `await` to the real method, rerun `tools/decompile.ps1`, and watch the dispatch change from nested `if`s to a `switch`.
+`docs/compiler-vs-handwritten.md` has the real compiler's state machine beside ours with a mapping table. Take the table away and build it yourself from `docs/compiler-output/AddAfterDelayReal.decompiled.cs` and `AddAfterDelay.cs`. Then add a third `await` to the real method and rerun `tools/decompile.ps1`. Compare how the decompiled code selects its saved state. The compiler and decompiler versions can affect whether you see nested `if`s or a `switch`.
 
 **Hint.** Match fields first (the bookmark, the builder, the hoisted locals), then match the pieces of `MoveNext`. The ugly names such as `<>1__state` are the same ideas wearing a different coat.
 
-**What you should see.** Field for field, the two line up. After the third `await`, the decompiled code decides where to resume with a `switch` instead of a few nested `if`s. (The decompile script uses `ilspycmd` and is written for PowerShell.)
+**What you should see.** Field for field, the two line up. After the third `await`, there is one more saved resume point. Inspect the generated branches, whether the decompiler shows `if`s or a `switch`. (The decompile script uses `ilspycmd` and is written for PowerShell.)
 
 ## 10. Make it a struct
 
-The real compiler emits a struct machine in Release. Turn `AddAfterDelayMachine` into a struct. `Builder.Start(ref machine)` still works. `Builder.AwaitOnCompleted(ref awaiter, ref self)` with `var self = this;` now copies the struct, and the copy gets the callback while the original holds the state. Watch the test hang. Then implement `SetStateMachine` properly so the builder boxes once and reuses the box. That is the last piece of the real design, and you will understand why it exists the moment it bites you.
+The real compiler emits a struct machine in Release. Turn `AddAfterDelayMachine` into a struct. `Builder.Start(ref machine)` still works. `Builder.AwaitOnCompleted(ref awaiter, ref self)` with `var self = this;` now copies the struct, and the copy gets the callback while the original holds the state. Record whether the test passes, faults, or hangs. Inspect which copy owns each state update. Then study the real builder's `SetStateMachine` path and design a builder that keeps one boxed machine. Compare the number of copies and boxes before and after that change.
 
 **Hint.** A class is one labelled box on the shelf; everybody holds the same box. A struct is a photocopy: copy it and you have two sheets, and writing on one does not change the other. Whose sheet got the bookmark?
 
-**What you should see.** The test hangs. The callback goes to a copy, while the original is the one holding the bookmark, so the two disagree about where the machine is and it never finishes. Once the builder keeps one boxed copy and reuses it, the hang goes away.
+**What you should see.** Copying the struct creates separate state fields, but it does not guarantee a hang. The copies can share the builder's promise, and a callback can resume a boxed copy successfully. Trace those copies before drawing a conclusion. This library's builder does not call `SetStateMachine`, so adding that method alone cannot change its behavior.
 
 ## Words you just met
 
-| Word | Plain meaning | The picture |
+| Word | Plain meaning | Example or comparison |
 |---|---|---|
 | **Regression test** | A test that fails if somebody breaks a behavior that used to work | A smoke alarm: silent until the day it matters |
-| **Deadlock** | Two threads, each holding something the other needs, both stuck forever | Two people in a narrow hallway, each waiting for the other to back up |
+| **Deadlock** | Two threads, each holding something the other needs, both stuck forever | Each person holds a key the other needs, and both wait for the other to hand it over |
 | **Fast path** | The quick route taken when the wait is already over | Skipping the pickup line because your order is on the counter |
 | **Struct vs class** | A struct is copied when you pass it; a class is shared | A photocopy versus the one labelled box |

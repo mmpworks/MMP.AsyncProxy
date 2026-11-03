@@ -20,7 +20,7 @@ A small battery icon in the corner of the laptop turned red. Steve sighed, dug a
 
 "Thirty-three is a lot."
 
-"Thirty-three is what this process has sitting around before the test even starts. It added *zero*, bro. Zero threads for two thousand requests."
+"Thirty-three is what this process has sitting around before the test even starts. It added *zero*, buddy. Zero threads for two thousand requests."
 
 Kevin leaned back. "That's a 24-core desktop."
 
@@ -28,9 +28,9 @@ Kevin leaned back. "That's a 24-core desktop."
 
 Kevin put his finger on the middle row. "What's row two? The thread pool one. It's only got sixty-four requests next to it."
 
-"Row two is the one I want to spend time on." Steve picked a napkin off the stack, looked at it, and put it down again. "Row two looks like the *right* answer. People write it every day. It is the most common way to quietly wreck a server. I'm gonna give it its own section, with a pizza shop."
+"Row two is the one I want to spend time on." Steve picked a napkin off the stack, looked at it, and put it down again. "Row two looks like the *right* answer. People write it every day. It is the most common way to quietly wreck a server. I'll show you a small example with four workers."
 
-"A pizza shop."
+"Four workers?"
 
 "Dee. Can we get a second basket of the not-hot ones?"
 
@@ -52,11 +52,11 @@ dotnet run --project samples/MMP.AsyncProxy.Comparison -- 2000
 
 The program takes a number, N. It makes N requests. Each request waits 200 ms and then adds two numbers. The 200 ms wait stands in for anything slow: a network call, a disk read, a customer answering a door. The program does the same work three different ways and puts a stopwatch on each one.
 
-Here is what the three ways mean in plain words. Picture a pizza shop that gets 2,000 orders at once.
+The program compares these three ways to handle waiting requests:
 
-1. **A thread per request.** Hire one brand-new worker for every order. Give each one a desk. Send them home when the order is done.
-2. **The thread pool, with a sleep inside the job.** Use the shop's small crew of regular workers, but make each one sit and wait inside the job. (This is the one with its own section below.)
-3. **A state machine per request.** Give each order a recipe card with a bookmark. When the order has to wait, set a kitchen timer, put the card on the shelf, and let the worker go do something else.
+1. **A thread per request.** Create a thread for each request. It sleeps, adds the numbers, then exits.
+2. **The thread pool, with a sleep inside the job.** Queue each request to the shared pool. Each job occupies a worker throughout its sleep.
+3. **A state machine per request.** Save the request's inputs and next step in an object. A timer tracks the delay. A pool thread runs the calculation when the delay ends.
 
 ## What we got
 
@@ -74,11 +74,11 @@ state machine + Delay (no wait)           212             33          yes
 
 Read the columns like this:
 
-- **elapsed ms** is how long the whole batch took, start to finish. The best any row can do is about 200, because every request has to wait 200 ms and they can all wait at the same time.
-- **peak threads** is the most threads the program had alive at once. This is the memory-and-desks column.
-- **ok** says the answer came out right. All three did the same work and got the same sum.
+- **elapsed ms** is how long the whole batch took, start to finish. Each request waits 200 ms. If all requests start together, the batch can finish shortly after 200 ms. Starting and finishing the requests adds overhead.
+- **peak threads** is the most threads the program had alive at once. This counts every live thread in the process, including blocked threads.
+- **ok** says each row passed the result check for its own request count. Row two used 64 requests; the other rows used 2,000.
 
-Your numbers will differ. The shape will not.
+Your results depend on hardware, runtime, and other work in the process. Compare the cost of holding threads during waits.
 
 ## Row 1: a thread per request
 
@@ -93,9 +93,9 @@ t.Start();
 
 **Read it like this.** For each of the 2,000 requests: make a brand-new thread, tell it to sleep for 200 ms, then add to the shared total. `Interlocked.Add` is a safe way to add to a number that many threads share without them stepping on each other.
 
-In shop terms: you hired 2,000 people, one per order, and gave every one of them a desk, a chair, and a file with HR. At the busiest moment 1,357 of them were alive at the same time, almost all of them asleep.
+The program created 2,000 threads over the batch. At the busiest moment, 1,357 were alive at once, almost all blocked in `Sleep`. Each kept its stack and operating-system record.
 
-It works. It took 528 ms against a best of about 200, so you paid more than double. The extra time is not work. It is hiring, scheduling, and sending people home: creating threads, the manager (the **scheduler**) walking the roll-call sheet, tearing threads down. Push N to 20,000 and the operating system starts saying no.
+It works. The batch took 528 ms, while each request waited 200 ms. Starting, scheduling, and destroying threads adds overhead. The timing table does not measure each cost separately. A sleeping thread keeps its memory, but the scheduler chooses among ready threads. With much larger batches, thread creation can fail when the process runs out of resources.
 
 ## The parked-car problem (thread pool starvation)
 
@@ -105,23 +105,17 @@ This is row two, and it is the most useful thing in this chapter. It is also the
 
 Chapter 1 introduced the **thread pool**. Quick reminder in plain words: it is a small crew of worker threads that the whole program shares, plus a job board. You do not hand the pool a thread. You pin a **work item**, a small piece of code on a ticket, to the board with `ThreadPool.QueueUserWorkItem`. A free crew worker takes the next ticket, does it, and goes back for another.
 
-That only works if tickets are *quick*. The pool is a motor pool, not a parking lot. You borrow a car for a short trip and bring it right back.
+That only works if tickets are *quick*. Each worker can run one work item at a time. A sleeping work item keeps that worker occupied until the sleep ends.
 
-### The pizza shop
+### Four workers, 64 queued jobs
 
-Pizza Palace has four delivery drivers. That is the crew. The orders are tickets hanging on a rail. That is the job board.
+Suppose the pool has four free workers, and you queue 64 jobs. Each job sleeps for 200 ms, then adds to a total.
 
-A normal ticket goes like this: pick up the pizza, drive to the house, hand it over, drive back, take the next ticket. It is quick, so four drivers can handle a huge dinner rush.
+The first four jobs start and occupy all four workers. While those jobs sleep, the other 60 remain queued. The sleeping jobs use no CPU time, but their workers cannot start another job until the sleep ends.
 
-Now add one rule. After every delivery, the driver has to sit in the parked car at the curb for 200 milliseconds before they are allowed to take another ticket. Nothing is happening in that car. The driver is just sitting there.
+The pool may add workers when jobs stay queued, within its limits. That takes time and adds thread resources. With asynchronous delays, all 64 jobs can start their waits without each occupying a worker.
 
-Four drivers, four parked cars. Now there are 64 tickets on the rail. The first four go out. The other sixty wait. Not because there is a shortage of pizza or a shortage of road. They wait because every driver in the shop is busy doing nothing.
-
-The owner would hire a fifth driver, but not right away. The pool's manager only adds a worker after the board has been backed up for a while, on purpose, so that one burst of orders does not make a thousand people appear. By the time driver five shows up, most of the night is gone.
-
-That is the whole mistake. **A job that does not work, it waits, and a waiting job ties up one of the few workers the whole shop shares.**
-
-### The same shop in code
+### The queued waits in code
 
 It looks perfectly normal. That is why it is so easy to write:
 
@@ -136,7 +130,7 @@ for (int i = 0; i < 64; i++)
 }
 ```
 
-**Read it like this.** Sixty-four times, pin a ticket to the board. Each ticket says "sleep for 200 ms, then count one delivery." The sleep is the parked car. While a crew worker sleeps, it can run nothing else and nobody else can use it.
+**Read it like this.** Sixty-four times, pin a ticket to the board. Each ticket says "sleep for 200 ms, then count one delivery." The sleep keeps a pool worker occupied for 200 ms. While a crew worker sleeps, it can run nothing else and nobody else can use it.
 
 ### The measured proof
 
@@ -165,7 +159,7 @@ B. The same jobs as state machines on a Futures.Delay (no crew member parks):
 
 Read it like this. Every one of the 64 jobs only needs to *wait* 200 ms, and they could all wait at the same time, so the best possible finish is about 200 ms. Version B finished in 208. Version A took 3,007 ms, about fifteen times longer. The reason is in the first column: the jobs started in **waves** of four, 200 ms apart. Only four jobs could be waiting at once, one for each crew worker. A fifth worker joined around the 1.2-second mark, which is why the later waves hold five.
 
-The 24-core table above shows the same thing from the other machine. With 24 workers in the crew, 64 jobs make three waves (24, then 24, then 16), and three waves of 200 ms is 600 ms. The table says 624. The arithmetic and the stopwatch agree.
+For a fixed crew of 24 workers, 64 sleeping jobs need three waves: 24, then 24, then 16. Three waits of 200 ms give about 600 ms. The measured 624 ms is consistent with that example. The desktop table records peak process threads, so it does not establish a fixed pool size of 24.
 
 ```mermaid
 gantt
@@ -191,7 +185,6 @@ gantt
 5. After fifteen waves the last job finishes at 3,007 ms. The long bar at the end stands for waves 5 through 15 together.
 6. Bottom bar: with timers, all 64 jobs start at once and wait *at the same time*. Nobody is parked, because the wait is a kitchen timer and not a worker. The whole batch is done in 208 ms.
 
-**Why it matters:** the bottom bar is the shape you want. The top bar is what you get when waiting is done by a worker instead of a timer. The crew size sets the width of each wave, and the sleep sets how long each wave lasts, so the total is (jobs divided by workers) times the wait.
 
 ### How bad does it get?
 
@@ -199,7 +192,7 @@ Run it with 2,000 jobs on the same 4-core container and version A took **40,240 
 
 ### The fix is not a bigger crew
 
-You can tell the pool to start with more workers (`ThreadPool.SetMinThreads`). It helps a little and then you are back to row 1: lots of desks, mostly asleep. The real fix is to stop parking. Do not make a worker wait. Set a kitchen timer, let the driver take the next ticket, and when the timer dings pin a quick "finish the delivery" ticket to the board. That is row three.
+You can tell the pool to start with more workers (`ThreadPool.SetMinThreads`). It helps a little and then you are back to row 1: lots of desks, mostly asleep. Use an asynchronous delay so the worker can run another job during the wait. When the delay expires, a pool thread runs the next step. That is row three.
 
 ## Row 3: a state machine per request
 
@@ -217,13 +210,13 @@ Futures.WhenAll(futures).Wait();
 **Read it like this.**
 
 - `yield return Futures.Delay(DelayMs);` means "set a kitchen timer for 200 ms and put the recipe card on the shelf." This is the bookmark from chapter 3. No thread waits here.
-- When the timer dings, a crew worker picks the card up at the bookmark, runs the next line (add to the total), and goes straight back to the board. That takes microseconds.
+- When the timer dings, a crew worker picks the card up at the bookmark, runs the next line (add to the total), and goes straight back to the board. The time depends on the callback and the machine running it.
 - `AsyncProxy.Run(...)` builds the card (the state machine) and starts it. You get back a future for it.
-- `Futures.WhenAll(futures).Wait()` is the "wait until every order is done" line. It sits at the very top of a console program, which is the one place a blocking wait is fine.
+- `Futures.WhenAll(futures).Wait()` is the "wait until every order is done" line. It sits at the very top of a console program, which blocks the console's main thread until the batch finishes. Each request still waits without holding a worker.
 
-Result: 212 ms for 2,000 requests, and the peak thread count is 33. That is the number of threads this process had *before* the test started, so the test added none. The 200 ms was spent by 2,000 entries waiting on one shared timer, which cost nothing while they ticked. Every `Futures.Delay` in the process rides on that one timer (the library's `DelayWheel`), like a single egg timer that can count down for thousands of orders. (This table was measured on 2026-10-31, before the library moved every delay onto the shared wheel on 2026-11-02. The shape is the same.)
+Result: 212 ms for 2,000 requests, and the peak thread count is 33. That is the number of threads this process had *before* the test started, so the test added none. The delay entries store deadlines instead of holding sleeping workers. Checking those deadlines and running callbacks still uses some CPU time. Every `Futures.Delay` in the process rides on that one timer (the library's `DelayWheel`), like a single egg timer that can count down for thousands of orders. (This table was measured on 2026-10-31, before the library moved every delay onto the shared wheel on 2026-11-02. The shape is the same.)
 
-The work is identical in all three rows. The only difference is *where the waiting happened*: on a thread, on a thread you borrowed from a shared crew, or on a timer.
+Each request does the same calculation after a delay. The batch sizes differ, so compare both the request count and the elapsed time. The three versions hold a dedicated thread, hold a pool worker, or save a callback while the timer tracks the delay.
 
 ## The table, as a picture
 
@@ -247,7 +240,6 @@ gantt
 3. The middle bar, the pool with a sleep inside, runs for 624 ms. Look closely at the label: it handled only 64 requests, not 2,000. It was *already* slower than the top bar with thirty times less work.
 4. The bottom bar, state machines, runs for 212 ms and handled all 2,000 with the thread count of an idle process.
 
-**Why it matters:** the middle bar is the sneaky one. It is not just slow, it is slow while looking cheap. That is the parked-car problem, shown as a length.
 
 ## The real thing: a file read with no thread
 
@@ -298,32 +290,31 @@ sequenceDiagram
 5. That worker calls `EndRead` to collect the result and fills the future.
 6. Filling the future calls the machine's `MoveNext`. The method continues at the next line on that pool worker.
 
-**Why it matters:** from step 2 to step 4, zero of our threads were involved. That is how one program can have thousands of reads in flight on a handful of threads.
 
-This is the same path every `await stream.ReadAsync(...)` takes in .NET 10. The API names changed. The mechanism did not. .NET 3.5 called it the Asynchronous Programming Model, the Begin/End pair, and `Futures.FromAsync` is the adapter. `Task.Factory.FromAsync` is the same adapter in .NET 4.
+Modern `ReadAsync` also returns an awaitable result. The underlying I/O path depends on the runtime, operating system, and how the stream was opened. The diagram shows the Windows asynchronous-file path used by this example. .NET 3.5 called it the Asynchronous Programming Model, the Begin/End pair, and `Futures.FromAsync` is the adapter. `Task.Factory.FromAsync` is the same adapter in .NET 4.
 
 ## What to take from it
 
 1. Threads are for doing work. Waiting on a thread is paying rent on an empty room.
 2. The pool is for *short* work. Anything that waits inside a work item steals a worker from every other job in the program.
-3. A state machine plus a callback turns a wait into a timer and a tiny piece of pool work. The thread count stays flat as N grows.
+3. A state machine plus a callback turns a wait into a timer and a tiny piece of pool work. The waiting requests need stored state rather than one sleeping thread each. Callback load can still cause the pool to add workers.
 
-Row 3 is what every `await` in a modern .NET program does. The compiler writes the machine. In this repo we wrote it ourselves, and the numbers came out the same.
+Row 3 shows waiting through a callback while the thread does other work. Modern `await` uses a compiler-written state machine, but the operation being awaited decides whether the wait holds a worker.
 
 ## Try changing it
 
-- Set N to 10,000. Row 1 will get slow or fail. Row 3 will be about 215 ms.
+- Set N to 10,000. Record the elapsed time and peak threads for both rows. Compare them with your 2,000-request run.
 - Change `DelayMs` to 10. Row 3's overhead per request becomes visible. It is small.
 - Replace `Futures.Delay` in row 3 with `Futures.Run(() => Thread.Sleep(DelayMs))`. You just rebuilt row 2. Watch it starve.
 - Run `dotnet run --project samples/MMP.AsyncProxy.Comparison -- waves 64` and count the waves. Then run it with 200. Before you do, guess the total: (jobs divided by crew size) times 200 ms.
 
 ## Words you just met
 
-| Word | Plain meaning | The picture |
+| Word | Plain meaning | Example or comparison |
 |---|---|---|
-| **Thread pool** | A small crew of worker threads the whole program shares, plus the board they take jobs from | A motor pool: borrow a car, drive a short trip, bring it back |
+| **Thread pool** | Reusable threads that run queued work items | A shared crew takes jobs from one queue |
 | **Work item** | One small piece of code waiting its turn on the pool's board | A ticket on the rail |
 | **Pool starvation** | The crew is all stuck waiting inside jobs, so new jobs can't start | Every driver parked at a curb, with 60 tickets still on the rail |
-| **Wave** | A group of jobs that start at the same moment, because that many workers were free | Four drivers leaving together |
-| **Parked-car problem** | The mistake of making a pool worker wait inside a job | A driver forced to sit at the curb for 200 ms |
+| **Wave** | A group of jobs that start at the same moment, because that many workers were free | The first four jobs starting together |
+| **Parked-car problem** | The mistake of making a pool worker wait inside a job | Sleeping work items occupy workers while other jobs remain queued |
 | **I/O completion port** | The mailbox where the operating system drops "your read is done" notes for a pool worker to pick up | The pickup window for finished orders |
