@@ -2,7 +2,7 @@
 
 ## At the table
 
-Tuesday night in late September, the wing place on the frontage road at 183A and Whitesone Blvd. Good blue cheese, and four TVs above the bar. They were all showing bass fishing with the sound off, and a man in a boat held up a fish like it owed him money.
+Tuesday night in late September, the wing place on the frontage road at 183A and Whitestone Blvd. Good blue cheese, and four TVs above the bar. They were all showing bass fishing with the sound off, and a man in a boat held up a fish like it owed him money.
 
 Steve got there first and took the booth in the back, the one where he could see the door. He ordered a coffee. Dee brought it without being asked.
 
@@ -16,13 +16,13 @@ Steve got there first and took the booth in the back, the one where he could see
 
 Dee nodded like that was a normal thing to be worried about, and went to check on the fishing fans at the bar.
 
-Kevin came in ten minutes later with a laptop bag he did not open. He slid into the booth and put the bag next to him on the bench, the way you park a thing you plan to use later.
+Kevin came in ten minutes later with a laptop bag he did not open. He slid into the booth and placed the bag on the inside part of the bench, the way you park a thing you plan to use later.
 
 They had met at a local AI group meetup a few months earlier. A dozen dinners and Dungeons and Dragons game outings had followed. This was their fourth visit to the wing place, and Steve had picked it every time.
 
-"You said bring the pump problem," Kevin said. "I brought the pump problem."
+Patting the bag, the younger engineer said, "You said bring the pump problem. I brought the pump problem."
 
-"Sit down first. Let's get our orders in before we go to far. Then we fix the pump."
+"Sit down first. Let's get our orders in before we go too far. Then we figure out the pump."
 
 Dee was already there. "Sweet tea, and the Cluckin' Hot ones," she said to Kevin. "And you want the ones that say hot and aren't," she said to Steve.
 
@@ -47,7 +47,7 @@ Ordering finished, Kevin and Steve caught up on each other's lives while they wa
 >Hey... Narrator here. Welcome to this story about this repo. I figure a story helps to ground one in the use cases to be covered far better than some dry text. I have intentionally written this for an average reader and NOT a computer scientist, so bear with some explanations that seem a bit basic. If you hate it, too bad.
 > Here is the problem Kevin brought.
 
->Kevin writes **firmware** for a fuel dispenser - yep... a gas pump. Firmware is the program that lives inside a machine instead of on a computer you sit in front of. When you pull up to a gas pump, tap your card, and pick a grade, you are talking to Kevin's firmware.
+>Kevin writes **firmware** for a fuel dispenser - yep... a gas pump, like the ones at any convenience store, big box retailer, or supermarket. Firmware is the program that lives inside a machine instead of on a computer you sit in front of. When you pull up to a gas pump, tap your card, and pick a grade, you are talking to Kevin's firmware.
 
 >The head of the pump, the part with the card reader and the screen and the nozzle switches, has a small computer board inside it. It has an ARM chip (a small, low-power processor, the same family that is in your phone), 64 MB of memory, and an operating system called Windows CE 6. For scale, a cheap phone today has thirty to sixty times that much memory.
 
