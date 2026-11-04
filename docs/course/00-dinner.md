@@ -73,7 +73,7 @@ One word you will see in the picture is **blocked**. A thread is blocked when it
 
 On Kevin's board, the card thread asks the reader for the next card. That call waits until the hardware reports a tap or an inserted card. The operating system then wakes the thread.
 
-The serial thread asks the UART for incoming bytes in the same way. While it waits, the UART listens to the wire. The thread keeps its memory but does no work.
+The serial thread asks a piece of equipment called a UART for incoming bytes in the same way. In the early days of computing, a dial-up modem hooked up to the UART. It still works great for many things including that diagnostic plug in the underside of a car dashboard. While it waits, the UART listens for any signal traffic to cross the wire. The thread keeps its memory but does no work.
 
 ```mermaid
 flowchart LR
@@ -106,13 +106,13 @@ flowchart LR
 
 "And?"
 
-"And the serial thread." Kevin picked up his tea and put it down again without drinking. "The serial thread is the one that scares me. It sits and waits for the controller to talk. If the controller stops talking, that thread is stuck until the **watchdog** kicks the whole board. The watchdog is a little timer chip that says 'nobody's home, I'm rebooting the pump.' In the middle of a sale. In Tulsa, once, that was a guy with his nozzle in his truck and a screen that went black."
+"And the serial thread." Kevin picked up his tea and put it down again without drinking. "The serial thread is the one that scares me. It sits and waits for the controller to talk. If the controller stops talking, that thread is stuck until the **watchdog** kicks the whole board. The watchdog is a little timer chip that says 'nobody's home, I'm rebooting the pump.' I know this controller is not a network-based connection, but these older Mom-and-Pop stations have older equipment. I'm just trying to keep it running. In the middle of a sale. In Tulsa, once, that was a guy with his nozzle in his truck and a screen that went black."
 
 "The Tulsa pump."
 
 "The Tulsa pump."
 
-The wings came, sixteen in one divided basket. Kevin's were the color of a stop sign. Steve's were the color of a sunset that does not scare anyone. Dee set down a stack of napkins without comment, which was a joke between her and Steve that had been running for two years.
+The wings came, sixteen in one divided basket. Kevin counted nine the color of a stop sign. The other seven, Steve's, were the color of a sunset that does not scare anyone. Dee set down a stack of napkins without comment, which was a joke between her and Steve that had been running for two years.
 
 Steve looked at the napkin for a while. Kevin went after a wing.
 
@@ -128,11 +128,11 @@ Steve looked at the napkin for a while. Kevin went after a wing.
 
 "And that memory stays allocated while it waits?"
 
-"Yes. On a box with 64 meg, those stacks take up space you could use elsewhere. The UART, that's the chip that actually listens to the wire, is doing the real work. Your thread is just standing next to the UART so it can be the one to notice." Steve took a wing. "Same with the pulser. It sleeps fifty milliseconds, wakes up, reads a number, sleeps again. That thread needs to run briefly every fifty milliseconds."
+"Yes. On a box with 64 meg, those stacks take up space you could use elsewhere. The UART, that's the chip that actually listens to the wire, is doing the real work. Your thread is just standing next to the UART so it can be the one to notice." Steve took a wing. "Same with the pulser. It sleeps fifty milliseconds, wakes up, reads a number, sleeps again. That thread needs to run briefly every fifty milliseconds. Funny thing is, those parts have intrinsic waiting already and the O/S handles that just fine. You have a few threads that duplicate waiting..."
 
 Kevin chewed. He did not love hearing that. "So what, I put everything on one thread? I tried that once. The display froze every time the bank was slow."
 
-"Bud, no. You don't do that. You keep the work. You stop holding a worker while you wait."
+"No, bud. You don't do that. You keep the work. You stop holding a worker while you wait. Like using Javascript's await capability."
 
 "On CE. On the 2008 compiler."
 
@@ -144,7 +144,7 @@ Kevin put the wing down.
 
 "There's no `await` *keyword*. There's everything `await` is made of. The keyword is sugar. Underneath it, it's a **state machine** and a **callback**, and C# 2 already had both."
 
->(A state machine is a way of cutting a job into pieces so it can stop in the middle and pick up later. A callback is a piece of code you hand to someone and say "call this when you're done." You'll get both of them in chapters 2 and 3. For tonight, just know the words.)
+>A state machine is a way of cutting a job into pieces so it can stop in the middle and pick up later. A callback is a piece of code you hand to someone and say "call this when you're done." You'll get both of them in chapters 2 and 3. For tonight, just know the words.
 
 "I built the rest. It's about twelve hundred lines and it runs on 3.5." Steve pulled his own laptop out and set it next to the wing basket. "We're going to go through it one topic at a time tonight. We'll replace the thread that waits for an authorization reply and the thread that sleeps between pulse checks. The display can keep responding during those waits. We'll also check which threads the serial link still needs."
 

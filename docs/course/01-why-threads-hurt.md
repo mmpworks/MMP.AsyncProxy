@@ -93,7 +93,15 @@ ThreadPool.QueueUserWorkItem(delegate
 
 "Is the timer using the pool because the callback might be a lot of computation?"
 
-"The pool is useful for small jobs too," Steve said. "Your count check can be brief. It still needs a thread to run them. A timer can reuse a pool worker when the check is due, instead of keeping a thread asleep for every check. Long calculations keep that worker busy longer and can delay other queued jobs."
+"The timer uses the pool so it can run your callback on a shared worker when the time comes," Steve said. "The amount of computation doesn't determine that. Your callback could just read the pulse count and compare it to the ceiling."
+
+"So even that quick check needs a thread?"
+
+"Yes, while the check runs. Between checks, the timer tracks when the next one is due. No worker needs to sleep through that interval."
+
+"And if the callback does a long calculation?"
+
+"It keeps that worker occupied until it returns. Other queued work may have to wait. We'll compare those cases when we look at pool starvation and CPU work."
 
 "And `QueueUserWorkItem` is for the same kind of short job?"
 
@@ -109,15 +117,15 @@ ThreadPool.QueueUserWorkItem(delegate
 
 "Right. Setup records what to call and when. Later, the callback runs on a pool worker. The runtime handles that scheduling, and its internal calls can vary between versions."
 
-Steve pointed to the diagram. "These arrows show three ways work reaches the board. Your call queues code directly. A timer arranges for its callback to run when it's due. The third arrow is a promise arranging for the waiting sale code to continue."
+Steve pointed to the diagram. "These arrows show three ways work reaches the board. Your call queues code directly. A timer arranges for its callback to run when it's due. The third arrow is another component called a promise arranging for the waiting sale code to continue."
 
-"And that delegate is tied to the promise component in that picture?"
+"And you show a delegate is tied to the promise component in that picture?"
 
 "A delegate can be queued on its own, as we just did. For the bank request, there are two separate pieces of code. The **receiving callback** runs when the serial link delivers the reply. Its job is to store that reply in the **promise**. The promise holds the operation's outcome so the sale code can read it."
 
 "How does the sale code know the reply is there?"
 
-"Before the reply arrives, the sale code registers a **continuation** with the promise. A continuation is a callback that runs the next part of the sale when the operation ends. While the promise is pending, it stores that continuation until the outcome is available. Then the serial link calls the receiving callback, which stores `OK` in the promise. Completing the promise makes the sale continuation ready to run. That continuation reads `OK` and decides what to do next."
+"Before the reply arrives, the sale code registers a **continuation** with the promise. A continuation is a callback that runs the next part of the sale when the operation ends. While the promise is pending, it stores that continuation until the outcome is available. Then the serial link calls the receiving callback, which stores `OK` in the promise. Completing the promise makes the sale continuation ready to run. That continuation reads `OK` and decides what to do next. I know this is a bit complex at the moment. The next topic will dig really deep into Promises, but keep running with your thoughts."
 
 "So one callback puts the reply in, and the continuation reads it back?"
 

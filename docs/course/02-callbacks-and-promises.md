@@ -69,6 +69,8 @@ He pointed at the receiving callback. "This code does both jobs. It stores `repl
 
 ---
 
+### What Steve wrote in the comments.
+
 ```csharp
 public string Authorize(string card, int timeoutMs)
 {
@@ -126,7 +128,7 @@ Kevin's method sends a request, waits for a reply, then returns a string. The th
 6. `arrived.WaitOne(timeoutMs, false)` keeps the calling thread waiting, like the customer who must remain in line. It returns `true` when it consumes the ready signal, or `false` on timeout. The second argument is an older runtime setting; it does not select whether to block.
 7. `finally { _link.DataReceived -= onData; }` removes the event handler on success, timeout, or error. Removing it stops future notifications. A handler already running may still finish, so real code must coordinate that handler with disposal of `arrived`.
 
-### Steve's Napkin
+### Steve's Napkin of the flow
 
 Here is the same story as a picture, with the caller on the left, the serial link in the middle, and the answer coming back. Look for where the thread is when nothing is happening.
 
@@ -183,7 +185,10 @@ Kevin looked back at the method, then with a bit of a smile, spoke up. "I think 
 
 "The promise holds the outcome and records its **state**," Steve said. "It starts **Pending**. We're still waiting, so there's no outcome to read yet."
 
-He wrote three more names on the napkin. "There are three ways to finish. **Succeeded** means we have a result, such as the bank's reply. **Faulted** means the operation ended with an error. **Canceled** means it ended through cancellation."
+He wrote three more names on the napkin. "There are three ways to finish. 
+- **Succeeded** means we have a result, such as the bank's reply. 
+- **Faulted** means the operation ended with an error. 
+- **Canceled** means it ended through cancellation."
 
 "And the future?"
 
